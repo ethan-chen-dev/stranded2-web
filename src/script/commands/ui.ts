@@ -13,7 +13,14 @@ export function registerUi(r: CommandRegistry): void {
   r.register('msg_extend', (ctx, args) => { ctx.host.message(args[0] ?? '', 0, 3000); });
   r.register('speech', (ctx, args) => { ctx.host.speech(args[0] ?? ''); });
   r.register('play', (ctx, args) => { ctx.host.playSound(args[0] ?? '', args.length >= 2 ? num(args[1]) : 100); });
-  r.register(['stopsounds', 'music', 'stopmusic', 'fademusic', 'musicvolume', 'ambientsfx'], () => { /* 无声音后端时忽略 */ });
+  r.register(['stopsounds', 'ambientsfx'], () => { /* 无声音后端时忽略 */ });
+  r.register('music', (ctx, args) => {
+    ctx.host.music(args[0] ?? '', args[1] === undefined ? 1 : num(args[1]));
+    if (args[2] !== undefined) ctx.host.fadeMusic(Math.abs(num(args[2])));
+  });
+  r.register('stopmusic', ctx => { ctx.host.stopMusic(); });
+  r.register('fademusic', (ctx, args) => { ctx.host.fadeMusic(Math.abs(num(args[0] ?? '1000'))); });
+  r.register('musicvolume', (ctx, args) => { ctx.host.musicVolume(num(args[0] ?? '1')); });
   r.register('process', (ctx, args) => {
     ctx.host.process(args[0] ?? '', args.length >= 2 ? int(args[1]) : 5000, args[2] ?? '');
   });

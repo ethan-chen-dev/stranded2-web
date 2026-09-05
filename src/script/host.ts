@@ -146,4 +146,8 @@ export interface ScriptHost {
   /** 从 (x, y, z) 朝目标实体发射投射物。 */
   fireProjectile(o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }): boolean;
   inView(cls: number, id: number): boolean;
+  music(file: string, volume: number): void;
+  stopMusic(): void;
+  fadeMusic(ms: number): void;
+  musicVolume(v: number): void;
 }

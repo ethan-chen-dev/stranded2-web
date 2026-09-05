@@ -74,6 +74,11 @@ export class FakeHost implements ScriptHost {
   projectiles: unknown[] = [];
   fireProjectile(o: unknown): boolean { this.projectiles.push(o); return true; }
   inView(): boolean { return true; }
+  musics: string[] = [];
+  music(file: string): void { this.musics.push(file); }
+  stopMusic(): void { this.musics.push(''); }
+  fadeMusic(): void { /* 无声音 */ }
+  musicVolume(): void { /* 无声音 */ }
   seq(): Sequence | undefined { return this.sequence; }
   textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source.replace(/\\/g, '/'), section); }
   impact(): ImpactInfo | null { return this.impactInfo; }

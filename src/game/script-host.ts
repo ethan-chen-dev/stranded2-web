@@ -68,6 +68,11 @@ export class GameScriptHost implements ScriptHost {
   fireProjectile: (o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }) => boolean = () => false;
   inView: (cls: number, id: number) => boolean = () => false;
 
+  music(file: string, volume: number): void { this.d.sounds.music(file, volume); }
+  stopMusic(): void { this.d.sounds.stopMusic(); }
+  fadeMusic(ms: number): void { this.d.sounds.fadeMusic(ms); }
+  musicVolume(v: number): void { this.d.sounds.setMusicVolume(v); }
+
   storage(cls: number, id: number, mode: number): number {
     return storageValue(this.registry, cls, id, mode);
   }

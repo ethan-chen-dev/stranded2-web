@@ -428,6 +428,7 @@ export class GameSession {
       this.engine.globalEvent('start');
     }
     this.engine.globalEvent('load');
+    if (h.music.trim()) this.sounds.music(h.music, 1);
   }
 
   private mountScripts(gameInf: string, statesInf: string): void {
