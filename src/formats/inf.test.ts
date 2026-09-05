@@ -42,6 +42,21 @@ describe('parseInf', () => {
     expect(withVar).toBeDefined();
     expect(withVar!.vars[0].name.length).toBeGreaterThan(0);
   });
+  it('reads weapon, find and loot fields', () => {
+    const palm = toEntityDef(parseInf(readRefText('sys/objects_palms.inf')).find(e => e.id === 1)!);
+    expect(palm.finds.length).toBe(1);
+    expect(palm.finds[0]).toEqual({ typ: 15, ratio: 15, max: 3, min: 1, reqTyp: 0 });
+    expect(palm.findratio).toBe(30);
+    const tree = toEntityDef(parseInf(readRefText('sys/objects_trees.inf')).find(e => e.id === 10)!);
+    expect(tree.finds.length).toBe(5);
+    expect(tree.finds[4]).toEqual({ typ: 107, ratio: 150, max: 3, min: 1, reqTyp: 28 });
+    const raptor = toEntityDef(parseInf(readRefText('sys/units.inf')).find(e => e.id === 2)!);
+    expect(raptor.loots[0]).toEqual({ typ: 9, max: 3 });
+    expect(raptor.loots.length).toBeGreaterThanOrEqual(1);
+    expect(raptor.attackrange).toBe(65);
+    const flint = toEntityDef(parseInf(readRefText('sys/items_tools.inf')).find(e => e.id === 22)!);
+    expect([flint.damage, flint.rate]).toEqual([5, 500]);
+  });
   it('keeps repeated keys', () => {
     const tree = parseInf(readRefText('sys/objects_trees.inf')).find(e => e.id === 10)!;
     expect(tree.fields.get('find')!.length).toBe(5);

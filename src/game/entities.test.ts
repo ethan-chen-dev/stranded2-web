@@ -6,7 +6,8 @@ function def(over: Partial<EntityDef>): EntityDef {
   return {
     id: 0, name: '', model: '', icon: '', scale: [1, 1, 1], color: [255, 255, 255], alpha: 1, fx: 0, autofade: 0,
     aligntowater: false, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
-    maxweight: 0, group: '', behaviour: '', mat: '', health: 100, vars: [], ...over,
+    maxweight: 0, group: '', behaviour: '', mat: '', health: 100, vars: [],
+    damage: 0, rate: 500, attackrange: 45, weaponstate: '', findratio: 30, finds: [], loots: [], ...over,
   };
 }
 

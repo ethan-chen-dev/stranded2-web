@@ -38,6 +38,23 @@ export interface MapItem {
 
 export interface MapInfo {
   id: number; typ: number; x: number; y: number; z: number; pitch: number; yaw: number; vars: string;
+  /** vars 按 0xA6 字节分成 3 个整数、3 个浮点、3 个字符串；区域类信息点的半径为 floats[0]。 */
+  ints: [number, number, number];
+  floats: [number, number, number];
+  strings: [string, string, string];
+}
+
+const VARS_SEPARATOR = '\u00a6';
+
+export function parseInfoVars(vars: string): Pick<MapInfo, 'ints' | 'floats' | 'strings'> {
+  const p = vars.split(VARS_SEPARATOR);
+  const n = (i: number) => parseInt(p[i] ?? '0', 10) || 0;
+  const f = (i: number) => parseFloat(p[i] ?? '0') || 0;
+  return {
+    ints: [n(0), n(1), n(2)],
+    floats: [f(3), f(4), f(5)],
+    strings: [p[6] ?? '', p[7] ?? '', p[8] ?? ''],
+  };
 }
 
 export interface MapState {
@@ -153,10 +170,11 @@ export function parseS2Map(bytes: Uint8Array): MapData {
   const infos: MapInfo[] = [];
   count = r.i32();
   for (let i = 0; i < count; i++) {
-    infos.push({
+    const info = {
       id: r.i32(), typ: r.u8(), x: r.f32(), y: r.f32(), z: r.f32(), pitch: r.f32(), yaw: r.f32(),
       vars: r.bstring(),
-    });
+    };
+    infos.push({ ...info, ...parseInfoVars(info.vars) });
   }
 
   const states: MapState[] = [];

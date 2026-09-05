@@ -36,6 +36,12 @@ describe('parseS2Map', () => {
     expect(m.units.length).toBe(1);
     expect(m.header.hour).toBe(21);
   });
+  it('parses info vars into ints, floats and strings', () => {
+    const m = parseS2Map(readRefBytes('maps/adventure/map02.s2'));
+    const area = m.infos.find(i => i.typ === 42 || i.typ === 43 || i.typ === 41);
+    expect(area).toBeDefined();
+    expect(area!.floats[0]).toBeGreaterThan(0);
+  });
   it('rejects a non-map', () => {
     expect(() => parseS2Map(new TextEncoder().encode('hello\n'))).toThrow(/Invalid Map/);
   });

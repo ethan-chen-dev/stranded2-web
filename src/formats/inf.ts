@@ -13,6 +13,19 @@ export interface AnimRange {
   speed: number;
 }
 
+export interface FindEntry {
+  typ: number;
+  ratio: number;
+  max: number;
+  min: number;
+  reqTyp: number;
+}
+
+export interface LootEntry {
+  typ: number;
+  max: number;
+}
+
 export interface EntityDef {
   id: number;
   name: string;
@@ -42,6 +55,16 @@ export interface EntityDef {
   health: number;
   /** 定义文件里的 var=name,value 行，实体创建时初始化为局部变量。 */
   vars: { name: string; value: string }[];
+  damage: number;
+  /** 攻击冷却毫秒。 */
+  rate: number;
+  attackrange: number;
+  /** 命中目标时附加的状态名，空串为无。 */
+  weaponstate: string;
+  /** 命中物体时掉落的百分比概率。 */
+  findratio: number;
+  finds: FindEntry[];
+  loots: LootEntry[];
 }
 
 /**
@@ -155,6 +178,19 @@ export function toEntityDef(e: InfEntry): EntityDef {
     vars: (e.fields.get('var') ?? []).map(v => {
       const i = v.indexOf(',');
       return i < 0 ? { name: v.trim(), value: '0' } : { name: v.slice(0, i).trim(), value: v.slice(i + 1).trim() };
+    }),
+    damage: num('damage', 0),
+    rate: num('rate', 500),
+    attackrange: num('attackrange', 45),
+    weaponstate: first('weaponstate') ?? '',
+    findratio: num('findratio', 30),
+    finds: (e.fields.get('find') ?? []).map(v => {
+      const p = v.split(',').map(x => Number(x.trim()));
+      return { typ: p[0] || 0, ratio: p[1] || 0, max: p[2] || 1, min: p[3] || 1, reqTyp: p[4] || 0 };
+    }),
+    loots: (e.fields.get('loot') ?? []).map(v => {
+      const p = v.split(',').map(x => Number(x.trim()));
+      return { typ: p[0] || 0, max: Math.max(p[1] || 1, 1) };
     }),
   };
 }
