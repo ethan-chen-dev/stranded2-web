@@ -1,6 +1,6 @@
 /** 界面、声音与脚本挂载类指令。 */
 import type { CommandRegistry, CommandContext } from '../registry';
-import { classId, int, num, str, bool } from './util';
+import { classId, int, num, str, bool, requireClass } from './util';
 import type { Value } from '../value';
 import { parseFlags } from '../../game/takeover';
 
@@ -13,7 +13,14 @@ export function registerUi(r: CommandRegistry): void {
   r.register('msg_extend', (ctx, args) => { ctx.host.message(args[0] ?? '', 0, 3000); });
   r.register('speech', (ctx, args) => { ctx.host.speech(args[0] ?? ''); });
   r.register('play', (ctx, args) => { ctx.host.playSound(args[0] ?? '', args.length >= 2 ? num(args[1]) : 100); });
-  r.register(['stopsounds', 'music', 'stopmusic', 'fademusic', 'musicvolume', 'ambientsfx'], () => { /* 无声音后端时忽略 */ });
+  r.register(['stopsounds', 'ambientsfx'], () => { /* 无声音后端时忽略 */ });
+  r.register('music', (ctx, args) => {
+    ctx.host.music(args[0] ?? '', args[1] === undefined ? 1 : num(args[1]));
+    if (args[2] !== undefined) ctx.host.fadeMusic(Math.abs(num(args[2])));
+  });
+  r.register('stopmusic', ctx => { ctx.host.stopMusic(); });
+  r.register('fademusic', (ctx, args) => { ctx.host.fadeMusic(Math.abs(num(args[0] ?? '1000'))); });
+  r.register('musicvolume', (ctx, args) => { ctx.host.musicVolume(num(args[0] ?? '1')); });
   r.register('process', (ctx, args) => {
     ctx.host.process(args[0] ?? '', args.length >= 2 ? int(args[1]) : 5000, args[2] ?? '');
   });
@@ -96,6 +103,31 @@ export function registerUi(r: CommandRegistry): void {
   r.register('loadmaptakeover', ctx => bool(ctx.host.loadMapTakeover()));
   r.register('quit', ctx => { ctx.host.quit(); });
   r.register('credits', ctx => { ctx.host.credits(); });
+  r.register('extendentry', (ctx, args) => {
+    const text = sourceText(ctx, args[1], args[2]);
+    const entry = ctx.host.diary.find(e => e.title === (args[0] ?? ''));
+    if (text !== undefined && entry) entry.text = `${entry.text}\n${text}`;
+  });
+  r.register('showentry', (ctx, args) => { ctx.host.showEntry(args[0] ?? ''); });
+  r.register('freediary', ctx => { ctx.host.diary.splice(0, ctx.host.diary.length); });
+  const defCommand = (apply: (ctx: CommandContext, cls: number, typ: number, text: string) => void) => (ctx: CommandContext, args: Value[]) => {
+    const cls = requireClass(args[0] ?? '');
+    const typ = int(args[1] ?? '0');
+    const text = args[2] === undefined ? '' : ctx.host.textSource(String(args[2]), args[3] === undefined ? undefined : String(args[3]));
+    if (text === undefined) { ctx.host.log('warn', `找不到脚本来源 ${args[2]}`); return; }
+    apply(ctx, cls, typ, text);
+  };
+  r.register('def_override', defCommand((ctx, cls, typ, text) => ctx.engine.setTypeScript(cls, typ, text, `def_override ${cls}:${typ}`)));
+  r.register('def_extend', defCommand((ctx, cls, typ, text) => ctx.engine.extendTypeScript(cls, typ, text, `def_extend ${cls}:${typ}`)));
+  r.register('def_free', (ctx, args) => { ctx.engine.freeTypeScript(requireClass(args[0] ?? ''), int(args[1] ?? '0')); });
+  r.register('exchange', (ctx, args) => {
+    const { cls, id, next } = classId(ctx, args, 0);
+    const allowStore = args[next] === undefined || int(args[next]) !== 0;
+    ctx.host.exchange(cls, id, allowStore, args.slice(next + 1).map(a => int(a)).filter(t => t > 0));
+  });
+  r.register('inview', (ctx, args) => { const { cls, id } = classId(ctx, args, 0); return bool(ctx.host.inView(cls, id)); });
+  r.register('getweather', () => '0');
+  r.register(['blend', 'vomit', 'showindicator', 'hidden', 'wateralpha', 'watertexture'], () => { /* 视觉效果不做 */ });
   r.register('seqstart', (ctx, args) => { ctx.host.seq()?.start(int(args[0] ?? '1'), int(args[1] ?? '0')); });
   r.register('seqtimemode', (ctx, args) => { ctx.host.seq()?.timeMode(num(args[0] ?? '1'), int(args[1] ?? '1')); });
   const SEQ_EVENTS: [string | string[], string][] = [

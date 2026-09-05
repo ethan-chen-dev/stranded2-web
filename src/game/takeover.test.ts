@@ -28,7 +28,8 @@ describe('takeover', () => {
     a.engine.states.add(CLS.unit, 1, 18);
     a.host.locks.add('building:5');
     a.host.locks.add('combi:x');
-    const src = { registry: a.registry, playerId: 1, weaponTyp: 22, engine: a.engine, diary: a.host.diary, locks: a.host.locks };
+    a.host.skills.inc('wood', 3, 'Lumbering');
+    const src = { registry: a.registry, playerId: 1, weaponTyp: 22, engine: a.engine, diary: a.host.diary, locks: a.host.locks, skills: a.host.skills };
     const partial = collectTakeover(src, parseFlags(['1', '1', '0', '0', '0', '1']));
     expect(partial.items).toEqual([{ typ: 7, count: 3 }, { typ: 22, count: 1 }]);
     expect(partial.weapon).toBe(22);
@@ -43,7 +44,9 @@ describe('takeover', () => {
 
     const b = world();
     const hands: number[] = [];
-    applyTakeover({ registry: b.registry, playerId: 1, engine: b.engine, diary: b.host.diary, locks: b.host.locks, takeInHand: t => { hands.push(t); } }, JSON.parse(JSON.stringify(full)));
+    expect(partial.skills).toEqual([{ name: 'wood', value: 3, caption: 'Lumbering' }]);
+    applyTakeover({ registry: b.registry, playerId: 1, engine: b.engine, diary: b.host.diary, locks: b.host.locks, skills: b.host.skills, takeInHand: t => { hands.push(t); } }, JSON.parse(JSON.stringify(full)));
+    expect(b.host.skills.value('wood')).toBe(3);
     expect(b.registry.countStored(CLS.unit, 1, 7)).toBe(3);
     expect(b.registry.countStored(CLS.unit, 1, 22)).toBe(1);
     expect(hands).toEqual([22]);

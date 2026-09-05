@@ -198,6 +198,16 @@ export class ScriptEngine {
     this.typeScripts.set(`${cls}:${typ}`, this.compile(text, origin, cls, 0));
   }
 
+  /** def_extend：把文本追加到类型脚本末尾。 */
+  extendTypeScript(cls: number, typ: number, text: string, origin: string): void {
+    const prev = this.typeScripts.get(`${cls}:${typ}`)?.text ?? '';
+    this.setTypeScript(cls, typ, prev ? `${prev}\n${text}` : text, origin);
+  }
+
+  freeTypeScript(cls: number, typ: number): void {
+    this.typeScripts.delete(`${cls}:${typ}`);
+  }
+
   typeScript(cls: number, typ: number): ScriptSource | undefined {
     return this.typeScripts.get(`${cls}:${typ}`);
   }

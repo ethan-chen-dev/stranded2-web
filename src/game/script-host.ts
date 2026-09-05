@@ -13,6 +13,8 @@ import type { Sequence } from './sequence';
 import { TextBuffer } from './textbuffer';
 import type { DiaryEntry } from './panels';
 import type { TakeoverFlags } from './takeover';
+import { Skills } from './skills';
+import { storageValue, freeSpace } from './queries';
 
 export interface HostDeps {
   world: World;
@@ -54,6 +56,30 @@ export class GameScriptHost implements ScriptHost {
   loadMapTakeover: () => boolean = () => false;
   quit: () => void = () => undefined;
   credits: () => void = () => undefined;
+  readonly skills = new Skills();
+  unitPath: (unitId: number, nodes: number[]) => void = () => undefined;
+  freeUnitPath: (unitId: number) => void = () => undefined;
+  setTrigger: (id: number, on: boolean) => boolean = () => false;
+  stopTriggers: () => void = () => undefined;
+  exchange: (cls: number, id: number, allowStore: boolean, only: number[]) => void = () => undefined;
+  showEntry: (title: string) => void = () => undefined;
+  alterObject: (id: number, typ: number) => boolean = () => false;
+  revive: (unitId: number) => boolean = () => false;
+  fireProjectile: (o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }) => boolean = () => false;
+  inView: (cls: number, id: number) => boolean = () => false;
+
+  music(file: string, volume: number): void { this.d.sounds.music(file, volume); }
+  stopMusic(): void { this.d.sounds.stopMusic(); }
+  fadeMusic(ms: number): void { this.d.sounds.fadeMusic(ms); }
+  musicVolume(v: number): void { this.d.sounds.setMusicVolume(v); }
+
+  storage(cls: number, id: number, mode: number): number {
+    return storageValue(this.registry, cls, id, mode);
+  }
+
+  freeSpace(x: number, y: number, z: number, range: number, flags: { objects: boolean; units: boolean; items: boolean; infos: boolean }): boolean {
+    return freeSpace(this.registry, x, y, z, range, flags);
+  }
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;

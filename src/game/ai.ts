@@ -108,6 +108,8 @@ export interface AiDeps {
   damagePlayer(amount: number, by: EntityRecord): void;
   damageEntity(cls: number, id: number, amount: number): void;
   random(min: number, max: number): number;
+  /** 单位正被脚本路径控制时 AI 不接管。 */
+  controlled?(rec: EntityRecord): boolean;
 }
 
 function wrapDeg(d: number): number {
@@ -188,6 +190,7 @@ export class AiSystem {
       const code = this.code(rec);
       if (code === 0 || code > 500) continue;
       if (rec.dead) { this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
+      if (this.d.controlled?.(rec)) continue;
       const st = rec.ai ?? this.init(rec);
       this.runMode(rec, st, code, f, now);
       if (!st.freeze && st.mode !== AI.attack && now - st.timer > st.duration) this.next(rec, st, code, now);

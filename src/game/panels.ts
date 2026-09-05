@@ -124,9 +124,15 @@ export class Panels {
     }
   }
 
-  openDiary(entries: DiaryEntry[]): void {
-    this.show(MENU_DIARY, '日记', entries.length ? entries[entries.length - 1].text : '还没有日记。', true);
-    this.sideEl.replaceChildren(...entries.map((e, i) => {
+  openDiary(entries: DiaryEntry[], skills: { caption: string; value: number }[] = [], focusTitle?: string): void {
+    const focus = focusTitle !== undefined ? entries.find(e => e.title === focusTitle) : undefined;
+    const first = focus ?? entries[entries.length - 1];
+    this.show(MENU_DIARY, '日记', first ? first.text : '还没有日记。', true);
+    const skillBtn = document.createElement('button');
+    skillBtn.className = 'panel-entry panel-skills';
+    skillBtn.textContent = '技能';
+    skillBtn.addEventListener('click', () => this.renderText(skills.length ? skills.map(s => `${s.caption}: ${s.value}`).join('\n') : '还没有技能。'));
+    this.sideEl.replaceChildren(skillBtn, ...entries.map((e, i) => {
       const b = document.createElement('button');
       b.className = 'panel-entry';
       b.textContent = e.title || `#${i + 1}`;

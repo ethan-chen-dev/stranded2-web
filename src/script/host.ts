@@ -3,6 +3,7 @@ import type { Sequence } from '../game/sequence';
 import type { TextBuffer } from '../game/textbuffer';
 import type { DiaryEntry } from '../game/panels';
 import type { TakeoverFlags } from '../game/takeover';
+import type { Skills } from '../game/skills';
 
 export const CLASS = { global: 0, object: 1, unit: 2, item: 3, info: 4, state: 5 } as const;
 export const GAME_SCRIPT_CLASS = -1;
@@ -127,4 +128,26 @@ export interface ScriptHost {
   loadMapTakeover(): boolean;
   quit(): void;
   credits(): void;
+  skills: Skills;
+  unitPath(unitId: number, nodes: number[]): void;
+  freeUnitPath(unitId: number): void;
+  /** 触发器开关；id 不是触发器信息点时返回 false。 */
+  setTrigger(id: number, on: boolean): boolean;
+  stopTriggers(): void;
+  /** 打开与容器 (cls, id) 的交换界面。 */
+  exchange(cls: number, id: number, allowStore: boolean, only: number[]): void;
+  /** storage 指令：mode 0 已用重量，1 已用减上限，2 上限。 */
+  storage(cls: number, id: number, mode: number): number;
+  freeSpace(x: number, y: number, z: number, range: number, flags: { objects: boolean; units: boolean; items: boolean; infos: boolean }): boolean;
+  /** 打开日记并定位到条目。 */
+  showEntry(title: string): void;
+  alterObject(id: number, typ: number): boolean;
+  revive(unitId: number): boolean;
+  /** 从 (x, y, z) 朝目标实体发射投射物。 */
+  fireProjectile(o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }): boolean;
+  inView(cls: number, id: number): boolean;
+  music(file: string, volume: number): void;
+  stopMusic(): void;
+  fadeMusic(ms: number): void;
+  musicVolume(v: number): void;
 }

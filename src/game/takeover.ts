@@ -5,6 +5,7 @@
 import { CLS, type EntityRegistry } from './entities';
 import type { ScriptEngine } from '../script/engine';
 import type { DiaryEntry } from './panels';
+import type { Skills, SkillEntry } from './skills';
 
 export const TAKEOVER_KEY = 'stranded2:takeover';
 
@@ -24,6 +25,7 @@ export interface TakeoverData {
   diary: DiaryEntry[];
   states: number[];
   locks: string[];
+  skills: SkillEntry[];
 }
 
 export interface TakeoverSource {
@@ -33,6 +35,7 @@ export interface TakeoverSource {
   engine: ScriptEngine;
   diary: DiaryEntry[];
   locks: Set<string>;
+  skills: Skills;
 }
 
 export interface TakeoverTarget {
@@ -41,6 +44,7 @@ export interface TakeoverTarget {
   engine: ScriptEngine;
   diary: DiaryEntry[];
   locks: Set<string>;
+  skills: Skills;
   takeInHand(typ: number): void;
 }
 
@@ -51,7 +55,8 @@ export function parseFlags(args: (string | undefined)[]): TakeoverFlags {
 }
 
 export function collectTakeover(src: TakeoverSource, flags: TakeoverFlags): TakeoverData {
-  const data: TakeoverData = { items: [], weapon: 0, vars: [], diary: [], states: [], locks: [] };
+  const data: TakeoverData = { items: [], weapon: 0, vars: [], diary: [], states: [], locks: [], skills: [] };
+  if (flags.skills) data.skills = src.skills.entries();
   if (flags.items) {
     for (const it of src.registry.storedIn(CLS.unit, src.playerId)) data.items.push({ typ: it.typ, count: it.count });
     data.weapon = src.weaponTyp;
@@ -65,6 +70,7 @@ export function collectTakeover(src: TakeoverSource, flags: TakeoverFlags): Take
 
 export function applyTakeover(dst: TakeoverTarget, data: TakeoverData): void {
   for (const [k, v] of data.vars) dst.engine.vars.globals.set(k, v);
+  for (const sk of data.skills ?? []) { dst.skills.map.set(sk.name, { value: sk.value, caption: sk.caption }); }
   for (const k of data.locks) dst.locks.add(k);
   for (const e of data.diary) dst.diary.push({ ...e });
   for (const it of data.items) {

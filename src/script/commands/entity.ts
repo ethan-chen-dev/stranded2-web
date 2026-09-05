@@ -93,6 +93,34 @@ export function registerEntity(r: CommandRegistry): void {
   r.register('ai_stay', (ctx, args) => { ctx.host.aiStay(int(args[0] ?? '0'), args[1] === undefined || int(args[1]) !== 0); });
   r.register('ai_center', (ctx, args) => { ctx.host.aiCenter(args[0] !== undefined ? int(args[0]) : ctx.env.id); });
   r.register('ai_eater', ctx => str(ctx.host.lastEater()));
+  r.register('incskill', (ctx, args) => { ctx.host.skills.inc(args[0] ?? '', args[1] === undefined ? 1 : int(args[1]), args[2]); });
+  r.register('skillvalue', (ctx, args) => str(ctx.host.skills.value(args[0] ?? '')));
+  r.register('gotskill', (ctx, args) => bool(ctx.host.skills.has(args[0] ?? '')));
+  r.register('skillname', (ctx, args) => { ctx.host.skills.setName(args[0] ?? '', args[1] ?? ''); });
+  r.register('freeskill', (ctx, args) => bool(ctx.host.skills.free(args[0] ?? '')));
+  const unitArg = (ctx: CommandContext, v: Value | undefined): number => (v === undefined || v === 'self' ? ctx.env.id : int(v));
+  r.register('unitpath', (ctx, args) => { ctx.host.unitPath(unitArg(ctx, args[0]), args.slice(1).map(a => int(a))); });
+  r.register('freeunitpath', (ctx, args) => { ctx.host.freeUnitPath(unitArg(ctx, args[0])); });
+  r.register('starttrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), true)) ctx.host.log('warn', `starttrigger: 信息点 ${args[0]} 不是触发器`); });
+  r.register('stoptrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), false)) ctx.host.log('warn', `stoptrigger: 信息点 ${args[0]} 不是触发器`); });
+  r.register('stoptriggers', ctx => { ctx.host.stopTriggers(); });
+  r.register('storage', (ctx, args) => { const { cls, id, next } = classId(ctx, args, 0); return str(ctx.host.storage(cls, id, int(args[next] ?? '0'))); });
+  r.register('freespace', (ctx, args) => {
+    const on = (i: number, d: boolean) => (args[i] === undefined ? d : int(args[i]) !== 0);
+    return bool(ctx.host.freeSpace(num(args[0] ?? '0'), num(args[1] ?? '0'), num(args[2] ?? '0'), num(args[3] ?? '300'), { objects: on(4, true), units: on(5, true), items: on(6, true), infos: on(7, false) }));
+  });
+  r.register('alterobject', (ctx, args) => { if (!ctx.host.alterObject(unitArg(ctx, args[0]), int(args[1] ?? '0'))) ctx.host.log('warn', `alterobject: 物体 ${args[0]} 不存在`); });
+  r.register('revive', (ctx, args) => { ctx.host.revive(unitArg(ctx, args[0])); });
+  r.register('projectile', (ctx, args) => {
+    const mode = int(args[4] ?? '0');
+    if (mode !== 1) { ctx.host.log('warn', `projectile 模式 ${mode} 未实现`); return; }
+    const { cls, id, next } = classId(ctx, args, 5);
+    const rest = args.slice(next + 1);
+    ctx.host.fireProjectile({
+      typ: int(args[0] ?? '0'), x: num(args[1] ?? '0'), y: num(args[2] ?? '0'), z: num(args[3] ?? '0'), targetCls: cls, targetId: id,
+      weaponTyp: int(rest[0] ?? '0'), speed: rest[1] === undefined ? 1 : num(rest[1]), damage: rest[2] === undefined ? 1 : num(rest[2]), drag: rest[3] === undefined ? 0 : num(rest[3]),
+    });
+  });
   r.register('compare_behaviour', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
     const e = ctx.host.entity(cls, id);
