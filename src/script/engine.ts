@@ -123,6 +123,39 @@ export class TimerStore {
   }
 }
 
+/** 原版 parse_getstate 的状态名表（含别名），优先于 states.inf 里的显示名。 */
+export const STATE_NAMES = new Map<string, number>([
+  ['bleeding', 1],
+  ['intoxication', 2],
+  ['pus', 3],
+  ['fire', 4],
+  ['eternalfire', 5],
+  ['eternal fire', 5],
+  ['frostbite', 6],
+  ['fracture', 7],
+  ['electroshock', 8],
+  ['bloodrush', 9],
+  ['dizzy', 10],
+  ['wet', 11],
+  ['fuddle', 12],
+  ['healing', 16],
+  ['invulnerability', 17],
+  ['invulnerable', 17],
+  ['tame', 18],
+  ['action', 21],
+  ['flare', 22],
+  ['smoke', 23],
+  ['light', 24],
+  ['particles', 25],
+  ['physics', 51],
+  ['buildplace', 52],
+  ['link', 53],
+  ['ai_stick', 60],
+  ['speed', 54],
+  ['speedmod', 54],
+  ['ghost', 55],
+]);
+
 export class ScriptEngine {
   readonly vars = new VarStore();
   readonly states = new StateStore();
@@ -289,6 +322,7 @@ export class ScriptEngine {
   stateType(name: Value): number {
     const n = toInt(name);
     if (n > 0 && /^\d+$/.test(name.trim())) return n;
-    return this.stateTypes.get(name.trim().toLowerCase()) ?? -1;
+    const key = name.trim().toLowerCase();
+    return STATE_NAMES.get(key) ?? this.stateTypes.get(key) ?? this.stateTypes.get(key.replace(/\s+/g, '')) ?? -1;
   }
 }

@@ -53,7 +53,7 @@ const PLAYER_ID = 1;
 const PLAYER_TYP = 1;
 const SPAWN_INFO_TYP = 1;
 const TEXT_CONTAINER_INFO_TYP = 37;
-const PLACE_DISTANCE = 100;
+const PLACE_DISTANCE = 60;
 
 interface ProcessState {
   title: string;

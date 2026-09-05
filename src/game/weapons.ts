@@ -142,38 +142,57 @@ export class Weapons {
     return 'hit';
   }
 
-  /** 视线与实体包围球求交取最近者；地形按每 2 单位采样，先到者为准。 */
+  /**
+   * 命中判定：先用包围球粗筛，再对场景网格做射线求交取最近者；
+   * 没有网格的单位用碰撞胶囊近似。地形按每 2 单位采样，先到者为准。
+   */
   pick(range: number): PickResult | null {
     const origin = this.d.eye();
     const dir = this.d.dir();
     let best: PickResult | null = null;
     let bestT = Infinity;
-    const consider = (rec: EntityRecord, center: THREE.Vector3, radius: number) => {
+    const ray = new THREE.Raycaster(origin, dir, 0, range + PICK_RADIUS);
+    const sphereHit = (center: THREE.Vector3, radius: number): number | null => {
       const rel = center.clone().sub(origin);
       const t = rel.dot(dir);
-      if (t < -radius || t > range + radius) return;
+      if (t < -radius || t > range + radius) return null;
       const closest = origin.clone().add(dir.clone().multiplyScalar(Math.max(t, 0)));
       const gap = center.distanceTo(closest);
       const r = radius + PICK_RADIUS;
-      if (gap > r) return;
-      const tHit = Math.max(t - Math.sqrt(Math.max(r * r - gap * gap, 0)), 0);
-      if (tHit <= range && tHit < bestT) {
-        bestT = tHit;
-        best = { cls: rec.cls, id: rec.id, point: origin.clone().add(dir.clone().multiplyScalar(tHit)), ground: false };
-      }
+      if (gap > r) return null;
+      return Math.max(t - Math.sqrt(Math.max(r * r - gap * gap, 0)), 0);
+    };
+    const meshHit = (rec: EntityRecord): number | null => {
+      const obj = rec.object!;
+      obj.updateMatrixWorld(true);
+      const hits = ray.intersectObject(obj, true);
+      if (hits.length === 0) return null;
+      return hits[0].distance;
+    };
+    const consider = (rec: EntityRecord, t: number | null) => {
+      if (t === null || t > range || t >= bestT) return;
+      bestT = t;
+      best = { cls: rec.cls, id: rec.id, point: origin.clone().add(dir.clone().multiplyScalar(t)), ground: false };
     };
     for (const rec of this.d.registry.all(CLS.object)) {
       if (!rec.object || (rec.def?.col ?? 1) <= 0) continue;
-      consider(rec, this.center(rec), this.radius(rec));
+      const b = this.bounds(rec);
+      if (sphereHit(this.center(rec), b.radius) === null) continue;
+      consider(rec, meshHit(rec) ?? sphereHit(this.center(rec), Math.min(b.radius, 20)));
     }
     for (const rec of this.d.registry.all(CLS.unit)) {
       if (rec.id === this.d.playerId) continue;
       const def = rec.def;
-      consider(rec, new THREE.Vector3(rec.x, rec.y + (def ? 0 : 0), -rec.z), def ? Math.max(def.colxr, def.colyr) : 20);
+      const capsule = new THREE.Vector3(rec.x, rec.y, -rec.z);
+      const radius = def ? Math.max(def.colxr, def.colyr) : 20;
+      if (sphereHit(capsule, radius) === null) continue;
+      consider(rec, rec.object ? (meshHit(rec) ?? sphereHit(capsule, def?.colxr ?? radius)) : sphereHit(capsule, radius));
     }
     for (const rec of this.d.world.visibleItems()) {
       if (!rec.object) continue;
-      consider(rec, this.center(rec), this.radius(rec));
+      const b = this.bounds(rec);
+      if (sphereHit(this.center(rec), b.radius) === null) continue;
+      consider(rec, meshHit(rec) ?? sphereHit(this.center(rec), b.radius));
     }
     for (let t = 0; t <= Math.min(range, bestT); t += 2) {
       const p = origin.clone().add(dir.clone().multiplyScalar(t));
@@ -200,10 +219,6 @@ export class Weapons {
 
   private center(rec: EntityRecord): THREE.Vector3 {
     return this.bounds(rec).center.clone().add(new THREE.Vector3(rec.x, rec.y, -rec.z));
-  }
-
-  private radius(rec: EntityRecord): number {
-    return Math.min(this.bounds(rec).radius, 60);
   }
 
   /** 触发 hit、扣生命、必要时击杀；返回是否命中了实体。 */

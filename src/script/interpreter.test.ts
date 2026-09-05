@@ -150,6 +150,14 @@ describe('engine events', () => {
     engine.update(0);
     expect([g('g2'), g('freed')]).toEqual(['0', '1']);
   });
+  it('resolves original state names and aliases', () => {
+    expect(engine.stateType('eternalfire')).toBe(5);
+    expect(engine.stateType('eternal fire')).toBe(5);
+    expect(engine.stateType('invulnerable')).toBe(17);
+    expect(engine.stateType('buildplace')).toBe(52);
+    expect(engine.stateType('17')).toBe(17);
+    expect(engine.stateType('nosuch')).toBe(-1);
+  });
   it('syntax errors are recorded and script disabled', () => {
     engine.setTypeScript(CLASS.item, 24, `on:use { if ( { }`, 'items');
     expect(engine.syntaxErrors.length).toBe(1);
