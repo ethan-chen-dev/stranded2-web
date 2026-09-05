@@ -26,6 +26,16 @@ export interface EntityDef {
   aligntowater: boolean;
   anims: Map<string, AnimRange>;
   script?: string;
+  /** 物品重量；背包承重按 weight*count 计算。 */
+  weight: number;
+  /** 物体碰撞模式：缺省 1；1、3、4 参与碰撞，0 和 2 不参与。 */
+  col: number;
+  eyes: number;
+  colxr: number;
+  colyr: number;
+  speed: number;
+  store: number;
+  maxweight: number;
 }
 
 /**
@@ -124,6 +134,14 @@ export function toEntityDef(e: InfEntry): EntityDef {
     aligntowater: num('aligntowater', 0) !== 0,
     anims,
     script: e.script,
+    weight: num('weight', 0),
+    col: num('col', 1),
+    eyes: num('eyes', 0),
+    colxr: num('colxr', 1),
+    colyr: num('colyr', 1),
+    speed: num('speed', 0),
+    store: num('store', 100),
+    maxweight: num('maxweight', 0),
   };
 }
 

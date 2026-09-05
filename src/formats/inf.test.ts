@@ -23,6 +23,17 @@ describe('parseInf', () => {
     expect(def.anims.get('idle1')).toEqual({ start: 4, end: 8, speed: 0.02 });
     expect(def.scale).toEqual([0.5, 0.5, 0.5]);
   });
+  it('reads player, item and collision fields', () => {
+    const units = parseInf(readRefText('sys/units.inf'));
+    const player = toEntityDef(units.find(e => e.id === 1)!);
+    expect([player.eyes, player.colxr, player.colyr, player.speed, player.store, player.maxweight]).toEqual([16, 8, 17, 1.6, 100, 25000]);
+    const meat = toEntityDef(parseInf(readRefText('sys/items_edible.inf')).find(e => e.id === 9)!);
+    expect(meat.weight).toBe(500);
+    const palm = toEntityDef(parseInf(readRefText('sys/objects_palms.inf')).find(e => e.id === 1)!);
+    expect(palm.col).toBe(1);
+    const grass = parseInf(readRefText('sys/objects_gras.inf')).map(toEntityDef).find(d => d.col === 0);
+    expect(grass).toBeDefined();
+  });
   it('keeps repeated keys', () => {
     const tree = parseInf(readRefText('sys/objects_trees.inf')).find(e => e.id === 10)!;
     expect(tree.fields.get('find')!.length).toBe(5);
