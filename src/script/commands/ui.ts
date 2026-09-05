@@ -1,6 +1,6 @@
 /** 界面、声音与脚本挂载类指令。 */
 import type { CommandRegistry } from '../registry';
-import { classId, int, num } from './util';
+import { classId, int, num, str, bool } from './util';
 
 export function registerUi(r: CommandRegistry): void {
   r.register('msg', (ctx, args) => {
@@ -35,6 +35,22 @@ export function registerUi(r: CommandRegistry): void {
     }
     ctx.engine.addInstanceScript(cls, id, text, true, `extendscript ${source}`);
   });
+  r.register('lockcombi', (ctx, args) => { ctx.host.locks.add(`combi:${(args[0] ?? '').trim()}`); });
+  r.register('unlockcombi', (ctx, args) => { ctx.host.locks.delete(`combi:${(args[0] ?? '').trim()}`); });
+  r.register('lockcombis', ctx => { for (const k of ctx.host.catalog.combis) ctx.host.locks.add(`combi:${k}`); });
+  r.register('unlockcombis', ctx => { for (const k of ctx.host.catalog.combis) ctx.host.locks.delete(`combi:${k}`); });
+  r.register('lockbuilding', (ctx, args) => { ctx.host.locks.add(`building:${int(args[0] ?? '0')}`); });
+  r.register('unlockbuilding', (ctx, args) => { ctx.host.locks.delete(`building:${int(args[0] ?? '0')}`); });
+  r.register('lockbuildings', ctx => { for (const id of ctx.host.catalog.buildings) ctx.host.locks.add(`building:${id}`); });
+  r.register('unlockbuildings', ctx => { for (const id of ctx.host.catalog.buildings) ctx.host.locks.delete(`building:${id}`); });
+  r.register('locked', (ctx, args) => {
+    const v = (args[0] ?? '').trim();
+    if (/^\d+$/.test(v)) return bool(ctx.host.locks.has(`building:${v}`));
+    return bool(ctx.host.locks.has(`combi:${v}`));
+  });
+  r.register('builtat', (ctx, args) => str(ctx.host.builtAt(int(args[0] ?? '0'))));
+  r.register('lastbuildingsite', ctx => str(ctx.host.lastBuildingSite()));
+  r.register(['corona', 'flash', 'blur', 'particle', 'particlec', 'thunder', 'explosion', 'explode'], () => { /* 视觉效果不做 */ });
   r.register('freescript', (ctx, args) => {
     const { cls, id } = classId(ctx, args, 0);
     ctx.engine.removeInstanceScript(cls, id);

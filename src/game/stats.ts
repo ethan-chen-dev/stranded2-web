@@ -4,6 +4,7 @@ export type Triple = [number, number, number];
 export const EXHAUST_MOVE: Triple = [0.02, 0.02, 0.016];
 export const EXHAUST_SWIM: Triple = [0.06, 0.05, 0.06];
 export const EXHAUST_JUMP: Triple = [0.8, 0.8, 0.8];
+export const EXHAUST_ATTACK: Triple = [0.15, 0.15, 0.15];
 export const EXHAUSTED_DAMAGE = 5;
 export const EXHAUST_INTERVAL_MS = 100;
 export const DAMAGE_INTERVAL_MS = 5000;

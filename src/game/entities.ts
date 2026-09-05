@@ -29,6 +29,8 @@ export interface EntityRecord {
   parentClass: number;
   parentId: number;
   parentMode: number;
+  /** 单位死亡后保留尸体，不再参与碰撞与拾取。 */
+  dead?: boolean;
 }
 
 export class EntityRegistry {

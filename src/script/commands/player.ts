@@ -1,7 +1,7 @@
 /** 玩家数值与物品/背包类指令。 */
 import type { CommandRegistry } from '../registry';
 import { CLASS } from '../host';
-import { classId, int, num, str, bool } from './util';
+import { classId, int, num, str, bool, flt } from './util';
 
 export function registerPlayer(r: CommandRegistry): void {
   r.register(['eat', 'drink', 'consume'], (ctx, args) => {
@@ -24,7 +24,7 @@ export function registerPlayer(r: CommandRegistry): void {
       default: return '0';
     }
   });
-  r.register(['player_speed', 'player_damage', 'player_attackrange', 'player_maxweight', 'player_mat', 'player_weapon', 'player_ammo'], (ctx, args) => {
+  r.register(['player_speed', 'player_damage', 'player_attackrange', 'player_maxweight', 'player_mat', 'player_ammo'], (ctx, args) => {
     ctx.host.log('info', `玩家属性指令仅记录: ${args.join(',')}`);
   });
 
@@ -102,6 +102,18 @@ export function registerPlayer(r: CommandRegistry): void {
     ctx.host.freeEntity(CLASS.item, src.id, need);
     ctx.host.giveItem(newTyp, newCount);
   });
+  r.register('impact_class', ctx => str(ctx.host.impact()?.cls ?? 0));
+  r.register('impact_id', ctx => str(ctx.host.impact()?.id ?? 0));
+  r.register('impact_kill', ctx => bool(ctx.host.impact()?.kill ?? false));
+  r.register('impact_ground', ctx => bool(ctx.host.impact()?.ground ?? false));
+  r.register(['impact_first', 'impact_amount'], ctx => (ctx.host.impact() ? '1' : '0'));
+  r.register('impact_x', ctx => flt(ctx.host.impact()?.x ?? 0));
+  r.register('impact_y', ctx => flt(ctx.host.impact()?.y ?? 0));
+  r.register('impact_z', ctx => flt(ctx.host.impact()?.z ?? 0));
+  r.register('hit_damage', ctx => flt(ctx.host.impact()?.damage ?? 0));
+  r.register(['hit_weapon', 'getplayerweapon'], ctx => str(ctx.host.playerWeapon()));
+  r.register('hit_ammo', () => '0');
+  r.register('player_weapon', (ctx, args) => bool(ctx.host.setPlayerWeapon(int(args[0] ?? '0'))));
   r.register('parent_class', (ctx, args) => {
     const id = (args[0] ?? '').trim() === 'self' ? ctx.env.id : int(args[0] ?? '0');
     return str(ctx.host.entity(CLASS.item, id)?.parentClass ?? 0);

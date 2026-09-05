@@ -1,5 +1,5 @@
 /** 游戏会话对脚本引擎的 ScriptHost 实现。 */
-import type { ScriptHost, HostEntity, HostDef, HostPlayer } from '../script/host';
+import type { ScriptHost, HostEntity, HostDef, HostPlayer, ImpactInfo } from '../script/host';
 import type { World } from '../render/world';
 import { worldHeight } from '../render/terrain';
 import type { MapData } from '../formats/s2map';
@@ -28,6 +28,16 @@ export interface HostDeps {
 }
 
 export class GameScriptHost implements ScriptHost {
+  readonly locks = new Set<string>();
+  catalog = { combis: [] as string[], buildings: [] as number[] };
+  builtAt: (objectId: number) => number = () => 0;
+  lastBuildingSite: () => number = () => 0;
+  /** 由武器模块接管：最近命中与手持类型。 */
+  impact: () => ImpactInfo | null = () => null;
+  playerWeapon: () => number = () => 0;
+  setPlayerWeapon: (typ: number) => boolean = () => false;
+  random: (min: number, max: number) => number = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+
   constructor(private readonly d: HostDeps) {}
 
   private get registry() {
@@ -118,6 +128,10 @@ export class GameScriptHost implements ScriptHost {
     return worldHeight(this.d.map, x, z);
   }
 
+  infoRadius(id: number): number {
+    return this.d.map.infos.find(i => i.id === id)?.floats[0] ?? 0;
+  }
+
   mapSize(): number {
     return this.d.map.terrainSize;
   }
@@ -187,10 +201,6 @@ export class GameScriptHost implements ScriptHost {
 
   useTarget() {
     return this.d.useTarget();
-  }
-
-  random(min: number, max: number): number {
-    return min + Math.floor(Math.random() * (max - min + 1));
   }
 
   loadScriptFile(path: string, section?: string): string | undefined {

@@ -1,5 +1,5 @@
 /** 内存版 ScriptHost，供解释器与指令测试使用。 */
-import type { HostDef, HostEntity, HostPlayer, ScriptHost } from './host';
+import type { HostDef, HostEntity, HostPlayer, ImpactInfo, ScriptHost } from './host';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -15,6 +15,18 @@ export class FakeHost implements ScriptHost {
   playerState: HostPlayer = { id: 1, health: 100, healthMax: 100, hunger: 0, thirst: 0, exhaustion: 0, store: 100 };
   randomValues: number[] = [];
   target = { x: 0, y: 0, z: 0 };
+  impactInfo: ImpactInfo | null = null;
+  weapon = 0;
+  locks = new Set<string>();
+  catalog = { combis: [] as string[], buildings: [] as number[] };
+  radii = new Map<number, number>();
+  sites = new Map<number, number>();
+  infoRadius(id: number): number { return this.radii.get(id) ?? 0; }
+  builtAt(objectId: number): number { return this.sites.get(objectId) ?? 0; }
+  lastBuildingSite(): number { return 0; }
+  impact(): ImpactInfo | null { return this.impactInfo; }
+  playerWeapon(): number { return this.weapon; }
+  setPlayerWeapon(typ: number): boolean { this.weapon = typ; return true; }
   private nextIds = new Map<number, number>();
 
   log(level: 'info' | 'warn' | 'error', msg: string): void { this.logs.push(`${level}: ${msg}`); }

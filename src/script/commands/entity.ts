@@ -178,6 +178,19 @@ export function registerEntity(r: CommandRegistry): void {
     const e = ctx.host.entity(CLASS.unit, id);
     if (e) ctx.host.changeHealth(CLASS.unit, id, -e.health - 1, true);
   });
+  const inArea = (typ: number) => (ctx: Parameters<Parameters<CommandRegistry['register']>[1]>[0], args: Value[]) => {
+    const { cls, id } = classId(ctx, args, 0);
+    const e = ctx.host.entity(cls, id);
+    if (!e) return '0';
+    for (const info of ctx.host.entities(CLASS.info, typ)) {
+      if (Math.hypot(info.x - e.x, info.z - e.z) - ctx.host.infoRadius(info.id) <= 0) return '1';
+    }
+    return '0';
+  };
+  r.register('inarea_freshwater', inArea(41));
+  r.register('inarea_dig', inArea(42));
+  r.register('inarea_fish', inArea(43));
+  r.register('inarea', inArea(44));
   r.register(['spawntimer', 'growtime', 'defparam'], () => '0');
   void classOf; void ScriptRuntimeError;
 }

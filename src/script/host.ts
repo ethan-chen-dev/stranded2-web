@@ -39,7 +39,32 @@ export interface HostPlayer {
   store: number;
 }
 
+export interface ImpactInfo {
+  cls: number;
+  id: number;
+  kill: boolean;
+  x: number;
+  y: number;
+  z: number;
+  ground: boolean;
+  damage: number;
+  weapon: number;
+}
+
 export interface ScriptHost {
+  /** 最近一次命中的信息；没有命中过为 null。 */
+  impact(): ImpactInfo | null;
+  playerWeapon(): number;
+  setPlayerWeapon(typ: number): boolean;
+  /** 合成与建筑锁：键为 `combi:<id>` 或 `building:<id>`。 */
+  locks: Set<string>;
+  /** 全部合成 id 与建筑 id，供 lockcombis/lockbuildings 使用。 */
+  catalog: { combis: string[]; buildings: number[] };
+  /** 区域类信息点的半径；不是区域时为 0。 */
+  infoRadius(id: number): number;
+  /** 工地物体对应的建筑 id，不是工地为 0。 */
+  builtAt(objectId: number): number;
+  lastBuildingSite(): number;
   log(level: 'info' | 'warn' | 'error', msg: string): void;
   /** 游戏毫秒计时。 */
   now(): number;
