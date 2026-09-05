@@ -25,8 +25,8 @@ async function loadDefs(res: Resources): Promise<Defs> {
   const files = await listFiles('sys');
   const load = (prefix: string) =>
     Promise.all(files.filter(f => f.toLowerCase().startsWith(prefix) && f.toLowerCase().endsWith('.inf')).map(f => res.text(`/sys/${f}`)));
-  const [objects, units, items] = await Promise.all([load('objects'), load('units'), load('items')]);
-  return { objects: buildDefTable(objects), units: buildDefTable(units), items: buildDefTable(items) };
+  const [objects, units, items, infos] = await Promise.all([load('objects'), load('units'), load('items'), load('infos')]);
+  return { objects: buildDefTable(objects), units: buildDefTable(units), items: buildDefTable(items), infos: buildDefTable(infos) };
 }
 
 function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {
@@ -123,6 +123,7 @@ async function main(): Promise<void> {
   const cycle = parseLightcycle(await res.text('/sys/lightcycle.inf'));
   new Environment(scene, sky, ambient, sun, map.header.fog, cycle).apply(map.header.hour, map.header.minute);
   log.info(`实体 objects ${world.stats.objects} units ${world.stats.units} items ${world.stats.items} 缺失 ${world.stats.missing}，${Math.round(performance.now() - t0)} ms`);
+  log.info(`定义 infos ${defs.infos?.size ?? 0}`);
 
   const player = map.units.find(u => u.typ === 1);
   if (player) {
@@ -138,7 +139,7 @@ async function main(): Promise<void> {
   let session: GameSession | undefined;
   const enterPlay = async () => {
     if (session) return;
-    session = await GameSession.create({ scene, camera, canvas, root: app, map, defs, world, res, log, sky, ambient, sun });
+    session = await GameSession.create({ scene, camera, canvas, root: app, map, mapPath, defs, world, res, log, sky, ambient, sun, listFiles });
     debug.session = session;
     document.body.classList.add('play');
     session.input.requestLock();

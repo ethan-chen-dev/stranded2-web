@@ -1,7 +1,10 @@
-/** 游戏 HUD：四条数值条、准星、焦点文字、消息、时钟、死亡提示。 */
+/** 游戏 HUD：四条数值条、准星、焦点文字、消息栈、进度条、时钟、死亡提示。 */
 import type { SurvivalStats } from './stats';
 
 const BAR_KEYS = ['health', 'hunger', 'thirst', 'exhaustion'] as const;
+/** 原版 msg 字体色编号到颜色。 */
+const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
+const MAX_MESSAGES = 6;
 
 export class Hud {
   private readonly root: HTMLElement;
@@ -11,7 +14,9 @@ export class Hud {
   private readonly clockEl: HTMLElement;
   private readonly hintEl: HTMLElement;
   private readonly deadEl: HTMLElement;
-  private msgTimer = 0;
+  private readonly processEl: HTMLElement;
+  private readonly processTitle: HTMLElement;
+  private readonly processFill: HTMLElement;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -32,7 +37,7 @@ export class Hud {
     this.focusEl = document.createElement('div');
     this.focusEl.className = 'focus';
     this.msgEl = document.createElement('div');
-    this.msgEl.className = 'msg';
+    this.msgEl.className = 'msgs';
     this.clockEl = document.createElement('div');
     this.clockEl.className = 'clock';
     this.hintEl = document.createElement('div');
@@ -42,7 +47,17 @@ export class Hud {
     this.deadEl.className = 'dead';
     this.deadEl.textContent = '你死了';
     this.deadEl.hidden = true;
-    this.root.append(bars, cross, this.focusEl, this.msgEl, this.clockEl, this.hintEl, this.deadEl);
+    this.processEl = document.createElement('div');
+    this.processEl.className = 'process';
+    this.processEl.hidden = true;
+    this.processTitle = document.createElement('div');
+    this.processFill = document.createElement('div');
+    this.processFill.className = 'process-fill';
+    const track = document.createElement('div');
+    track.className = 'process-track';
+    track.append(this.processFill);
+    this.processEl.append(this.processTitle, track);
+    this.root.append(bars, cross, this.focusEl, this.msgEl, this.processEl, this.clockEl, this.hintEl, this.deadEl);
     parent.append(this.root);
   }
 
@@ -63,11 +78,22 @@ export class Hud {
     this.focusEl.textContent = text ?? '';
   }
 
-  message(text: string, kind: 'ok' | 'bad' = 'ok'): void {
-    this.msgEl.textContent = text;
-    this.msgEl.className = `msg ${kind}`;
-    clearTimeout(this.msgTimer);
-    this.msgTimer = window.setTimeout(() => { this.msgEl.textContent = ''; }, 3000);
+  /** 消息按行堆叠，各自到期后消失。 */
+  message(text: string, font = 0, durationMs = 3000): void {
+    const line = document.createElement('div');
+    line.textContent = text;
+    line.style.color = FONT_COLORS[font] ?? FONT_COLORS[0];
+    this.msgEl.append(line);
+    while (this.msgEl.children.length > MAX_MESSAGES) this.msgEl.firstElementChild?.remove();
+    window.setTimeout(() => line.remove(), Math.max(durationMs, 500));
+  }
+
+  setProcess(title: string | null, fraction = 0): void {
+    this.processEl.hidden = title === null;
+    if (title !== null) {
+      this.processTitle.textContent = title;
+      this.processFill.style.width = `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%`;
+    }
   }
 
   setClock(day: number, hour: number, minute: number): void {

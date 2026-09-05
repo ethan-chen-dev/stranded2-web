@@ -1,7 +1,17 @@
-/** 背包覆盖层：图标、名称、数量、重量，以及丢弃按钮。 */
-import type { EntityDef } from '../formats/inf';
-import type { Inventory } from './inventory';
+/** 背包覆盖层：按物品实体展示图标、名称、数量、重量，以及使用/吃喝/丢弃按钮。 */
+import type { EntityRecord } from './entities';
 import { modUrl } from '../assets/paths';
+
+export interface InventoryActions {
+  items(): EntityRecord[];
+  usedWeight(): number;
+  maxWeight(): number;
+  /** 该物品脚本是否有某事件（决定显示哪些按钮）。 */
+  hasEvent(rec: EntityRecord, event: string): boolean;
+  use(rec: EntityRecord): void;
+  eat(rec: EntityRecord): void;
+  drop(rec: EntityRecord): void;
+}
 
 export class InventoryUi {
   private readonly root: HTMLElement;
@@ -9,7 +19,7 @@ export class InventoryUi {
   private readonly footer: HTMLElement;
   private visible = false;
 
-  constructor(parent: HTMLElement, private readonly inv: Inventory, private readonly defs: Map<number, EntityDef>, private readonly onDrop: (typ: number) => void) {
+  constructor(parent: HTMLElement, private readonly actions: InventoryActions) {
     this.root = document.createElement('div');
     this.root.className = 'inventory';
     this.root.hidden = true;
@@ -36,8 +46,9 @@ export class InventoryUi {
 
   refresh(): void {
     this.grid.replaceChildren();
-    for (const [typ, count] of this.inv.slots) {
-      const def = this.defs.get(typ);
+    const items = this.actions.items();
+    for (const rec of items) {
+      const def = rec.def;
       const cell = document.createElement('div');
       cell.className = 'inv-cell';
       if (def?.icon) {
@@ -48,19 +59,25 @@ export class InventoryUi {
       }
       const name = document.createElement('div');
       name.className = 'inv-name';
-      name.textContent = `${def?.name ?? `#${typ}`} × ${count}`;
-      const drop = document.createElement('button');
-      drop.textContent = '丢弃 1 个';
-      drop.addEventListener('click', () => { this.onDrop(typ); this.refresh(); });
-      cell.append(name, drop);
+      name.textContent = `${def?.name ?? `#${rec.typ}`} × ${rec.count}`;
+      cell.append(name);
+      const button = (label: string, fn: () => void) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.addEventListener('click', () => { fn(); this.refresh(); });
+        cell.append(b);
+      };
+      if (this.actions.hasEvent(rec, 'use')) button('使用', () => this.actions.use(rec));
+      if (this.actions.hasEvent(rec, 'eat')) button(def?.group === 'drink' ? '喝' : '吃', () => this.actions.eat(rec));
+      button('丢弃', () => this.actions.drop(rec));
       this.grid.append(cell);
     }
-    if (this.inv.slots.size === 0) {
+    if (items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'inv-empty';
       empty.textContent = '空';
       this.grid.append(empty);
     }
-    this.footer.textContent = `重量 ${this.inv.usedWeight} / ${this.inv.maxWeight}`;
+    this.footer.textContent = `重量 ${this.actions.usedWeight()} / ${this.actions.maxWeight()}`;
   }
 }
