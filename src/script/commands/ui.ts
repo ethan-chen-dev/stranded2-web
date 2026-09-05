@@ -51,6 +51,18 @@ export function registerUi(r: CommandRegistry): void {
   r.register('builtat', (ctx, args) => str(ctx.host.builtAt(int(args[0] ?? '0'))));
   r.register('lastbuildingsite', ctx => str(ctx.host.lastBuildingSite()));
   r.register(['corona', 'flash', 'blur', 'particle', 'particlec', 'thunder', 'explosion', 'explode'], () => { /* 视觉效果不做 */ });
+  r.register('seqstart', (ctx, args) => { ctx.host.seq()?.start(int(args[0] ?? '1'), int(args[1] ?? '0')); });
+  r.register('seqtimemode', (ctx, args) => { ctx.host.seq()?.timeMode(num(args[0] ?? '1'), int(args[1] ?? '1')); });
+  const SEQ_EVENTS: [string | string[], string][] = [
+    ['seqend', 'end'], ['seqmsg', 'msg'], ['seqmsgclear', 'msgclear'], ['seqsound', 'sound'], ['seqbar', 'bar'],
+    ['hidbar', 'hidebar'], ['showbar', 'showbar'], ['seqflash', 'flash'], ['seqfade', 'fade'], ['seqcls', 'cls'],
+    ['seqimage', 'image'], ['seqimagetext', 'itxt'], ['seqevent', 'event'], ['seqscript', 'script'],
+    ['seqhideplayer', 'hideplayer'], [['setcam', 'sc'], 'setcam'], [['movecam', 'mc'], 'movecam'],
+    ['campath', 'campath'], ['timedcampath', 'timedcampath'], ['cammode', 'cammode'], ['camfollow', 'camfollow'],
+  ];
+  for (const [names, kind] of SEQ_EVENTS) {
+    r.register(names, (ctx, args) => { ctx.host.seq()?.add(kind, args.map(String), ctx.env.cls, ctx.env.id); });
+  }
   r.register('freescript', (ctx, args) => {
     const { cls, id } = classId(ctx, args, 0);
     ctx.engine.removeInstanceScript(cls, id);

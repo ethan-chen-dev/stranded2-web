@@ -1,5 +1,6 @@
 /** 内存版 ScriptHost，供解释器与指令测试使用。 */
 import type { HostDef, HostEntity, HostPlayer, ImpactInfo, ScriptHost } from './host';
+import type { Sequence } from '../game/sequence';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -31,6 +32,9 @@ export class FakeHost implements ScriptHost {
   aiStay(): void { /* 无状态 */ }
   aiCenter(): void { /* 无状态 */ }
   lastEater(): number { return 0; }
+  sequence?: Sequence;
+  seq(): Sequence | undefined { return this.sequence; }
+  textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source, section); }
   impact(): ImpactInfo | null { return this.impactInfo; }
   playerWeapon(): number { return this.weapon; }
   setPlayerWeapon(typ: number): boolean { this.weapon = typ; return true; }

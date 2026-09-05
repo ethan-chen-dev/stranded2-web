@@ -131,6 +131,10 @@ export class Hud {
     this.hintEl.hidden = !show;
   }
 
+  setVisible(on: boolean): void {
+    this.root.hidden = !on;
+  }
+
   showDead(): void {
     this.deadEl.hidden = false;
   }

@@ -27,6 +27,8 @@ import { GameScriptHost } from './script-host';
 import { Weapons } from './weapons';
 import { AiSystem } from './ai';
 import { Projectiles } from './projectiles';
+import { Sequence } from './sequence';
+import { SequenceUi } from './sequence-ui';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -96,6 +98,8 @@ export class GameSession {
   readonly weapons: Weapons;
   readonly ai: AiSystem;
   readonly projectiles: Projectiles;
+  readonly sequence: Sequence;
+  private readonly seqUi: SequenceUi;
   readonly combine: Combine;
   readonly build: Build;
   readonly tools: Tools;
@@ -223,6 +227,30 @@ export class GameSession {
     };
     this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
     this.host.lastEater = () => this.ai.lastEater;
+    this.sequence = new Sequence({
+      now: () => this.gameMs,
+      cameraNow: () => {
+        const eye = this.player.eye();
+        return { x: eye.x, y: eye.y, z: -eye.z, pitch: -this.player.pitch / DEG, yaw: this.player.yaw / DEG };
+      },
+      info: id => {
+        const rec = registry.get(CLS.info, id);
+        return rec ? { x: rec.x, y: rec.y, z: rec.z, pitch: rec.pitch, yaw: rec.yaw } : undefined;
+      },
+      entityPos: (cls, id) => {
+        const rec = cls === CLS.unit && id === PLAYER_ID ? this.playerRec : registry.get(cls, id);
+        return rec ? { x: rec.x, y: rec.y, z: rec.z } : undefined;
+      },
+      terrainY,
+      globalEvent: name => this.engine.globalEvent(name),
+      entityEvent: (cls, id, name) => this.engine.entityEvent(cls, id, name),
+      runScript: (text, origin) => { this.engine.runText(text, { cls: 0, id: 0, event: 'sequence', info: 'triggered by seqscript command' }, origin); },
+      sound: (file, volume) => this.sounds.play(file, volume * 100),
+      loadText: src => this.host.textSource(src),
+      log: msg => o.log.warn(msg),
+    });
+    this.host.seq = () => this.sequence;
+    this.seqUi = new SequenceUi(o.root);
     this.host.impact = () => this.weapons.impact;
     this.host.playerWeapon = () => this.weapons.weaponTyp;
     this.host.setPlayerWeapon = typ => { const ok = this.weapons.takeInHand(typ); this.refreshWeaponHud(); return ok; };
@@ -329,15 +357,17 @@ export class GameSession {
     const now = performance.now();
     const input = this.input;
     const frozen = this.process !== null;
+    const inSeq = this.sequence.active;
     if (!this.stats.dead) {
-      if (input.hit('Tab')) {
+      if (inSeq && input.hit('Escape')) this.sequence.skip();
+      if (input.hit('Tab') && !inSeq) {
         if (this.buildUi.open) this.buildUi.close();
         this.invUi.toggle();
         this.syncLock();
       }
-      if (input.hit('KeyB')) this.toggleBuildMenu();
+      if (input.hit('KeyB') && !inSeq) this.toggleBuildMenu();
       if (input.hit('Escape') && this.placing) this.stopPlacing();
-      const canAct = !this.overlayOpen() && input.locked && !frozen;
+      const canAct = !this.overlayOpen() && input.locked && !frozen && !inSeq;
       if (canAct) {
         const look = input.consumeLook();
         this.player.update(dtMs, now, {
@@ -408,9 +438,17 @@ export class GameSession {
     }
 
     this.player.applyTo(this.o.camera);
+    this.sequence.update(dtMs);
+    if (this.sequence.active) {
+      const c = this.sequence.camera;
+      this.o.camera.position.set(c.x, c.y, -c.z);
+      this.o.camera.quaternion.setFromEuler(new THREE.Euler(-c.pitch * DEG, c.yaw * DEG, 0, 'YXZ'));
+    }
+    this.seqUi.render(this.sequence);
+    this.hud.setVisible(!this.sequence.active);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
-    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead);
+    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active);
     input.endFrame();
   }
 
@@ -635,6 +673,7 @@ export class GameSession {
 
   dispose(): void {
     this.input.release();
+    this.seqUi.dispose();
     this.hud.dispose();
   }
 }

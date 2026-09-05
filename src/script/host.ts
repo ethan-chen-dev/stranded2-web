@@ -1,4 +1,6 @@
 /** 解释器访问引擎的全部能力。游戏会话实现它；测试用内存版。 */
+import type { Sequence } from '../game/sequence';
+
 export const CLASS = { global: 0, object: 1, unit: 2, item: 3, info: 4, state: 5 } as const;
 export const GAME_SCRIPT_CLASS = -1;
 
@@ -101,4 +103,8 @@ export interface ScriptHost {
   useTarget(): { x: number; y: number; z: number };
   random(min: number, max: number): number;
   loadScriptFile(path: string, section?: string): string | undefined;
+  /** 文本来源：纯数字为信息点文本容器的内容，否则为文件路径与可选段名。 */
+  textSource(source: string, section?: string): string | undefined;
+  /** 当前会话的过场序列；没有会话时为 undefined，序列指令忽略。 */
+  seq(): Sequence | undefined;
 }

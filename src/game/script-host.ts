@@ -9,6 +9,7 @@ import type { GameClock } from './clock';
 import type { Hud } from './hud';
 import type { Sounds } from './sounds';
 import type { Log } from '../viewer/log';
+import type { Sequence } from './sequence';
 
 export interface HostDeps {
   world: World;
@@ -37,6 +38,7 @@ export class GameScriptHost implements ScriptHost {
   aiStay: (unitId: number, on: boolean) => void = () => undefined;
   aiCenter: (unitId: number) => void = () => undefined;
   lastEater: () => number = () => 0;
+  seq: () => Sequence | undefined = () => undefined;
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;
@@ -206,6 +208,17 @@ export class GameScriptHost implements ScriptHost {
 
   useTarget() {
     return this.d.useTarget();
+  }
+
+  textSource(source: string, section?: string): string | undefined {
+    const src = source.trim();
+    if (/^\d+$/.test(src)) {
+      const id = Number(src);
+      if (id === 0) return undefined;
+      const ext = this.d.map.extensions.find(e => e.mode === 0 && e.parentClass === CLS.info && e.parentId === id);
+      return ext?.value;
+    }
+    return this.loadScriptFile(src, section);
   }
 
   loadScriptFile(path: string, section?: string): string | undefined {
