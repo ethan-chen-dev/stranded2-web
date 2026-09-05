@@ -3,6 +3,6 @@ import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
 export default defineConfig({
-  publicDir: resolve(__dirname, 'reference/game/mods/Stranded II'),
+  publicDir: resolve(import.meta.dirname, 'reference/game/mods/Stranded II'),
   test: { include: ['src/**/*.test.ts'] },
 });
