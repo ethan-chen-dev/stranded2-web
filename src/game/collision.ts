@@ -11,6 +11,13 @@ export function collides(col: number): boolean {
   return col === 1 || col === 3 || col === 4;
 }
 
+/** 沿射线方向可前进的距离：命中点到面的垂直净空保留 radius，再换算回射线方向。 */
+function clearance(hitDistance: number, dir: THREE.Vector3, normal: THREE.Vector3, radius: number): number {
+  const cos = Math.abs(dir.dot(normal));
+  if (cos < 1e-4) return hitDistance;
+  return Math.max((hitDistance * cos - radius) / cos, 0);
+}
+
 const DIRS8: THREE.Vector3[] = Array.from({ length: 8 }, (_, i) => {
   const a = (i / 8) * Math.PI * 2;
   return new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
@@ -63,11 +70,11 @@ export class ObjectCollider {
         if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
       }
       if (!nearest) return move;
-      const allowed = Math.max(nearest.distance - radius, 0);
       const normal = nearest.face ? nearest.face.normal.clone().transformDirection(nearest.object.matrixWorld) : dir.clone().negate();
       normal.y = 0;
-      if (normal.lengthSq() === 0) return dir.multiplyScalar(allowed);
+      if (normal.lengthSq() === 0) return dir.multiplyScalar(Math.max(nearest.distance - radius, 0));
       normal.normalize();
+      const allowed = clearance(nearest.distance, dir, normal, radius);
       const remaining = move.clone().sub(dir.clone().multiplyScalar(allowed));
       const slide = remaining.sub(normal.clone().multiplyScalar(remaining.dot(normal)));
       const done = dir.multiplyScalar(allowed);
@@ -91,7 +98,10 @@ export class ObjectCollider {
       if (hit && (!nearest || hit.distance < nearest.distance)) nearest = hit;
     }
     if (!nearest) return move;
-    return dir.multiplyScalar(Math.max(nearest.distance - radius, 0));
+    const normal = nearest.face ? nearest.face.normal.clone().transformDirection(nearest.object.matrixWorld) : dir.clone().negate();
+    normal.y = 0;
+    if (normal.lengthSq() === 0) return dir.multiplyScalar(Math.max(nearest.distance - radius, 0));
+    return dir.multiplyScalar(clearance(nearest.distance, dir, normal.normalize(), radius));
   }
 
   /** 腰高度八方向射线，距离小于半径时沿法线推出；返回推出向量。 */
