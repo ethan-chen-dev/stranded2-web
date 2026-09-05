@@ -70,7 +70,7 @@ class Parser {
     let event = name.value;
     while (this.peek().type === 'num' || this.peek().type === 'ident') {
       const t = this.next();
-      event += t.type === 'num' ? t.value : t.value;
+      if (t.type === 'num' || t.type === 'ident') event += t.value;
     }
     const body = this.parseBlock();
     return { event, body, line: start.line };
