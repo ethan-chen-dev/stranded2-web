@@ -17,7 +17,7 @@ export function testDef(over: Partial<EntityDef>): EntityDef {
     id: 0, name: '', model: '', icon: '', scale: [1, 1, 1], color: [255, 255, 255], alpha: 1, fx: 0, autofade: 0,
     aligntowater: false, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
     maxweight: 0, group: '', behaviour: '', mat: '', health: 100, vars: [],
-    damage: 0, rate: 500, attackrange: 45, weaponstate: '', findratio: 30, finds: [], loots: [], ...over,
+    damage: 0, rate: 500, attackrange: 45, turnspeed: 2, range: 300, loopmoveani: 0, drag: 0, weaponstate: '', findratio: 30, finds: [], loots: [], ...over,
   };
 }
 
@@ -69,6 +69,7 @@ export function makeTestWorld(defs: Defs, map = flatMap()): TestWorld {
       return rec;
     },
     visibleItems: () => registry.all(CLS.item).filter(r => r.parentMode !== STORED_INSIDE),
+    spawnModel: async () => null,
   };
   const log = { info: (m: string) => logs.push(`info: ${m}`), warn: (m: string) => logs.push(`warn: ${m}`), error: (m: string) => logs.push(`error: ${m}`) } as unknown as Log;
   const sound = new Sounds();

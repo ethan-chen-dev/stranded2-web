@@ -10,12 +10,20 @@ import type { World } from '../render/world';
 import type { SurvivalStats } from './stats';
 import { EXHAUST_ATTACK } from './stats';
 import type { ImpactInfo } from '../script/host';
+import type { FireOptions } from './projectiles';
+import type { EntityDef } from '../formats/inf';
 
 export const HAND_COOLDOWN_MS = 400;
 export const MELEE_RANGE = 50;
 export const PICK_RADIUS = 5;
 export const STATE_INVULNERABILITY = 17;
 export const MELEE_BEHAVIOURS = new Set(['blade', 'fastblade', 'slowblade', 'hammer', 'spade', 'net', 'fishingrod', 'torch']);
+/** 需要弹药并发射投射物的武器。 */
+export const RANGED_BEHAVIOURS = new Set(['bow', 'slingshot', 'launcher', 'catapult']);
+/** 需要弹药、即时命中的火器；射程为武器 speed。 */
+export const FIREARM_BEHAVIOURS = new Set(['pistol', 'gun', 'machinegun']);
+/** 把手持物品本身投出去的武器。 */
+export const THROW_BEHAVIOURS = new Set(['selfthrow', 'spear', 'killthrow', 'throw']);
 
 export interface AttackDeps {
   registry: EntityRegistry;
@@ -32,6 +40,18 @@ export interface AttackDeps {
   message(text: string, font?: number): void;
   sound(file: string): void;
   onUnitDied?(rec: EntityRecord): void;
+  /** 单位被玩家打中且未死亡时的回调，用于 AI 受击反应。 */
+  onUnitHurt?(rec: EntityRecord): void;
+}
+
+export interface StrikeTarget {
+  cls: number;
+  id: number;
+  /** Blitz 坐标的命中点。 */
+  x: number;
+  y: number;
+  z: number;
+  ground: boolean;
 }
 
 export interface PickResult {
@@ -41,7 +61,12 @@ export interface PickResult {
   ground: boolean;
 }
 
-export type AttackResult = 'hit' | 'miss' | 'cooldown' | 'blocked' | 'unsupported';
+export type AttackResult = 'hit' | 'miss' | 'fired' | 'cooldown' | 'blocked' | 'unsupported';
+
+/** 物品 behaviour 里的 `ammo:<武器类型>` 段表示可作该武器的弹药。 */
+export function isAmmoFor(def: EntityDef | undefined, weaponTyp: number): boolean {
+  return (def?.behaviour ?? '').split(/[\s,]+/).includes(`ammo:${weaponTyp}`);
+}
 
 /** 物品 behaviour 的第一个词（原版可带 `ammo:` 等附加段）。 */
 export function primaryBehaviour(b: string): string {
@@ -54,6 +79,8 @@ export class Weapons {
   impact: ImpactInfo | null = null;
   private lastKill = false;
   private reportedUnsupported = new Set<string>();
+  /** 投射物发射器，由会话注入；缺省时远程武器不可用。 */
+  launcher?: { fire(opts: FireOptions): void };
 
   constructor(private readonly d: AttackDeps) {}
 
@@ -102,14 +129,17 @@ export class Weapons {
     if (skip) return 'blocked';
 
     const beh = this.behaviour();
-    if (!hand && !MELEE_BEHAVIOURS.has(beh)) {
-      if (!this.reportedUnsupported.has(beh)) {
-        this.reportedUnsupported.add(beh);
-        this.d.message(`武器类型 ${beh} 尚未实现`, 2);
-      }
-      return 'unsupported';
+    if (hand || MELEE_BEHAVIOURS.has(beh)) return this.melee(now, hand, def, beh);
+    if (RANGED_BEHAVIOURS.has(beh) || FIREARM_BEHAVIOURS.has(beh)) return this.shoot(now, item!, def!, FIREARM_BEHAVIOURS.has(beh));
+    if (THROW_BEHAVIOURS.has(beh)) return this.throwItem(now, item!, def!);
+    if (!this.reportedUnsupported.has(beh)) {
+      this.reportedUnsupported.add(beh);
+      this.d.message(`武器类型 ${beh} 尚未实现`, 2);
     }
+    return 'unsupported';
+  }
 
+  private melee(now: number, hand: boolean, def: EntityDef | undefined, beh: string): AttackResult {
     this.lastAttack = now;
     this.d.stats.exhaust(EXHAUST_ATTACK);
     const playerDef = this.d.registry.defFor(CLS.unit, 1);
@@ -119,27 +149,102 @@ export class Weapons {
 
     const hit = this.pick(range);
     if (!hit) return 'miss';
+    this.strike({ cls: hit.cls, id: hit.id, x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground }, damage, this.weaponTyp, this.weaponTyp);
+    return 'hit';
+  }
 
-    if (item && def?.weaponstate && !hit.ground) {
-      const typ = this.d.engine.stateType(def.weaponstate);
-      if (typ > 0 && !this.d.engine.states.has(hit.cls, hit.id, typ)) {
-        this.d.engine.states.add(hit.cls, hit.id, typ);
-        this.d.engine.entityEvent(hit.cls, hit.id, 'addstate', String(typ));
+  /** 背包里第一件可作当前武器弹药的物品。 */
+  ammoFor(weaponTyp: number): EntityRecord | undefined {
+    return this.d.registry.storedIn(CLS.unit, this.d.playerId).find(it => isAmmoFor(it.def, weaponTyp));
+  }
+
+  private shoot(now: number, item: EntityRecord, def: EntityDef, hitscan: boolean): AttackResult {
+    const ammo = this.ammoFor(def.id);
+    if (!ammo || !ammo.def) {
+      this.d.message('没有弹药', 2);
+      this.d.sound('fail.wav');
+      this.d.engine.entityEvent(CLS.item, item.id, 'noammo');
+      return 'blocked';
+    }
+    if (!hitscan && !this.launcher) return 'unsupported';
+    this.lastAttack = now;
+    this.d.stats.exhaust(EXHAUST_ATTACK);
+    const ammoDef = ammo.def;
+    const ammoTyp = ammo.typ;
+    const damage = def.damage * ammoDef.damage;
+    this.d.registry.consume(ammo.id, 1);
+    this.d.sound(hitscan ? 'shot.wav' : 'bow.wav');
+    if (hitscan) {
+      const hit = this.pick(def.speed);
+      if (!hit) return 'miss';
+      this.strike({ cls: hit.cls, id: hit.id, x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground }, damage, def.id, ammoTyp);
+      return 'hit';
+    }
+    this.launcher!.fire({ typ: ammoTyp, weaponTyp: def.id, ammoTyp, spawner: this.d.playerId, ...this.muzzle(), speed: def.speed, drag: def.drag + ammoDef.drag, damage });
+    return 'fired';
+  }
+
+  private throwItem(now: number, item: EntityRecord, def: EntityDef): AttackResult {
+    if (!this.launcher) return 'unsupported';
+    this.lastAttack = now;
+    this.d.stats.exhaust(EXHAUST_ATTACK);
+    this.d.registry.consume(item.id, 1);
+    if (!this.weaponItem()) this.unequip();
+    this.d.sound('throw.wav');
+    this.launcher.fire({ typ: def.id, weaponTyp: def.id, ammoTyp: def.id, spawner: this.d.playerId, ...this.muzzle(), speed: def.speed, drag: def.drag, damage: def.damage });
+    return 'fired';
+  }
+
+  /** 相机位置与朝向换算为 Blitz 坐标与角度；原版前进方向为 (-sin yaw, cos yaw)，pitch 正值向下。 */
+  private muzzle(): { x: number; y: number; z: number; pitch: number; yaw: number } {
+    const eye = this.d.eye();
+    const dir = this.d.dir();
+    const yaw = Math.atan2(-dir.x, -dir.z) * 180 / Math.PI;
+    const pitch = -Math.asin(Math.max(-1, Math.min(1, dir.y))) * 180 / Math.PI;
+    return { x: eye.x, y: eye.y, z: -eye.z, pitch, yaw };
+  }
+
+  /**
+   * 命中处理：武器与弹药的 weaponstate 附加到目标，设置 impact 环境，造成伤害，
+   * 对背包里的武器与弹药触发 impact 事件（不在背包时以类型脚本执行），命中物体时按 find 掉落。
+   * 返回 impact 脚本是否 skipevent。
+   */
+  strike(hit: StrikeTarget, damage: number, weaponTyp: number, ammoTyp: number): boolean {
+    const typs = weaponTyp === ammoTyp || ammoTyp === 0 ? [weaponTyp] : [weaponTyp, ammoTyp];
+    if (!hit.ground) {
+      for (const typ of typs) {
+        const state = this.d.registry.defFor(CLS.item, typ)?.weaponstate;
+        if (!state) continue;
+        const st = this.d.engine.stateType(state);
+        if (st > 0 && !this.d.engine.states.has(hit.cls, hit.id, st)) {
+          this.d.engine.states.add(hit.cls, hit.id, st);
+          this.d.engine.entityEvent(hit.cls, hit.id, 'addstate', String(st));
+        }
       }
     }
-
-    this.impact = { cls: hit.ground ? 0 : hit.cls, id: hit.ground ? 0 : hit.id, kill: false, x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground, damage, weapon: this.weaponTyp };
-    if (hit.ground) return 'hit';
-
-    const target = this.d.registry.get(hit.cls, hit.id);
-    this.lastKill = false;
-    const damaged = this.damage(hit.cls, hit.id, damage, 'player');
-    this.impact.kill = this.lastKill;
-    if (damaged) {
-      if (item) this.d.engine.entityEvent(CLS.item, item.id, 'impact');
-      if (hit.cls === CLS.object && target) this.findDrops(target);
+    this.impact = { cls: hit.ground ? 0 : hit.cls, id: hit.ground ? 0 : hit.id, kill: false, x: hit.x, y: hit.y, z: hit.z, ground: hit.ground, damage, weapon: weaponTyp };
+    let damaged = false;
+    const target = hit.ground ? undefined : this.d.registry.get(hit.cls, hit.id);
+    if (!hit.ground) {
+      this.lastKill = false;
+      damaged = this.damage(hit.cls, hit.id, damage, 'player');
+      this.impact.kill = this.lastKill;
     }
-    return 'hit';
+    let skip = false;
+    if (damaged || hit.ground) {
+      for (const typ of typs) {
+        if (typ <= 0) continue;
+        const inst = this.d.registry.storedIn(CLS.unit, this.d.playerId, typ)[0];
+        if (inst) {
+          if (this.d.engine.runNow(CLS.item, inst.id, 'impact').skipevent) skip = true;
+          continue;
+        }
+        const script = this.d.registry.defFor(CLS.item, typ)?.script;
+        if (script && this.d.engine.runText(script, { cls: -2, id: 0, event: 'impact', info: '' }, `item ${typ} impact`) === 'skipevent') skip = true;
+      }
+      if (damaged && hit.cls === CLS.object && target) this.findDrops(target);
+    }
+    return skip;
   }
 
   /**
@@ -234,6 +339,8 @@ export class Weapons {
     if (rec.health <= 0) {
       rec.health = 0;
       this.kill(rec);
+    } else if (cls === CLS.unit && causer === 'player') {
+      this.d.onUnitHurt?.(rec);
     }
     return true;
   }

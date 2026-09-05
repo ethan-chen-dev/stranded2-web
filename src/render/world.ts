@@ -37,6 +37,8 @@ export interface World {
   create(cls: number, typ: number, x: number, z: number, count?: number): EntityRecord | undefined;
   /** 场景内可见的物品记录。 */
   visibleItems(): EntityRecord[];
+  /** 按定义异步创建一个不登记实体的模型实例（投射物用）。 */
+  spawnModel(cls: number, typ: number): Promise<THREE.Object3D | null>;
 }
 
 const DEG = Math.PI / 180;
@@ -84,24 +86,23 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         const mixer = inst.mixer;
         const def = rec.def;
         let current: THREE.AnimationAction | undefined;
-        const play = (name: string, loop: boolean): boolean => {
+        const play = (name: string, loop: boolean | 'pingpong'): boolean => {
           const range = def.anims.get(name) ?? (name === 'idle' ? [...def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1] : undefined);
           if (!range || model.clips.length === 0) return false;
           const clip = subclip(model.clips[0], name, range.start, range.end + 1, model.fps);
           const action = mixer.clipAction(clip);
           action.timeScale = (range.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
-          action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-          action.clampWhenFinished = !loop;
+          action.setLoop(loop === 'pingpong' ? THREE.LoopPingPong : loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+          action.clampWhenFinished = loop === false;
           current?.stop();
           action.reset().play();
           current = action;
           return true;
         };
         rec.playAnim = play;
-        if (play('idle1', true) || play('idle', true)) {
-          mixers.push(mixer);
-          rec.mixer = mixer;
-        }
+        mixers.push(mixer);
+        rec.mixer = mixer;
+        play('idle1', true) || play('idle', true);
       }
     } else {
       obj = placeholder();
@@ -171,6 +172,15 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
 
   return {
     group, registry, mixers, stats,
+    async spawnModel(cls, typ) {
+      const def = registry.defFor(cls, typ);
+      if (!def?.model) return null;
+      const model = await res.model(def.model, { fx: def.fx, color: def.color, alpha: def.alpha });
+      if (!model) return null;
+      const obj = instantiate(model).object;
+      obj.scale.set(def.scale[0], def.scale[1], def.scale[2]);
+      return obj;
+    },
     sync(rec) {
       if (rec.cls === CLS.item && rec.parentMode === STORED_INSIDE) {
         detach(rec);

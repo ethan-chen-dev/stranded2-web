@@ -65,6 +65,13 @@ export interface ScriptHost {
   /** 工地物体对应的建筑 id，不是工地为 0。 */
   builtAt(objectId: number): number;
   lastBuildingSite(): number;
+  /** AI 信号：以 (srcCls, srcId) 为源，range 内的单位按 kind 进入觅食、走向或逃跑；可限定单位类型或行为码。返回受影响数。 */
+  aiSignal(kind: string, srcCls: number, srcId: number, range: number, unitTyp?: number, behaviour?: number): number;
+  aiMode(unitId: number, mode: string, targetCls: number, targetId: number): boolean;
+  aiStay(unitId: number, on: boolean): void;
+  aiCenter(unitId: number): void;
+  /** 最近一次触发 ai_eat 的单位 id。 */
+  lastEater(): number;
   log(level: 'info' | 'warn' | 'error', msg: string): void;
   /** 游戏毫秒计时。 */
   now(): number;

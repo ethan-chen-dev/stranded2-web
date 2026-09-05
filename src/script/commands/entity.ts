@@ -1,6 +1,7 @@
 /** 实体查询与修改类指令。 */
-import type { CommandRegistry } from '../registry';
-import { ScriptRuntimeError, type Value } from '../value';
+import type { CommandRegistry, CommandContext } from '../registry';
+import { behaviourCode } from '../../game/ai';
+import { ScriptRuntimeError, toFloat, type Value } from '../value';
 import { CLASS } from '../host';
 import { classId, classOf, requireClass, int, num, str, flt, bool } from './util';
 
@@ -68,6 +69,30 @@ export function registerEntity(r: CommandRegistry): void {
     const cls = requireClass(args[0] ?? '', ctx.line);
     return ctx.host.def(cls, int(args[1] ?? '0'))?.behaviour ?? '';
   });
+  const aiSource = (ctx: CommandContext, args: Value[], i: number): { cls: number; id: number } =>
+    args[i] !== undefined ? classId(ctx, args, i) : { cls: ctx.env.cls, id: ctx.env.id };
+  r.register('ai_signal', (ctx, args) => {
+    const range = args[1] !== undefined && args[1] !== '' ? toFloat(args[1]) : 300;
+    const src = aiSource(ctx, args, 2);
+    return str(ctx.host.aiSignal(args[0] ?? '', src.cls, src.id, range));
+  });
+  r.register('ai_typesignal', (ctx, args) => {
+    const range = args[2] !== undefined && args[2] !== '' ? toFloat(args[2]) : 300;
+    const src = aiSource(ctx, args, 3);
+    return str(ctx.host.aiSignal(args[0] ?? '', src.cls, src.id, range, int(args[1] ?? '0')));
+  });
+  r.register('ai_behavioursignal', (ctx, args) => {
+    const range = args[2] !== undefined && args[2] !== '' ? toFloat(args[2]) : 300;
+    const src = aiSource(ctx, args, 3);
+    return str(ctx.host.aiSignal(args[0] ?? '', src.cls, src.id, range, undefined, behaviourCode(args[1] ?? '')));
+  });
+  r.register('ai_mode', (ctx, args) => {
+    const target = args[2] !== undefined ? classId(ctx, args, 2) : { cls: 0, id: 0 };
+    return bool(ctx.host.aiMode(int(args[0] ?? '0'), args[1] ?? '', target.cls, target.id));
+  });
+  r.register('ai_stay', (ctx, args) => { ctx.host.aiStay(int(args[0] ?? '0'), args[1] === undefined || int(args[1]) !== 0); });
+  r.register('ai_center', (ctx, args) => { ctx.host.aiCenter(args[0] !== undefined ? int(args[0]) : ctx.env.id); });
+  r.register('ai_eater', ctx => str(ctx.host.lastEater()));
   r.register('compare_behaviour', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
     const e = ctx.host.entity(cls, id);
