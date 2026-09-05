@@ -31,6 +31,8 @@ export interface EntityRecord {
   parentMode: number;
   /** 单位死亡后保留尸体，不再参与碰撞与拾取。 */
   dead?: boolean;
+  /** 播放定义里 ani_<name> 的动画片段；由 World 在创建场景对象时提供。 */
+  playAnim?: (name: string, loop: boolean) => boolean;
 }
 
 export class EntityRegistry {

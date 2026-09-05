@@ -23,6 +23,7 @@ export class InputState {
     el.addEventListener('mousedown', ev => {
       if (this.locked) this.hits.add(`Mouse${ev.button}`);
     });
+    el.addEventListener('contextmenu', ev => ev.preventDefault());
     document.addEventListener('pointerlockchange', this.onLockChange);
   }
 

@@ -17,6 +17,10 @@ export class Hud {
   private readonly processEl: HTMLElement;
   private readonly processTitle: HTMLElement;
   private readonly processFill: HTMLElement;
+  private readonly weaponEl: HTMLElement;
+  private readonly weaponIcon: HTMLImageElement;
+  private readonly weaponName: HTMLElement;
+  private readonly modeEl: HTMLElement;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -57,7 +61,17 @@ export class Hud {
     track.className = 'process-track';
     track.append(this.processFill);
     this.processEl.append(this.processTitle, track);
-    this.root.append(bars, cross, this.focusEl, this.msgEl, this.processEl, this.clockEl, this.hintEl, this.deadEl);
+    this.weaponEl = document.createElement('div');
+    this.weaponEl.className = 'weapon';
+    this.weaponIcon = document.createElement('img');
+    this.weaponIcon.alt = '';
+    this.weaponName = document.createElement('span');
+    this.weaponEl.append(this.weaponIcon, this.weaponName);
+    this.modeEl = document.createElement('div');
+    this.modeEl.className = 'mode';
+    this.modeEl.hidden = true;
+    this.root.append(bars, cross, this.focusEl, this.msgEl, this.processEl, this.clockEl, this.hintEl, this.deadEl, this.weaponEl, this.modeEl);
+    this.setWeapon(null);
     parent.append(this.root);
   }
 
@@ -94,6 +108,19 @@ export class Hud {
       this.processTitle.textContent = title;
       this.processFill.style.width = `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%`;
     }
+  }
+
+  /** 右下角手持物品；null 为徒手。 */
+  setWeapon(item: { name: string; icon?: string } | null): void {
+    this.weaponName.textContent = item ? item.name : '徒手';
+    this.weaponIcon.hidden = !item?.icon;
+    if (item?.icon) this.weaponIcon.src = item.icon;
+  }
+
+  /** 顶部中央的模式提示，例如放置建筑时的说明。 */
+  setMode(text: string | null): void {
+    this.modeEl.hidden = text === null;
+    this.modeEl.textContent = text ?? '';
   }
 
   setClock(day: number, hour: number, minute: number): void {

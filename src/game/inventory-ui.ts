@@ -1,22 +1,29 @@
-/** 背包覆盖层：按物品实体展示图标、名称、数量、重量，以及使用/吃喝/丢弃按钮。 */
+/** 背包覆盖层：物品格可多选，支持使用、吃喝、手持、丢弃与合成。 */
 import type { EntityRecord } from './entities';
 import { modUrl } from '../assets/paths';
+import type { Candidate } from './combine';
 
 export interface InventoryActions {
   items(): EntityRecord[];
   usedWeight(): number;
   maxWeight(): number;
-  /** 该物品脚本是否有某事件（决定显示哪些按钮）。 */
   hasEvent(rec: EntityRecord, event: string): boolean;
+  weaponTyp(): number;
   use(rec: EntityRecord): void;
   eat(rec: EntityRecord): void;
   drop(rec: EntityRecord): void;
+  takeInHand(rec: EntityRecord | null): void;
+  combineCandidates(selected: EntityRecord[]): Candidate[];
+  combine(candidate: Candidate, selected: EntityRecord[]): void;
 }
 
 export class InventoryUi {
   private readonly root: HTMLElement;
   private readonly grid: HTMLElement;
   private readonly footer: HTMLElement;
+  private readonly combineBar: HTMLElement;
+  private readonly choices: HTMLElement;
+  private readonly selected = new Set<number>();
   private visible = false;
 
   constructor(parent: HTMLElement, private readonly actions: InventoryActions) {
@@ -25,12 +32,16 @@ export class InventoryUi {
     this.root.hidden = true;
     const title = document.createElement('div');
     title.className = 'inv-title';
-    title.textContent = '背包（Tab 关闭）';
+    title.textContent = '背包（Tab 关闭）点击物品可多选后合成';
     this.grid = document.createElement('div');
     this.grid.className = 'inv-grid';
+    this.combineBar = document.createElement('div');
+    this.combineBar.className = 'inv-combine';
+    this.choices = document.createElement('div');
+    this.choices.className = 'inv-choices';
     this.footer = document.createElement('div');
     this.footer.className = 'inv-footer';
-    this.root.append(title, this.grid, this.footer);
+    this.root.append(title, this.grid, this.combineBar, this.choices, this.footer);
     parent.append(this.root);
   }
 
@@ -42,25 +53,43 @@ export class InventoryUi {
     this.visible = !this.visible;
     this.root.hidden = !this.visible;
     if (this.visible) this.refresh();
+    else this.selected.clear();
+  }
+
+  private selectedRecords(items: EntityRecord[]): EntityRecord[] {
+    return items.filter(r => this.selected.has(r.id));
   }
 
   refresh(): void {
     this.grid.replaceChildren();
+    this.choices.replaceChildren();
     const items = this.actions.items();
+    for (const id of [...this.selected]) if (!items.some(r => r.id === id)) this.selected.delete(id);
+    const weapon = this.actions.weaponTyp();
     for (const rec of items) {
       const def = rec.def;
       const cell = document.createElement('div');
       cell.className = 'inv-cell';
+      cell.classList.toggle('selected', this.selected.has(rec.id));
+      if (rec.typ === weapon) cell.classList.add('inhand');
+      const pick = document.createElement('div');
+      pick.className = 'inv-pick';
       if (def?.icon) {
         const img = document.createElement('img');
         img.src = encodeURI(modUrl(def.icon));
         img.alt = def.name;
-        cell.append(img);
+        pick.append(img);
       }
       const name = document.createElement('div');
       name.className = 'inv-name';
       name.textContent = `${def?.name ?? `#${rec.typ}`} × ${rec.count}`;
-      cell.append(name);
+      pick.append(name);
+      pick.addEventListener('click', () => {
+        if (this.selected.has(rec.id)) this.selected.delete(rec.id);
+        else this.selected.add(rec.id);
+        this.refresh();
+      });
+      cell.append(pick);
       const button = (label: string, fn: () => void) => {
         const b = document.createElement('button');
         b.textContent = label;
@@ -69,6 +98,8 @@ export class InventoryUi {
       };
       if (this.actions.hasEvent(rec, 'use')) button('使用', () => this.actions.use(rec));
       if (this.actions.hasEvent(rec, 'eat')) button(def?.group === 'drink' ? '喝' : '吃', () => this.actions.eat(rec));
+      if (rec.typ === weapon) button('放下', () => this.actions.takeInHand(null));
+      else button('手持', () => this.actions.takeInHand(rec));
       button('丢弃', () => this.actions.drop(rec));
       this.grid.append(cell);
     }
@@ -78,6 +109,38 @@ export class InventoryUi {
       empty.textContent = '空';
       this.grid.append(empty);
     }
+    this.combineBar.replaceChildren();
+    const sel = this.selectedRecords(items);
+    if (sel.length >= 2) {
+      const btn = document.createElement('button');
+      btn.textContent = `合成（已选 ${sel.length} 件）`;
+      btn.addEventListener('click', () => this.showCandidates(sel));
+      this.combineBar.append(btn);
+    } else if (sel.length === 1) {
+      this.combineBar.textContent = '再选一件物品可以尝试合成';
+    }
     this.footer.textContent = `重量 ${this.actions.usedWeight()} / ${this.actions.maxWeight()}`;
+  }
+
+  private showCandidates(sel: EntityRecord[]): void {
+    const cands = this.actions.combineCandidates(sel);
+    this.choices.replaceChildren();
+    if (cands.length === 0) {
+      this.choices.textContent = '这些物品无法合成';
+      return;
+    }
+    if (cands.length === 1) {
+      this.actions.combine(cands[0], sel);
+      this.selected.clear();
+      this.refresh();
+      return;
+    }
+    for (const c of cands) {
+      const b = document.createElement('button');
+      b.textContent = `${c.combi.name || c.combi.key}${c.locked ? '（未解锁）' : c.feasible ? '' : '（数量不足）'}`;
+      b.disabled = !c.feasible;
+      b.addEventListener('click', () => { this.actions.combine(c, sel); this.selected.clear(); this.refresh(); });
+      this.choices.append(b);
+    }
   }
 }

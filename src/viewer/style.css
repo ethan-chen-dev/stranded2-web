@@ -46,3 +46,14 @@ canvas.view { display: block; width: 100%; height: 100%; }
 .inv-empty { grid-column: 1 / -1; text-align: center; opacity: .7; }
 .inv-footer { margin-top: 8px; font-size: 12px; text-align: right; }
 body.play .hud, body.play .help { display: none; }
+.inv-cell.selected { outline: 2px solid #ffd766; }
+.inv-cell.inhand { background: rgba(80, 60, 20, .8); }
+.inv-pick { cursor: pointer; }
+.inv-combine { margin-top: 8px; text-align: center; font-size: 12px; }
+.inv-choices { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; }
+.weapon { position: absolute; right: 8px; bottom: 36px; display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,.5); padding: 4px 8px; border-radius: 4px; }
+.weapon img { width: 32px; height: 32px; mix-blend-mode: screen; }
+.mode { position: absolute; left: 0; right: 0; top: 130px; text-align: center; font-size: 14px; text-shadow: 0 0 3px #000; color: #ffd766; }
+.buildmenu { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; max-height: 70vh; overflow: auto; background: url('/sys/gfx/woodback.bmp') #3a2a18; border: 2px solid #6b4a2a; border-radius: 6px; padding: 10px; color: #f3e6c8; }
+.build-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+.build-reqs { font-size: 12px; opacity: .85; }

@@ -81,14 +81,26 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       const inst = instantiate(model);
       obj = inst.object;
       if (inst.mixer && rec.def) {
-        const idle = rec.def.anims.get('idle1') ?? [...rec.def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1];
-        if (idle) {
-          const clip = subclip(model.clips[0], 'idle', idle.start, idle.end, model.fps);
-          const action = inst.mixer.clipAction(clip);
-          action.timeScale = (idle.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
-          action.play();
-          mixers.push(inst.mixer);
-          rec.mixer = inst.mixer;
+        const mixer = inst.mixer;
+        const def = rec.def;
+        let current: THREE.AnimationAction | undefined;
+        const play = (name: string, loop: boolean): boolean => {
+          const range = def.anims.get(name) ?? (name === 'idle' ? [...def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1] : undefined);
+          if (!range || model.clips.length === 0) return false;
+          const clip = subclip(model.clips[0], name, range.start, range.end + 1, model.fps);
+          const action = mixer.clipAction(clip);
+          action.timeScale = (range.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
+          action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+          action.clampWhenFinished = !loop;
+          current?.stop();
+          action.reset().play();
+          current = action;
+          return true;
+        };
+        rec.playAnim = play;
+        if (play('idle1', true) || play('idle', true)) {
+          mixers.push(mixer);
+          rec.mixer = mixer;
         }
       }
     } else {
