@@ -41,8 +41,15 @@ export class InputState {
     return r;
   }
 
+  /** 指针锁定需要用户手势，且部分嵌入环境不支持；失败时保持未锁定状态。 */
   requestLock(): void {
-    if (!this.locked) this.el.requestPointerLock?.();
+    if (this.locked) return;
+    try {
+      const r = this.el.requestPointerLock?.() as { catch?: (f: () => void) => unknown } | undefined;
+      if (r && typeof r.catch === 'function') r.catch(() => undefined);
+    } catch {
+      /* 环境不支持指针锁定 */
+    }
   }
 
   release(): void {
