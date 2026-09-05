@@ -11,3 +11,35 @@ canvas.view { display: block; width: 100%; height: 100%; }
 .log-warn { color: #ffcc66; }
 .log-error { color: #ff6666; }
 .help { position: fixed; bottom: 8px; left: 8px; background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 4px; }
+
+/* 游戏模式 */
+.game-hud { position: fixed; inset: 0; pointer-events: none; }
+.game-hud .bars { position: absolute; top: 4px; left: 5px; }
+.bar-back { width: 102px; height: 7px; margin-bottom: 1px; background: url('/sys/gfx/if_barback.bmp') no-repeat; padding: 1px; box-sizing: border-box; }
+.bar-fill { height: 5px; background-repeat: no-repeat; background-position: 0 0; }
+.bar-health .bar-fill { background-image: url('/sys/gfx/progress_small.bmp'); }
+.bar-hunger .bar-fill { background-image: url('/sys/gfx/progress_hunger.bmp'); }
+.bar-thirst .bar-fill { background-image: url('/sys/gfx/progress_thirst.bmp'); }
+.bar-exhaustion .bar-fill { background-image: url('/sys/gfx/progress_exhaustion.bmp'); }
+.bar-fill.warn { animation: bar-blink 0.6s steps(1) infinite; }
+@keyframes bar-blink { 50% { opacity: 0.35; } }
+.crosshair { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; }
+.crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,.85); }
+.crosshair::before { left: 5px; top: 0; width: 2px; height: 12px; }
+.crosshair::after { top: 5px; left: 0; width: 12px; height: 2px; }
+.focus { position: absolute; left: 0; right: 0; top: 35px; text-align: center; font-size: 14px; text-shadow: 0 0 3px #000; }
+.msg { position: absolute; left: 0; right: 0; top: 60px; text-align: center; font-size: 14px; text-shadow: 0 0 3px #000; color: #8f8; }
+.msg.bad { color: #f88; }
+.clock { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.5); padding: 4px 8px; border-radius: 4px; }
+.hint { position: absolute; left: 0; right: 0; top: 45%; text-align: center; font-size: 18px; text-shadow: 0 0 4px #000; }
+.dead { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 42px; color: #f44; background: rgba(0,0,0,.5); }
+.inventory { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 560px; max-height: 70vh; overflow: auto; background: url('/sys/gfx/woodback.bmp') #3a2a18; border: 2px solid #6b4a2a; border-radius: 6px; padding: 10px; color: #f3e6c8; }
+.inv-title { font-size: 15px; margin-bottom: 8px; }
+.inv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.inv-cell { background: rgba(0,0,0,.45); padding: 6px; text-align: center; border-radius: 4px; }
+.inv-cell img { display: block; width: 40px; height: 40px; margin: 0 auto 4px; background: url('/sys/gfx/if_itemback.bmp'); mix-blend-mode: screen; }
+.inv-name { font-size: 12px; margin-bottom: 4px; }
+.inv-cell button { font-size: 11px; }
+.inv-empty { grid-column: 1 / -1; text-align: center; opacity: .7; }
+.inv-footer { margin-top: 8px; font-size: 12px; text-align: right; }
+body.play .hud, body.play .help { display: none; }

@@ -9,6 +9,9 @@ import { buildSea } from '../render/sea';
 import { buildSky, SKY_FACES, type SkyFace } from '../render/sky';
 import { buildWorld, type Defs } from '../render/world';
 import { FlyControls } from './fly-controls';
+import { GameSession } from '../game/session';
+import { Environment } from '../game/environment';
+import { parseLightcycle } from '../game/lightcycle';
 
 const DEFAULT_MAP = 'maps/adventure/map02.s2';
 
@@ -53,7 +56,9 @@ async function main(): Promise<void> {
   const select = document.createElement('select');
   const preview = document.createElement('canvas');
   const statsEl = document.createElement('pre');
-  hud.append(select, preview, statsEl);
+  const playBtn = document.createElement('button');
+  playBtn.textContent = '进入游戏';
+  hud.append(select, preview, statsEl, playBtn);
   const logEl = document.createElement('div');
   const help = document.createElement('div');
   help.className = 'help';
@@ -96,12 +101,11 @@ async function main(): Promise<void> {
   log.info(`定义 objects ${defs.objects.size} units ${defs.units.size} items ${defs.items.size}`);
   log.info(`地图 ${map.terrainSize}x${map.terrainSize} 天空 ${map.header.skybox || 'sky'} 时间 ${map.header.hour}:${map.header.minute}`);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+  scene.add(ambient);
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
   sun.position.set(1, 2, 1);
   scene.add(sun);
-  const fog = new THREE.Color(map.header.fog[0] / 255, map.header.fog[1] / 255, map.header.fog[2] / 255);
-  scene.fog = new THREE.Fog(fog, 4000, 30000);
 
   const skyName = map.header.skybox || 'sky';
   const skyTex = {} as Record<SkyFace, THREE.Texture | null>;
@@ -116,6 +120,8 @@ async function main(): Promise<void> {
 
   const world = await buildWorld(map, defs, res, log);
   scene.add(world.group);
+  const cycle = parseLightcycle(await res.text('/sys/lightcycle.inf'));
+  new Environment(scene, sky, ambient, sun, map.header.fog, cycle).apply(map.header.hour, map.header.minute);
   log.info(`实体 objects ${world.stats.objects} units ${world.stats.units} items ${world.stats.items} 缺失 ${world.stats.missing}，${Math.round(performance.now() - t0)} ms`);
 
   const player = map.units.find(u => u.typ === 1);
@@ -126,7 +132,19 @@ async function main(): Promise<void> {
   }
   camera.lookAt(0, camera.position.y - 40, 0);
   const controls = new FlyControls(camera, canvas);
-  (window as unknown as { viewer: unknown }).viewer = { scene, camera, controls, map, world, renderer, defs };
+  const debug: Record<string, unknown> = { scene, camera, controls, map, world, renderer, defs };
+  (window as unknown as { viewer: unknown }).viewer = debug;
+
+  let session: GameSession | undefined;
+  const enterPlay = async () => {
+    if (session) return;
+    session = await GameSession.create({ scene, camera, canvas, root: app, map, defs, world, res, log, sky, ambient, sun });
+    debug.session = session;
+    document.body.classList.add('play');
+    session.input.requestLock();
+  };
+  playBtn.addEventListener('click', () => { void enterPlay(); });
+  if (params.get('mode') === 'play') void enterPlay();
 
   const timer = new THREE.Timer();
   let frames = 0;
@@ -134,7 +152,8 @@ async function main(): Promise<void> {
   const loop = () => {
     timer.update();
     const dt = Math.min(timer.getDelta(), 0.1);
-    controls.update(dt);
+    if (session) session.update(dt * 1000);
+    else controls.update(dt);
     sea.update(dt);
     for (const m of world.mixers) m.update(dt);
     sky.position.copy(camera.position);
