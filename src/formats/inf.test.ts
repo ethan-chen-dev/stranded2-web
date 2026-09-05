@@ -34,6 +34,14 @@ describe('parseInf', () => {
     const grass = parseInf(readRefText('sys/objects_gras.inf')).map(toEntityDef).find(d => d.col === 0);
     expect(grass).toBeDefined();
   });
+  it('reads behaviour, material, health and vars', () => {
+    const palm = toEntityDef(parseInf(readRefText('sys/objects_palms.inf')).find(e => e.id === 1)!);
+    expect([palm.behaviour, palm.mat, palm.health, palm.group]).toEqual(['tree', 'wood', 300, 'palm']);
+    const withVar = readdirSync(`${MOD_ROOT}/sys`).filter(f => f.endsWith('.inf'))
+      .flatMap(f => parseInf(readRefText(`sys/${f}`)).map(toEntityDef)).find(d => d.vars.length > 0);
+    expect(withVar).toBeDefined();
+    expect(withVar!.vars[0].name.length).toBeGreaterThan(0);
+  });
   it('keeps repeated keys', () => {
     const tree = parseInf(readRefText('sys/objects_trees.inf')).find(e => e.id === 10)!;
     expect(tree.fields.get('find')!.length).toBe(5);

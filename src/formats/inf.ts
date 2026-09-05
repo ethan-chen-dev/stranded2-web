@@ -36,6 +36,12 @@ export interface EntityDef {
   speed: number;
   store: number;
   maxweight: number;
+  group: string;
+  behaviour: string;
+  mat: string;
+  health: number;
+  /** 定义文件里的 var=name,value 行，实体创建时初始化为局部变量。 */
+  vars: { name: string; value: string }[];
 }
 
 /**
@@ -142,6 +148,14 @@ export function toEntityDef(e: InfEntry): EntityDef {
     speed: num('speed', 0),
     store: num('store', 100),
     maxweight: num('maxweight', 0),
+    group: first('group') ?? '',
+    behaviour: first('behaviour') ?? '',
+    mat: first('mat') ?? '',
+    health: num('health', 100),
+    vars: (e.fields.get('var') ?? []).map(v => {
+      const i = v.indexOf(',');
+      return i < 0 ? { name: v.trim(), value: '0' } : { name: v.slice(0, i).trim(), value: v.slice(i + 1).trim() };
+    }),
   };
 }
 

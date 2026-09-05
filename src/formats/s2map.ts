@@ -40,6 +40,18 @@ export interface MapInfo {
   id: number; typ: number; x: number; y: number; z: number; pitch: number; yaw: number; vars: string;
 }
 
+export interface MapState {
+  typ: number; parentClass: number; parentId: number;
+  x: number; y: number; z: number; fx: number; fy: number; fz: number;
+  value: number; valueF: number; valueS: string;
+}
+
+/** 扩展记录：mode 0 实例脚本、1 全局变量、3 建筑锁、4 实体局部变量、5 技能。 */
+export interface MapExtension {
+  typ: number; parentClass: number; parentId: number; mode: number;
+  key: string; value: string; stuff: string;
+}
+
 export interface MapData {
   header: MapHeader;
   /** 96x72 RGB 预览图。 */
@@ -56,6 +68,8 @@ export interface MapData {
   units: MapUnit[];
   items: MapItem[];
   infos: MapInfo[];
+  states: MapState[];
+  extensions: MapExtension[];
 }
 
 export const PREVIEW_W = 96;
@@ -145,11 +159,33 @@ export function parseS2Map(bytes: Uint8Array): MapData {
     });
   }
 
+  const states: MapState[] = [];
+  const extensions: MapExtension[] = [];
+  if (!r.eof()) {
+    count = r.i32();
+    for (let i = 0; i < count; i++) {
+      states.push({
+        typ: r.u8(), parentClass: r.u8(), parentId: r.i32(),
+        x: r.f32(), y: r.f32(), z: r.f32(), fx: r.f32(), fy: r.f32(), fz: r.f32(),
+        value: r.i32(), valueF: r.f32(), valueS: r.bstring(),
+      });
+    }
+  }
+  if (!r.eof()) {
+    count = r.i32();
+    for (let i = 0; i < count; i++) {
+      extensions.push({
+        typ: r.u8(), parentClass: r.u8(), parentId: r.i32(), mode: r.i32(),
+        key: r.bstring(), value: r.bstring(), stuff: r.bstring(),
+      });
+    }
+  }
+
   return {
     header: {
       version, date, time, format, mode, day, hour, minute, freezeTime, skybox, multiplayer,
       climate, music, briefing, fog, quickslots,
     },
-    preview, colormapSize, colormap, terrainSize, heights, grass, objects, units, items, infos,
+    preview, colormapSize, colormap, terrainSize, heights, grass, objects, units, items, infos, states, extensions,
   };
 }

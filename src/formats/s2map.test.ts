@@ -23,6 +23,13 @@ describe('parseS2Map', () => {
       expect(h).toBeLessThanOrEqual(1);
     }
   });
+  it('parses states and extensions', () => {
+    const m = parseS2Map(readRefBytes('maps/adventure/map02.s2'));
+    expect(Array.isArray(m.states)).toBe(true);
+    const scripts = m.extensions.filter(e => e.mode === 0 && e.value.includes('on:'));
+    expect(scripts.length).toBeGreaterThan(0);
+    expect(m.header.mode).toBe('map');
+  });
   it('parses the intro map with no objects', () => {
     const m = parseS2Map(readRefBytes('maps/adventure/map01.s2'));
     expect(m.objects.length).toBe(0);
