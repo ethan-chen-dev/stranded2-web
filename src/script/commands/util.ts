@@ -4,8 +4,8 @@ import type { CommandContext } from '../registry';
 import { CLASS } from '../host';
 
 const CLASS_NAMES: Record<string, number> = {
-  object: CLASS.object, unit: CLASS.unit, item: CLASS.item, info: CLASS.info, state: CLASS.state,
-  '1': CLASS.object, '2': CLASS.unit, '3': CLASS.item, '4': CLASS.info, '5': CLASS.state,
+  global: CLASS.global, object: CLASS.object, unit: CLASS.unit, item: CLASS.item, info: CLASS.info, state: CLASS.state,
+  '1': CLASS.object, '2': CLASS.unit, '3': CLASS.item, '4': CLASS.info, '5': CLASS.state, '0': CLASS.global,
 };
 
 export function classOf(v: Value): number | undefined {

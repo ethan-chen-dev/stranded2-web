@@ -203,6 +203,11 @@ export class ScriptEngine {
   }
 
   addInstanceScript(cls: number, id: number, text: string, extend = false, origin = `instance ${cls}:${id}`): void {
+    if (cls === CLASS.global) {
+      const prev = this.mapScript?.text ?? '';
+      this.setMapScript(prev ? `${prev}\n${text}` : text, origin);
+      return;
+    }
     const key = `${cls}:${id}`;
     const prev = this.instanceScripts.get(key);
     const merged = extend && prev ? `${prev.text}\n${text}` : text;

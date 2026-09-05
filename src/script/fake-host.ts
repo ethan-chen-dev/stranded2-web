@@ -1,5 +1,9 @@
 /** 内存版 ScriptHost，供解释器与指令测试使用。 */
 import type { HostDef, HostEntity, HostPlayer, ImpactInfo, ScriptHost } from './host';
+import type { Sequence } from '../game/sequence';
+import { TextBuffer } from '../game/textbuffer';
+import type { DiaryEntry } from '../game/panels';
+import type { TakeoverFlags } from '../game/takeover';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -31,6 +35,28 @@ export class FakeHost implements ScriptHost {
   aiStay(): void { /* 无状态 */ }
   aiCenter(): void { /* 无状态 */ }
   lastEater(): number { return 0; }
+  sequence?: Sequence;
+  buffer = new TextBuffer();
+  diary: DiaryEntry[] = [];
+  boxes: { title: string; text: string }[] = [];
+  dialogues: { page: string; source: string; section?: string }[] = [];
+  uiTexts = new Map<number, string>();
+  menu = 0;
+  msgbox(title: string, text: string): void { this.boxes.push({ title, text }); this.menu = 21; }
+  dialogue(page: string, source: string, section?: string): boolean { this.dialogues.push({ page, source, section }); this.menu = 26; return true; }
+  uiText(id: number, text: string): void { if (text) this.uiTexts.set(id, text); else this.uiTexts.delete(id); }
+  uiImage(): void { /* 无界面 */ }
+  menuId(): number { return this.menu; }
+  closeMenu(): void { this.menu = 0; }
+  loadedMaps: { path: string; flags: TakeoverFlags }[] = [];
+  tookOver = false;
+  quits: string[] = [];
+  loadMap(path: string, flags: TakeoverFlags): void { this.loadedMaps.push({ path, flags }); }
+  loadMapTakeover(): boolean { return this.tookOver; }
+  quit(): void { this.quits.push('quit'); }
+  credits(): void { this.quits.push('credits'); }
+  seq(): Sequence | undefined { return this.sequence; }
+  textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source.replace(/\\/g, '/'), section); }
   impact(): ImpactInfo | null { return this.impactInfo; }
   playerWeapon(): number { return this.weapon; }
   setPlayerWeapon(typ: number): boolean { this.weapon = typ; return true; }

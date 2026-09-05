@@ -1,4 +1,9 @@
 /** 解释器访问引擎的全部能力。游戏会话实现它；测试用内存版。 */
+import type { Sequence } from '../game/sequence';
+import type { TextBuffer } from '../game/textbuffer';
+import type { DiaryEntry } from '../game/panels';
+import type { TakeoverFlags } from '../game/takeover';
+
 export const CLASS = { global: 0, object: 1, unit: 2, item: 3, info: 4, state: 5 } as const;
 export const GAME_SCRIPT_CLASS = -1;
 
@@ -101,4 +106,25 @@ export interface ScriptHost {
   useTarget(): { x: number; y: number; z: number };
   random(min: number, max: number): number;
   loadScriptFile(path: string, section?: string): string | undefined;
+  /** 文本来源：纯数字为信息点文本容器的内容，否则为文件路径与可选段名。 */
+  textSource(source: string, section?: string): string | undefined;
+  /** 当前会话的过场序列；没有会话时为 undefined，序列指令忽略。 */
+  seq(): Sequence | undefined;
+  /** loadfile/buffer/clear/add 的文本缓冲。 */
+  buffer: TextBuffer;
+  /** 日记条目，按写入顺序。 */
+  diary: DiaryEntry[];
+  msgbox(title: string, text: string): void;
+  /** 打开对话文件的指定页；找不到返回 false。 */
+  dialogue(page: string, source: string, section?: string): boolean;
+  uiText(id: number, text: string, font: number, x?: number, y?: number, align?: number): void;
+  uiImage(id: number, path: string, x: number, y: number): void;
+  menuId(): number;
+  closeMenu(): void;
+  /** 按标志收集继承数据并切换地图。 */
+  loadMap(path: string, flags: TakeoverFlags): void;
+  /** 当前地图由 loadmap 载入且带有继承数据。 */
+  loadMapTakeover(): boolean;
+  quit(): void;
+  credits(): void;
 }

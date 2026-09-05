@@ -57,3 +57,41 @@ body.play .hud, body.play .help { display: none; }
 .buildmenu { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; max-height: 70vh; overflow: auto; background: url('/sys/gfx/woodback.bmp') #3a2a18; border: 2px solid #6b4a2a; border-radius: 6px; padding: 10px; color: #f3e6c8; }
 .build-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
 .build-reqs { font-size: 12px; opacity: .85; }
+
+.seq { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.seq[hidden] { display: none; }
+.seq-bar { position: absolute; left: 0; right: 0; background: #000; }
+.seq-bar-top { top: 0; }
+.seq-bar-bottom { bottom: 0; }
+.seq-cls, .seq-fade { position: absolute; inset: 0; }
+.seq-cls[hidden], .seq-fade[hidden], .seq-image[hidden] { display: none; }
+.seq-image { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.seq-image img { display: block; }
+.seq-itxt { position: absolute; white-space: nowrap; font-size: 14px; text-shadow: 0 0 3px #000; }
+.seq-msg { position: absolute; left: 10%; right: 10%; text-align: center; font-size: 16px; text-shadow: 0 0 4px #000; }
+.seq-msg-bottom { bottom: 8vh; }
+.seq-msg-top { top: 5vh; }
+.seq-msg-middle { top: 50%; transform: translateY(-50%); }
+
+.panels { position: fixed; inset: 0; pointer-events: none; }
+.panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 560px; max-height: 75vh; display: flex; flex-direction: column; background: url('/sys/gfx/woodback.bmp') #3a2a18; border: 2px solid #6b4a2a; border-radius: 6px; padding: 10px; color: #f3e6c8; pointer-events: auto; }
+.panel[hidden] { display: none; }
+.panel-title { font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.2); padding-bottom: 4px; }
+.panel-main { display: flex; gap: 10px; min-height: 0; flex: 1; }
+.panel-side { width: 160px; max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.panel-side[hidden] { display: none; }
+.panel-entry { text-align: left; font-size: 12px; }
+.panel-body { flex: 1; max-height: 50vh; overflow: auto; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.panel-buttons { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.ui-texts, .ui-images { position: absolute; inset: 0; pointer-events: none; }
+.ui-text { position: absolute; white-space: nowrap; font-size: 14px; text-shadow: 0 0 3px #000; }
+.ui-image { position: absolute; }
+
+.mainmenu { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 360px; max-height: 80vh; overflow: auto; background: url('/sys/gfx/woodback.bmp') #3a2a18; border: 2px solid #6b4a2a; border-radius: 6px; padding: 16px; color: #f3e6c8; z-index: 5; }
+.mainmenu[hidden] { display: none; }
+.menu-title { font-size: 22px; text-align: center; margin-bottom: 12px; }
+.menu-body { display: flex; flex-direction: column; gap: 8px; }
+.menu-btn { font-size: 14px; padding: 6px 10px; }
+.menu-row { display: flex; gap: 6px; }
+.menu-row .menu-btn:first-child { flex: 1; }
+.menu-input { flex: 1; font-size: 14px; padding: 4px 6px; }

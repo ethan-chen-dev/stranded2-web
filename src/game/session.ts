@@ -27,6 +27,13 @@ import { GameScriptHost } from './script-host';
 import { Weapons } from './weapons';
 import { AiSystem } from './ai';
 import { Projectiles } from './projectiles';
+import { Sequence } from './sequence';
+import { SequenceUi } from './sequence-ui';
+import { Panels } from './panels';
+import { parseDialogue } from '../formats/dialogue';
+import { collectTakeover, applyTakeover, stashTakeover, popTakeover } from './takeover';
+import { playUrl, MENU_URL, PauseMenu, loadSaveUrl } from './menu-ui';
+import { snapshot, restore, saveGame, loadGame, listSaves, QUICKSAVE, type Snapshot } from './savegame';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -47,6 +54,8 @@ export interface SessionOptions {
   ambient: THREE.AmbientLight;
   sun: THREE.DirectionalLight;
   listFiles(dir: string): Promise<string[]>;
+  /** 读档：创建后按快照恢复，只触发 load 事件。 */
+  restore?: Snapshot;
 }
 
 const DEG = Math.PI / 180;
@@ -56,6 +65,8 @@ const PLAYER_TYP = 1;
 const SPAWN_INFO_TYP = 1;
 const TEXT_CONTAINER_INFO_TYP = 37;
 const PLACE_DISTANCE = 60;
+/** 按 E 对物体或单位触发 use 事件的距离。 */
+const USE_ENTITY_RANGE = 60;
 
 interface ProcessState {
   title: string;
@@ -96,6 +107,12 @@ export class GameSession {
   readonly weapons: Weapons;
   readonly ai: AiSystem;
   readonly projectiles: Projectiles;
+  readonly sequence: Sequence;
+  private readonly seqUi: SequenceUi;
+  readonly panels: Panels;
+  readonly pauseMenu: PauseMenu;
+  /** 本地图由 loadmap 带数据载入。 */
+  private tookOver = false;
   readonly combine: Combine;
   readonly build: Build;
   readonly tools: Tools;
@@ -120,8 +137,9 @@ export class GameSession {
     assignGroups(combinations);
     const files = new Map<string, string>();
     const scriptFiles = (await o.listFiles('sys/scripts')).filter(f => f.toLowerCase().endsWith('.s2s')).map(f => `sys/scripts/${f}`);
-    const mapScript = o.mapPath.replace(/\.s2$/i, '.s2s');
-    for (const f of [...scriptFiles, mapScript]) {
+    const mapDir = o.mapPath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+    const mapScripts = (await o.listFiles(mapDir)).filter(f => f.toLowerCase().endsWith('.s2s')).map(f => `${mapDir}/${f}`);
+    for (const f of [...scriptFiles, mapScripts.length ? mapScripts : [o.mapPath.replace(/\.s2$/i, '.s2s')]].flat()) {
       try {
         files.set(f.toLowerCase(), await o.res.text('/' + f));
       } catch {
@@ -223,6 +241,65 @@ export class GameSession {
     };
     this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
     this.host.lastEater = () => this.ai.lastEater;
+    this.sequence = new Sequence({
+      now: () => this.gameMs,
+      cameraNow: () => {
+        const eye = this.player.eye();
+        return { x: eye.x, y: eye.y, z: -eye.z, pitch: -this.player.pitch / DEG, yaw: this.player.yaw / DEG };
+      },
+      info: id => {
+        const rec = registry.get(CLS.info, id);
+        return rec ? { x: rec.x, y: rec.y, z: rec.z, pitch: rec.pitch, yaw: rec.yaw } : undefined;
+      },
+      entityPos: (cls, id) => {
+        const rec = cls === CLS.unit && id === PLAYER_ID ? this.playerRec : registry.get(cls, id);
+        return rec ? { x: rec.x, y: rec.y, z: rec.z } : undefined;
+      },
+      terrainY,
+      globalEvent: name => this.engine.globalEvent(name),
+      entityEvent: (cls, id, name) => this.engine.entityEvent(cls, id, name),
+      runScript: (text, origin) => { this.engine.runText(text, { cls: 0, id: 0, event: 'sequence', info: 'triggered by seqscript command' }, origin); },
+      sound: (file, volume) => this.sounds.play(file, volume * 100),
+      loadText: src => this.host.textSource(src),
+      log: msg => o.log.warn(msg),
+    });
+    this.host.seq = () => this.sequence;
+    this.seqUi = new SequenceUi(o.root);
+    this.panels = new Panels(o.root, {
+      runScript: (text, origin) => { this.engine.runText(text, { cls: 0, id: 0, event: 'dialogue', info: origin }, origin); this.engine.update(0); },
+      globalEvent: name => { this.engine.globalEvent(name); this.engine.update(0); },
+      log: msg => o.log.warn(msg),
+    });
+    this.pauseMenu = new PauseMenu(o.root, {
+      resume: () => { this.pauseMenu.close(); this.syncLock(); },
+      save: name => { this.save(name); },
+      saves: () => listSaves(),
+      quickSaveName: QUICKSAVE,
+    });
+    this.host.msgbox = (title, text) => { this.panels.msgbox(title, text); this.syncLock(); };
+    this.host.dialogue = (page, source, section) => {
+      const text = this.host.textSource(source, section);
+      if (text === undefined) return false;
+      const ok = this.panels.dialogue(parseDialogue(text), page);
+      if (ok) this.syncLock();
+      return ok;
+    };
+    this.host.uiText = (id, text, font, x, y, align) => this.panels.uiText(id, text, font, x, y, align);
+    this.host.uiImage = (id, path, x, y) => this.panels.uiImage(id, path, x, y);
+    this.host.menuId = () => (this.sequence.active ? 100 : this.panels.menuId());
+    this.host.closeMenu = () => { this.panels.close(); this.syncLock(); };
+    this.host.loadMap = (path, flags) => {
+      stashTakeover(collectTakeover({ registry, playerId: PLAYER_ID, weaponTyp: this.weapons.weaponTyp, engine: this.engine, diary: this.host.diary, locks: this.host.locks }, flags));
+      location.assign(playUrl(path.replace(/\\/g, '/')));
+    };
+    this.host.loadMapTakeover = () => this.tookOver;
+    this.host.quit = () => location.assign(MENU_URL);
+    this.host.credits = () => {
+      void o.res.text('/sys/credits.inf').catch(() => '').then(text => {
+        this.panels.msgbox('Credits', text, () => location.assign(MENU_URL));
+        this.syncLock();
+      });
+    };
     this.host.impact = () => this.weapons.impact;
     this.host.playerWeapon = () => this.weapons.weaponTyp;
     this.host.setPlayerWeapon = typ => { const ok = this.weapons.takeInHand(typ); this.refreshWeaponHud(); return ok; };
@@ -261,7 +338,24 @@ export class GameSession {
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
     o.log.info(`游戏模式：出生点 ${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${(-pos.z).toFixed(0)}，可碰撞物体 ${this.collider.items.length}，合成 ${combinations.length} 条，建筑 ${buildings.length} 条，脚本 ${this.engine.syntaxErrors.length} 处语法错误`);
 
-    this.engine.globalEvent('start');
+    const takeover = popTakeover();
+    if (takeover && (takeover.items.length || takeover.vars.length || takeover.diary.length || takeover.states.length || takeover.locks.length || takeover.weapon)) {
+      applyTakeover({ registry, playerId: PLAYER_ID, engine: this.engine, diary: this.host.diary, locks: this.host.locks, takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); } }, takeover);
+      this.tookOver = true;
+    }
+    if (o.restore) {
+      restore({
+        registry, engine: this.engine, world: o.world, playerId: PLAYER_ID, now: this.gameMs, clock: this.clock, stats: this.stats,
+        setPlayer: p => { this.player.position.set(p.x, p.y, -p.z); this.player.yaw = p.yaw * DEG; this.player.pitch = -p.pitch * DEG; },
+        takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); },
+        diary: this.host.diary, locks: this.host.locks, setBuffer: text => this.host.buffer.set(text),
+      }, o.restore);
+      this.env.apply(this.clock.hour, this.clock.minute);
+      this.player.applyTo(o.camera);
+      o.log.info(`读档：${o.restore.savedAt}，${o.restore.entities.length} 个实体`);
+    } else {
+      this.engine.globalEvent('start');
+    }
     this.engine.globalEvent('load');
   }
 
@@ -316,7 +410,7 @@ export class GameSession {
   }
 
   private overlayOpen(): boolean {
-    return this.invUi.open || this.buildUi.open;
+    return this.invUi.open || this.buildUi.open || this.panels.paused || this.pauseMenu.open;
   }
 
   private startProcess(title: string, ms: number, event: string, onDone?: () => void): void {
@@ -325,19 +419,38 @@ export class GameSession {
   }
 
   update(dtMs: number): void {
+    const input = this.input;
+    if (this.panels.paused || this.pauseMenu.open) {
+      if (input.hit('Escape')) {
+        if (this.pauseMenu.open) this.pauseMenu.close();
+        else this.panels.close();
+      }
+      input.consumeLook();
+      if (!this.panels.paused && !this.pauseMenu.open) this.syncLock();
+      this.hud.showHint(false);
+      input.endFrame();
+      return;
+    }
     this.gameMs += dtMs;
     const now = performance.now();
-    const input = this.input;
     const frozen = this.process !== null;
+    const inSeq = this.sequence.active;
     if (!this.stats.dead) {
-      if (input.hit('Tab')) {
+      if (inSeq && input.hit('Escape')) this.sequence.skip();
+      if (input.hit('KeyT') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary); this.syncLock(); }
+      if (input.hit('Tab') && !inSeq) {
         if (this.buildUi.open) this.buildUi.close();
         this.invUi.toggle();
         this.syncLock();
       }
-      if (input.hit('KeyB')) this.toggleBuildMenu();
-      if (input.hit('Escape') && this.placing) this.stopPlacing();
-      const canAct = !this.overlayOpen() && input.locked && !frozen;
+      if (input.hit('KeyB') && !inSeq) this.toggleBuildMenu();
+      if (input.hit('Escape')) {
+        if (this.placing) this.stopPlacing();
+        else if (!inSeq && !this.overlayOpen()) { this.pauseMenu.show(); this.syncLock(); }
+      }
+      if (input.hit('F5') && !inSeq) this.save(QUICKSAVE);
+      if (input.hit('F9') && !inSeq && loadGame(QUICKSAVE)) location.assign(loadSaveUrl(QUICKSAVE));
+      const canAct = !this.overlayOpen() && input.locked && !frozen && !inSeq;
       if (canAct) {
         const look = input.consumeLook();
         this.player.update(dtMs, now, {
@@ -408,9 +521,17 @@ export class GameSession {
     }
 
     this.player.applyTo(this.o.camera);
+    this.sequence.update(dtMs);
+    if (this.sequence.active) {
+      const c = this.sequence.camera;
+      this.o.camera.position.set(c.x, c.y, -c.z);
+      this.o.camera.quaternion.setFromEuler(new THREE.Euler(-c.pitch * DEG, c.yaw * DEG, 0, 'YXZ'));
+    }
+    this.seqUi.render(this.sequence);
+    this.hud.setVisible(!this.sequence.active);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
-    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead);
+    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active);
     input.endFrame();
   }
 
@@ -536,6 +657,12 @@ export class GameSession {
       this.collect(target);
       return;
     }
+    const hit = this.weapons.pick(USE_ENTITY_RANGE);
+    if (hit && !hit.ground && (hit.cls === CLS.unit || hit.cls === CLS.object)) {
+      this.engine.runNow(hit.cls, hit.id, 'use');
+      this.engine.update(0);
+      return;
+    }
     const aim = this.aimGround();
     if (!aim) return;
     this.useTargetPos = aim.point;
@@ -627,6 +754,22 @@ export class GameSession {
     else this.weapons.kill(rec);
   }
 
+  /** 当前状态的存档快照。 */
+  snapshot(): Snapshot {
+    const p = this.player.position;
+    return snapshot({
+      mapPath: this.o.mapPath, registry: this.o.world.registry, engine: this.engine, now: this.gameMs,
+      clock: { day: this.clock.day, hour: this.clock.hour, minute: this.clock.minute },
+      player: { x: p.x, y: p.y, z: -p.z, yaw: this.player.yaw / DEG, pitch: -this.player.pitch / DEG },
+      stats: this.stats, weapon: this.weapons.weaponTyp, diary: this.host.diary, locks: this.host.locks, buffer: this.host.buffer.value,
+    });
+  }
+
+  save(name: string): void {
+    const ok = saveGame(name, this.snapshot());
+    this.hud.message(ok ? `已保存到 ${name}` : '保存失败', ok ? 1 : 2);
+  }
+
   /** 调试：把时钟拨到指定时间并立即应用光照。 */
   setTime(hour: number, minute: number): void {
     this.clock.set(hour, minute);
@@ -635,6 +778,8 @@ export class GameSession {
 
   dispose(): void {
     this.input.release();
+    this.seqUi.dispose();
+    this.panels.dispose();
     this.hud.dispose();
   }
 }

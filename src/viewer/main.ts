@@ -12,6 +12,8 @@ import { FlyControls } from './fly-controls';
 import { GameSession } from '../game/session';
 import { Environment } from '../game/environment';
 import { parseLightcycle } from '../game/lightcycle';
+import { MainMenu } from '../game/menu-ui';
+import { listSaves, deleteSave, loadGame } from '../game/savegame';
 
 const DEFAULT_MAP = 'maps/adventure/map02.s2';
 
@@ -67,7 +69,10 @@ async function main(): Promise<void> {
   const log = new Log(logEl);
 
   const params = new URLSearchParams(location.search);
-  const mapPath = params.get('map') ?? DEFAULT_MAP;
+  const saveName = params.get('save');
+  const restoreSnap = saveName ? loadGame(saveName) : null;
+  if (saveName && !restoreSnap) log.error(`存档 ${saveName} 不存在或已损坏`);
+  const mapPath = restoreSnap?.mapPath ?? params.get('map') ?? DEFAULT_MAP;
   const maps = await listFiles('maps');
   for (const m of maps.filter(f => f.endsWith('.s2'))) {
     const opt = document.createElement('option');
@@ -139,13 +144,19 @@ async function main(): Promise<void> {
   let session: GameSession | undefined;
   const enterPlay = async () => {
     if (session) return;
-    session = await GameSession.create({ scene, camera, canvas, root: app, map, mapPath, defs, world, res, log, sky, ambient, sun, listFiles });
+    session = await GameSession.create({ scene, camera, canvas, root: app, map, mapPath, defs, world, res, log, sky, ambient, sun, listFiles, restore: restoreSnap ?? undefined });
     debug.session = session;
     document.body.classList.add('play');
     session.input.requestLock();
   };
   playBtn.addEventListener('click', () => { void enterPlay(); });
   if (params.get('mode') === 'play') void enterPlay();
+  const menu = new MainMenu(app, {
+    maps: async () => (await listFiles('maps')).filter(f => f.toLowerCase().endsWith('.s2')).map(f => `maps/${f}`),
+    saves: () => listSaves(),
+    deleteSave: name => deleteSave(name),
+  });
+  if (params.get('menu') === '1' || (saveName && !restoreSnap) || (!params.has('map') && !params.has('mode') && !params.has('save'))) menu.show();
 
   const timer = new THREE.Timer();
   let frames = 0;
