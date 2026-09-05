@@ -339,7 +339,7 @@ export class GameSession {
     o.log.info(`游戏模式：出生点 ${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${(-pos.z).toFixed(0)}，可碰撞物体 ${this.collider.items.length}，合成 ${combinations.length} 条，建筑 ${buildings.length} 条，脚本 ${this.engine.syntaxErrors.length} 处语法错误`);
 
     const takeover = popTakeover();
-    if (takeover) {
+    if (takeover && (takeover.items.length || takeover.vars.length || takeover.diary.length || takeover.states.length || takeover.locks.length || takeover.weapon)) {
       applyTakeover({ registry, playerId: PLAYER_ID, engine: this.engine, diary: this.host.diary, locks: this.host.locks, takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); } }, takeover);
       this.tookOver = true;
     }

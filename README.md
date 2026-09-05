@@ -10,7 +10,9 @@ Stranded II（Unreal Software，2007，Blitz3D）的浏览器复刻，TypeScript
 - 子项目 4 物品使用与合成建造：手持物品、徒手与刀类近战攻击（`attack1`/`hit`/`impact`/`kill` 事件流、`find=` 掉落、`loot=`、武器状态）、右键工具动作（锤子建造、铲子挖掘、鱼竿钓鱼）、背包多选合成（`combinations*.inf`、相似分组、锁）、建筑菜单与工地建造（`buildings.inf`、放置约束、逐件投料、`build`/`build_finish` 事件、锁）。
 - 子项目 5 单位 AI 与战斗：按原版 `ai_units.bb` 的行为码与模式状态机让动物游荡、返回活动中心、胆小行为逃跑、捕食者追击并攻击玩家；受击反应、驯养（`tame` 状态）、觅食与 `ai_signal`/`ai_mode`/`ai_stay`/`ai_center`/`ai_eater` 指令；陆地、水中、空中三类物理。远程武器（弓、弹弓、发射器）与火器消耗 `ammo:<武器类型>` 弹药，投掷类把手持物品投出；投射物按 `speed`/`drag` 飞行，命中走与近战相同的伤害与 `impact` 事件流，`throw` 类落地变回物品，15 秒超时消失。
 
-后续子项目：战役与序列、随机岛与编辑器。
+- 子项目 6 战役与序列：主菜单（冒险、单个岛屿、读取存档）与暂停菜单；原版 `game_sequences.bb` 的过场序列（`seqstart`、字幕、黑边、淡入淡出、闪光、图片、`setcam`/`movecam`/`campath`/`cammode`/`camfollow` 镜头、`seqevent`/`seqscript`、Escape 跳过）；`loadmap` 地图切换与背包、武器、变量、日记、状态、建筑锁的继承（`loadmaptakeover`）；`msgbox`、`dialogue`（对话文件解析、按钮跳页与脚本）、`diary`（T 键日记）、`text`/`image` 界面槽、`loadfile`/`buffer`/`clear`/`add` 文本缓冲；存档为 localStorage 的 JSON 快照（实体、状态、定时器、变量、日记、锁、时钟、玩家），F5/F9 快速存读档。
+
+后续子项目：随机岛与编辑器。
 
 ## 准备参考资料
 

@@ -20,7 +20,7 @@ export function registerUi(r: CommandRegistry): void {
   r.register('addscript', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
     const source = args[next] ?? '';
-    const text = source.includes('.') ? ctx.host.loadScriptFile(source.replace(/\\/g, '/'), args[next + 1]) : source;
+    const text = source.includes('.') || /^\d+$/.test(source.trim()) ? ctx.host.textSource(source, args[next + 1]) : source;
     if (text === undefined) {
       ctx.host.log('warn', `addscript: 找不到脚本 ${source}`);
       return;
@@ -30,7 +30,7 @@ export function registerUi(r: CommandRegistry): void {
   r.register('extendscript', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
     const source = args[next] ?? '';
-    const text = source.includes('.') ? ctx.host.loadScriptFile(source.replace(/\\/g, '/'), args[next + 1]) : source;
+    const text = source.includes('.') || /^\d+$/.test(source.trim()) ? ctx.host.textSource(source, args[next + 1]) : source;
     if (text === undefined) {
       ctx.host.log('warn', `extendscript: 找不到脚本 ${source}`);
       return;

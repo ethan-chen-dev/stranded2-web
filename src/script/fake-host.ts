@@ -56,7 +56,7 @@ export class FakeHost implements ScriptHost {
   quit(): void { this.quits.push('quit'); }
   credits(): void { this.quits.push('credits'); }
   seq(): Sequence | undefined { return this.sequence; }
-  textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source, section); }
+  textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source.replace(/\\/g, '/'), section); }
   impact(): ImpactInfo | null { return this.impactInfo; }
   playerWeapon(): number { return this.weapon; }
   setPlayerWeapon(typ: number): boolean { this.weapon = typ; return true; }
