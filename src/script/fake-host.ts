@@ -63,6 +63,17 @@ export class FakeHost implements ScriptHost {
   freeUnitPath(unitId: number): void { this.paths = this.paths.filter(p => p.unitId !== unitId); }
   setTrigger(id: number, on: boolean): boolean { this.triggers.push([id, on]); return true; }
   stopTriggers(): void { this.triggers.push([-1, false]); }
+  exchanges: { cls: number; id: number; allowStore: boolean; only: number[] }[] = [];
+  exchange(cls: number, id: number, allowStore: boolean, only: number[]): void { this.exchanges.push({ cls, id, allowStore, only }); }
+  storage(): number { return 0; }
+  freeSpace(): boolean { return true; }
+  shownEntries: string[] = [];
+  showEntry(title: string): void { this.shownEntries.push(title); }
+  alterObject(id: number, typ: number): boolean { const e = this.ents.find(x => x.cls === 1 && x.id === id); if (!e) return false; e.typ = typ; return true; }
+  revive(unitId: number): boolean { const e = this.ents.find(x => x.cls === 2 && x.id === unitId); if (!e) return false; e.health = e.healthMax; return true; }
+  projectiles: unknown[] = [];
+  fireProjectile(o: unknown): boolean { this.projectiles.push(o); return true; }
+  inView(): boolean { return true; }
   seq(): Sequence | undefined { return this.sequence; }
   textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source.replace(/\\/g, '/'), section); }
   impact(): ImpactInfo | null { return this.impactInfo; }

@@ -32,6 +32,7 @@ import { SequenceUi } from './sequence-ui';
 import { Panels } from './panels';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
+import { ExchangeUi } from './exchange-ui';
 import { parseDialogue } from '../formats/dialogue';
 import { collectTakeover, applyTakeover, stashTakeover, popTakeover } from './takeover';
 import { playUrl, MENU_URL, PauseMenu, loadSaveUrl } from './menu-ui';
@@ -115,6 +116,7 @@ export class GameSession {
   readonly pauseMenu: PauseMenu;
   readonly unitPaths: UnitPaths;
   readonly triggers: Triggers;
+  readonly exchangeUi: ExchangeUi;
   /** 本地图由 loadmap 带数据载入。 */
   private tookOver = false;
   readonly combine: Combine;
@@ -242,6 +244,55 @@ export class GameSession {
     this.host.freeUnitPath = unitId => this.unitPaths.free(unitId);
     this.host.setTrigger = (id, on) => (on ? this.triggers.start(id) : this.triggers.stop(id));
     this.host.stopTriggers = () => this.triggers.stopAll();
+    this.exchangeUi = new ExchangeUi(o.root);
+    this.host.exchange = (cls, id, allowStore, only) => this.openExchange(cls, id, allowStore, only);
+    this.host.showEntry = title => { this.panels.openDiary(this.host.diary, this.host.skills.entries(), title); this.syncLock(); };
+    this.host.alterObject = (id, typ) => {
+      const rec = registry.get(CLS.object, id);
+      if (!rec || !registry.defFor(CLS.object, typ)) return false;
+      const { x, y, z, yaw } = rec;
+      o.world.remove(rec);
+      const made = registry.make(CLS.object, typ, x, y, z, 1, id);
+      made.yaw = yaw;
+      o.world.sync(made);
+      return true;
+    };
+    this.host.revive = unitId => {
+      const rec = registry.get(CLS.unit, unitId);
+      if (!rec) return false;
+      const health = rec.def?.health ?? 100;
+      rec.dead = false;
+      rec.health = health;
+      rec.healthMax = health;
+      rec.ai = undefined;
+      rec.playAnim?.('idle1', true) || rec.playAnim?.('idle', true);
+      if (unitId === PLAYER_ID) {
+        this.stats.health = this.stats.healthMax;
+        this.hud.hideDead();
+      }
+      return true;
+    };
+    this.host.fireProjectile = p => {
+      const target = p.targetCls === CLS.unit && p.targetId === PLAYER_ID ? this.playerRec : registry.get(p.targetCls, p.targetId);
+      if (!target) return false;
+      const ty = target.y - (p.targetCls === CLS.unit ? (target.def?.colyr ?? 0) / 2 : 0);
+      const dx = target.x - p.x;
+      const dy = ty - p.y;
+      const dz = target.z - p.z;
+      this.projectiles.fire({
+        typ: p.typ, weaponTyp: p.weaponTyp || p.typ, ammoTyp: p.typ, spawner: 0, x: p.x, y: p.y, z: p.z,
+        yaw: Math.atan2(-dx, dz) / DEG, pitch: -Math.atan2(dy, Math.hypot(dx, dz)) / DEG, speed: p.speed, drag: p.drag, damage: p.damage,
+      });
+      return true;
+    };
+    this.host.inView = (cls, id) => {
+      const rec = registry.get(cls, id);
+      if (!rec) return false;
+      const dir = o.camera.getWorldDirection(new THREE.Vector3());
+      const to = new THREE.Vector3(rec.x, rec.y, -rec.z).sub(o.camera.getWorldPosition(new THREE.Vector3()));
+      if (to.lengthSq() === 0) return true;
+      return dir.dot(to.normalize()) > Math.cos((o.camera.fov * DEG) / 2 * 1.3);
+    };
     this.host.aiSignal = (kind, srcCls, srcId, range, unitTyp, behaviour) =>
       this.ai.signal(kind, srcCls, srcId, range, rec => (unitTyp === undefined || rec.typ === unitTyp) && (behaviour === undefined || this.ai.code(rec) === behaviour));
     this.host.aiMode = (unitId, mode, targetCls, targetId) => {
@@ -430,7 +481,7 @@ export class GameSession {
   }
 
   private overlayOpen(): boolean {
-    return this.invUi.open || this.buildUi.open || this.panels.paused || this.pauseMenu.open;
+    return this.invUi.open || this.buildUi.open || this.panels.paused || this.pauseMenu.open || this.exchangeUi.open;
   }
 
   private startProcess(title: string, ms: number, event: string, onDone?: () => void): void {
@@ -440,13 +491,14 @@ export class GameSession {
 
   update(dtMs: number): void {
     const input = this.input;
-    if (this.panels.paused || this.pauseMenu.open) {
+    if (this.panels.paused || this.pauseMenu.open || this.exchangeUi.open) {
       if (input.hit('Escape')) {
         if (this.pauseMenu.open) this.pauseMenu.close();
+        else if (this.exchangeUi.open) this.exchangeUi.close();
         else this.panels.close();
       }
       input.consumeLook();
-      if (!this.panels.paused && !this.pauseMenu.open) this.syncLock();
+      if (!this.panels.paused && !this.pauseMenu.open && !this.exchangeUi.open) this.syncLock();
       this.hud.showHint(false);
       input.endFrame();
       return;
@@ -776,6 +828,36 @@ export class GameSession {
     else this.weapons.kill(rec);
   }
 
+  /** 打开与容器的交换界面；单件移动，放入受容器承重限制。 */
+  private openExchange(cls: number, id: number, allowStore: boolean, only: number[]): void {
+    const registry = this.o.world.registry;
+    const holder = registry.get(cls, id);
+    if (!holder) return;
+    const p = this.player.position;
+    this.exchangeUi.show({
+      title: () => holder.def?.name ?? '容器',
+      playerItems: () => registry.storedIn(CLS.unit, PLAYER_ID),
+      containerItems: () => registry.storedIn(cls, id),
+      move: (item, toContainer) => {
+        const [fromCls, fromId, toCls, toId] = toContainer ? [CLS.unit, PLAYER_ID, cls, id] : [cls, id, CLS.unit, PLAYER_ID];
+        const loose = registry.unstore(item.id, 1, p.x, p.y, -p.z);
+        if (!loose) return false;
+        if (registry.store(loose.id, toCls, toId) > 0) return true;
+        registry.store(loose.id, fromCls, fromId);
+        this.hud.message('没有空间了', 2);
+        return false;
+      },
+      name: typ => this.o.defs.items.get(typ)?.name ?? `#${typ}`,
+      icon: typ => { const icon = this.o.defs.items.get(typ)?.icon; return icon ? encodeURI(modUrl(icon)) : undefined; },
+      capacity: () => {
+        const max = holder.def?.maxweight ?? 0;
+        return max > 0 ? `容器承重 ${registry.usedWeight(cls, id)} / ${max}` : '';
+      },
+      onClose: () => { this.refreshWeaponHud(); this.syncLock(); },
+    }, allowStore, only);
+    this.syncLock();
+  }
+
   /** 当前状态的存档快照。 */
   snapshot(): Snapshot {
     const p = this.player.position;
@@ -803,6 +885,7 @@ export class GameSession {
     this.input.release();
     this.seqUi.dispose();
     this.panels.dispose();
+    this.exchangeUi.dispose();
     this.hud.dispose();
   }
 }

@@ -139,6 +139,10 @@ export class Hud {
     this.deadEl.hidden = false;
   }
 
+  hideDead(): void {
+    this.deadEl.hidden = true;
+  }
+
   dispose(): void {
     this.root.remove();
   }
