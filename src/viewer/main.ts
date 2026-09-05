@@ -126,12 +126,14 @@ async function main(): Promise<void> {
   }
   camera.lookAt(0, camera.position.y - 40, 0);
   const controls = new FlyControls(camera, canvas);
+  (window as unknown as { viewer: unknown }).viewer = { scene, camera, controls, map, world, renderer, defs };
 
-  const clock = new THREE.Clock();
+  const timer = new THREE.Timer();
   let frames = 0;
   let fpsTime = 0;
   const loop = () => {
-    const dt = Math.min(clock.getDelta(), 0.1);
+    timer.update();
+    const dt = Math.min(timer.getDelta(), 0.1);
     controls.update(dt);
     sea.update(dt);
     for (const m of world.mixers) m.update(dt);

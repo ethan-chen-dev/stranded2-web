@@ -106,13 +106,13 @@ function makeMaterial(
 
   const params: THREE.MeshLambertMaterialParameters = {
     color: new THREE.Color(brush.color[0], brush.color[1], brush.color[2]).multiply(tint),
-    map: map ?? undefined,
     side: effects & FX_TWO_SIDED ? THREE.DoubleSide : THREE.FrontSide,
     vertexColors: (effects & FX_VERTEX_COLORS) !== 0,
     transparent: opacity < 1 || (!!texDef && (texDef.flags & TEX_ALPHA) !== 0),
     opacity,
     alphaTest: cutout ? 0.5 : 0,
   };
+  if (map) params.map = map;
   return effects & FX_FULLBRIGHT ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
 }
 

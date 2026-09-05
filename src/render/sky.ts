@@ -32,9 +32,10 @@ export function buildSky(textures: Record<SkyFace, THREE.Texture | null>): THREE
       tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
     }
     const mat = new THREE.MeshBasicMaterial({
-      map: tex ?? undefined, color: tex ? 0xffffff : 0x88aadd,
+      color: tex ? 0xffffff : 0x88aadd,
       side: THREE.DoubleSide, depthWrite: false, depthTest: false, fog: false,
     });
+    if (tex) mat.map = tex;
     const mesh = new THREE.Mesh(g, mat);
     mesh.renderOrder = -1000;
     mesh.frustumCulled = false;

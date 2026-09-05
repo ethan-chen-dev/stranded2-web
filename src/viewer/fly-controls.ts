@@ -24,6 +24,12 @@ export class FlyControls {
     el.tabIndex = 0;
   }
 
+  /** 直接设置视角，角度为弧度。 */
+  look(yaw: number, pitch: number): void {
+    this.yaw = yaw;
+    this.pitch = pitch;
+  }
+
   update(dt: number): void {
     this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
     const v = new THREE.Vector3();

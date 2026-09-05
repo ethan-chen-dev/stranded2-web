@@ -1,4 +1,7 @@
-/** 按地图实体列表查定义、取模型、实例化并摆放。 */
+/**
+ * 按地图实体列表查定义、取模型、实例化并摆放。
+ * 原版前进方向为 (-Sin yaw, Cos yaw)，即正 yaw 在左手系里向左转；z 镜像后对应 Three 的 rotation.y = +yaw。
+ */
 import * as THREE from 'three';
 import type { MapData } from '../formats/s2map';
 import type { EntityDef } from '../formats/inf';
@@ -27,6 +30,12 @@ export interface World {
 }
 
 const DEG = Math.PI / 180;
+
+/** 原版每次循环推进 speed*f 帧，f 为循环毫秒/20，等价于 speed*50 帧每秒。 */
+const BLITZ_FRAMES_PER_SECOND = 50;
+
+/** parent_mode 为 1 的物品存放在容器或背包里，没有可见模型；掉落在世界的物品每帧下落并吸附到地面。 */
+const ITEM_STORED_INSIDE = 1;
 
 function placeholder(): THREE.Object3D {
   return new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
@@ -63,7 +72,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         if (idle) {
           const clip = subclip(model.clips[0], 'idle', idle.start, idle.end, model.fps);
           const action = inst.mixer.clipAction(clip);
-          action.timeScale = (idle.speed * 1000) / model.fps;
+          action.timeScale = (idle.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
           action.play();
           mixers.push(inst.mixer);
         }
@@ -73,7 +82,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       stats.missing++;
     }
     obj.position.set(x, y, -z);
-    obj.rotation.y = -yaw * DEG;
+    obj.rotation.y = yaw * DEG;
     if (def) obj.scale.set(def.scale[0], def.scale[1], def.scale[2]);
     group.add(obj);
   };
@@ -91,8 +100,9 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     stats.units++;
   }
   for (const it of map.items) {
+    if (it.parentMode === ITEM_STORED_INSIDE) continue;
     const { def, model } = await modelFor('item', defs.items, it.typ);
-    place(model, def, it.x, it.y, it.z, it.yaw);
+    place(model, def, it.x, worldHeight(map, it.x, it.z), it.z, it.yaw);
     stats.items++;
   }
   return { group, mixers, stats };
