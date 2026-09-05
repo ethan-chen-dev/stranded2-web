@@ -10,6 +10,8 @@ import type { Hud } from './hud';
 import type { Sounds } from './sounds';
 import type { Log } from '../viewer/log';
 import type { Sequence } from './sequence';
+import { TextBuffer } from './textbuffer';
+import type { DiaryEntry } from './panels';
 
 export interface HostDeps {
   world: World;
@@ -39,6 +41,14 @@ export class GameScriptHost implements ScriptHost {
   aiCenter: (unitId: number) => void = () => undefined;
   lastEater: () => number = () => 0;
   seq: () => Sequence | undefined = () => undefined;
+  readonly buffer = new TextBuffer();
+  readonly diary: DiaryEntry[] = [];
+  msgbox: (title: string, text: string) => void = () => undefined;
+  dialogue: (page: string, source: string, section?: string) => boolean = () => false;
+  uiText: (id: number, text: string, font: number, x?: number, y?: number, align?: number) => void = () => undefined;
+  uiImage: (id: number, path: string, x: number, y: number) => void = () => undefined;
+  menuId: () => number = () => 0;
+  closeMenu: () => void = () => undefined;
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;

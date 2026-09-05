@@ -29,6 +29,8 @@ import { AiSystem } from './ai';
 import { Projectiles } from './projectiles';
 import { Sequence } from './sequence';
 import { SequenceUi } from './sequence-ui';
+import { Panels } from './panels';
+import { parseDialogue } from '../formats/dialogue';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -58,6 +60,8 @@ const PLAYER_TYP = 1;
 const SPAWN_INFO_TYP = 1;
 const TEXT_CONTAINER_INFO_TYP = 37;
 const PLACE_DISTANCE = 60;
+/** 按 E 对物体或单位触发 use 事件的距离。 */
+const USE_ENTITY_RANGE = 60;
 
 interface ProcessState {
   title: string;
@@ -100,6 +104,7 @@ export class GameSession {
   readonly projectiles: Projectiles;
   readonly sequence: Sequence;
   private readonly seqUi: SequenceUi;
+  readonly panels: Panels;
   readonly combine: Combine;
   readonly build: Build;
   readonly tools: Tools;
@@ -251,6 +256,23 @@ export class GameSession {
     });
     this.host.seq = () => this.sequence;
     this.seqUi = new SequenceUi(o.root);
+    this.panels = new Panels(o.root, {
+      runScript: (text, origin) => { this.engine.runText(text, { cls: 0, id: 0, event: 'dialogue', info: origin }, origin); this.engine.update(0); },
+      globalEvent: name => { this.engine.globalEvent(name); this.engine.update(0); },
+      log: msg => o.log.warn(msg),
+    });
+    this.host.msgbox = (title, text) => { this.panels.msgbox(title, text); this.syncLock(); };
+    this.host.dialogue = (page, source, section) => {
+      const text = this.host.textSource(source, section);
+      if (text === undefined) return false;
+      const ok = this.panels.dialogue(parseDialogue(text), page);
+      if (ok) this.syncLock();
+      return ok;
+    };
+    this.host.uiText = (id, text, font, x, y, align) => this.panels.uiText(id, text, font, x, y, align);
+    this.host.uiImage = (id, path, x, y) => this.panels.uiImage(id, path, x, y);
+    this.host.menuId = () => (this.sequence.active ? 100 : this.panels.menuId());
+    this.host.closeMenu = () => { this.panels.close(); this.syncLock(); };
     this.host.impact = () => this.weapons.impact;
     this.host.playerWeapon = () => this.weapons.weaponTyp;
     this.host.setPlayerWeapon = typ => { const ok = this.weapons.takeInHand(typ); this.refreshWeaponHud(); return ok; };
@@ -344,7 +366,7 @@ export class GameSession {
   }
 
   private overlayOpen(): boolean {
-    return this.invUi.open || this.buildUi.open;
+    return this.invUi.open || this.buildUi.open || this.panels.paused;
   }
 
   private startProcess(title: string, ms: number, event: string, onDone?: () => void): void {
@@ -353,13 +375,22 @@ export class GameSession {
   }
 
   update(dtMs: number): void {
+    const input = this.input;
+    if (this.panels.paused) {
+      if (input.hit('Escape')) this.panels.close();
+      input.consumeLook();
+      if (!this.panels.paused) this.syncLock();
+      this.hud.showHint(false);
+      input.endFrame();
+      return;
+    }
     this.gameMs += dtMs;
     const now = performance.now();
-    const input = this.input;
     const frozen = this.process !== null;
     const inSeq = this.sequence.active;
     if (!this.stats.dead) {
       if (inSeq && input.hit('Escape')) this.sequence.skip();
+      if (input.hit('KeyT') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary); this.syncLock(); }
       if (input.hit('Tab') && !inSeq) {
         if (this.buildUi.open) this.buildUi.close();
         this.invUi.toggle();
@@ -574,6 +605,12 @@ export class GameSession {
       this.collect(target);
       return;
     }
+    const hit = this.weapons.pick(USE_ENTITY_RANGE);
+    if (hit && !hit.ground && (hit.cls === CLS.unit || hit.cls === CLS.object)) {
+      this.engine.runNow(hit.cls, hit.id, 'use');
+      this.engine.update(0);
+      return;
+    }
     const aim = this.aimGround();
     if (!aim) return;
     this.useTargetPos = aim.point;
@@ -674,6 +711,7 @@ export class GameSession {
   dispose(): void {
     this.input.release();
     this.seqUi.dispose();
+    this.panels.dispose();
     this.hud.dispose();
   }
 }

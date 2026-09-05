@@ -1,6 +1,8 @@
 /** 内存版 ScriptHost，供解释器与指令测试使用。 */
 import type { HostDef, HostEntity, HostPlayer, ImpactInfo, ScriptHost } from './host';
 import type { Sequence } from '../game/sequence';
+import { TextBuffer } from '../game/textbuffer';
+import type { DiaryEntry } from '../game/panels';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -33,6 +35,18 @@ export class FakeHost implements ScriptHost {
   aiCenter(): void { /* 无状态 */ }
   lastEater(): number { return 0; }
   sequence?: Sequence;
+  buffer = new TextBuffer();
+  diary: DiaryEntry[] = [];
+  boxes: { title: string; text: string }[] = [];
+  dialogues: { page: string; source: string; section?: string }[] = [];
+  uiTexts = new Map<number, string>();
+  menu = 0;
+  msgbox(title: string, text: string): void { this.boxes.push({ title, text }); this.menu = 21; }
+  dialogue(page: string, source: string, section?: string): boolean { this.dialogues.push({ page, source, section }); this.menu = 26; return true; }
+  uiText(id: number, text: string): void { if (text) this.uiTexts.set(id, text); else this.uiTexts.delete(id); }
+  uiImage(): void { /* 无界面 */ }
+  menuId(): number { return this.menu; }
+  closeMenu(): void { this.menu = 0; }
   seq(): Sequence | undefined { return this.sequence; }
   textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source, section); }
   impact(): ImpactInfo | null { return this.impactInfo; }
