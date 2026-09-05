@@ -3,6 +3,7 @@ import type { HostDef, HostEntity, HostPlayer, ImpactInfo, ScriptHost } from './
 import type { Sequence } from '../game/sequence';
 import { TextBuffer } from '../game/textbuffer';
 import type { DiaryEntry } from '../game/panels';
+import type { TakeoverFlags } from '../game/takeover';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -47,6 +48,13 @@ export class FakeHost implements ScriptHost {
   uiImage(): void { /* 无界面 */ }
   menuId(): number { return this.menu; }
   closeMenu(): void { this.menu = 0; }
+  loadedMaps: { path: string; flags: TakeoverFlags }[] = [];
+  tookOver = false;
+  quits: string[] = [];
+  loadMap(path: string, flags: TakeoverFlags): void { this.loadedMaps.push({ path, flags }); }
+  loadMapTakeover(): boolean { return this.tookOver; }
+  quit(): void { this.quits.push('quit'); }
+  credits(): void { this.quits.push('credits'); }
   seq(): Sequence | undefined { return this.sequence; }
   textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source, section); }
   impact(): ImpactInfo | null { return this.impactInfo; }

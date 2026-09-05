@@ -2,6 +2,7 @@
 import type { CommandRegistry, CommandContext } from '../registry';
 import { classId, int, num, str, bool } from './util';
 import type { Value } from '../value';
+import { parseFlags } from '../../game/takeover';
 
 export function registerUi(r: CommandRegistry): void {
   r.register('msg', (ctx, args) => {
@@ -91,6 +92,10 @@ export function registerUi(r: CommandRegistry): void {
   r.register('image', (ctx, args) => {
     ctx.host.uiImage(int(args[0] ?? '0'), args[1] ?? '', num(args[2] ?? '0'), num(args[3] ?? '0'));
   });
+  r.register('loadmap', (ctx, args) => { ctx.host.loadMap(args[0] ?? '', parseFlags(args.slice(1).map(String))); });
+  r.register('loadmaptakeover', ctx => bool(ctx.host.loadMapTakeover()));
+  r.register('quit', ctx => { ctx.host.quit(); });
+  r.register('credits', ctx => { ctx.host.credits(); });
   r.register('seqstart', (ctx, args) => { ctx.host.seq()?.start(int(args[0] ?? '1'), int(args[1] ?? '0')); });
   r.register('seqtimemode', (ctx, args) => { ctx.host.seq()?.timeMode(num(args[0] ?? '1'), int(args[1] ?? '1')); });
   const SEQ_EVENTS: [string | string[], string][] = [

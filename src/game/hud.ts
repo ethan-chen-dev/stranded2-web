@@ -46,7 +46,7 @@ export class Hud {
     this.clockEl.className = 'clock';
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'hint';
-    this.hintEl.textContent = '点击画面开始';
+    this.hintEl.textContent = '点击画面开始（Esc 菜单，Tab 背包，B 建造，T 日记，F5/F9 快速存读档）';
     this.deadEl = document.createElement('div');
     this.deadEl.className = 'dead';
     this.deadEl.textContent = '你死了';

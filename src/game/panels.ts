@@ -83,9 +83,9 @@ export class Panels {
     this.box.hidden = true;
   }
 
-  msgbox(title: string, text: string): void {
+  msgbox(title: string, text: string, onClose?: () => void): void {
     this.show(MENU_MSGBOX, title, text, false);
-    this.buttonsEl.replaceChildren(this.button('确定', () => this.close()));
+    this.buttonsEl.replaceChildren(this.button('确定', () => { this.close(); onClose?.(); }));
   }
 
   dialogue(pages: Map<string, DialoguePage>, page: string): boolean {

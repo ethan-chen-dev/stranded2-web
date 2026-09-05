@@ -2,6 +2,7 @@
 import type { Sequence } from '../game/sequence';
 import type { TextBuffer } from '../game/textbuffer';
 import type { DiaryEntry } from '../game/panels';
+import type { TakeoverFlags } from '../game/takeover';
 
 export const CLASS = { global: 0, object: 1, unit: 2, item: 3, info: 4, state: 5 } as const;
 export const GAME_SCRIPT_CLASS = -1;
@@ -120,4 +121,10 @@ export interface ScriptHost {
   uiImage(id: number, path: string, x: number, y: number): void;
   menuId(): number;
   closeMenu(): void;
+  /** 按标志收集继承数据并切换地图。 */
+  loadMap(path: string, flags: TakeoverFlags): void;
+  /** 当前地图由 loadmap 载入且带有继承数据。 */
+  loadMapTakeover(): boolean;
+  quit(): void;
+  credits(): void;
 }

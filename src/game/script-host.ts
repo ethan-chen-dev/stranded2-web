@@ -12,6 +12,7 @@ import type { Log } from '../viewer/log';
 import type { Sequence } from './sequence';
 import { TextBuffer } from './textbuffer';
 import type { DiaryEntry } from './panels';
+import type { TakeoverFlags } from './takeover';
 
 export interface HostDeps {
   world: World;
@@ -49,6 +50,10 @@ export class GameScriptHost implements ScriptHost {
   uiImage: (id: number, path: string, x: number, y: number) => void = () => undefined;
   menuId: () => number = () => 0;
   closeMenu: () => void = () => undefined;
+  loadMap: (path: string, flags: TakeoverFlags) => void = () => undefined;
+  loadMapTakeover: () => boolean = () => false;
+  quit: () => void = () => undefined;
+  credits: () => void = () => undefined;
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;

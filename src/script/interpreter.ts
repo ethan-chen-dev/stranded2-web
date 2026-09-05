@@ -103,6 +103,16 @@ export class VarStore {
     this.locals.delete(this.key(cls, id));
   }
 
+  /** 全部实体局部变量，供存档使用。 */
+  localEntries(): { cls: number; id: number; vars: [string, Value][] }[] {
+    const out: { cls: number; id: number; vars: [string, Value][] }[] = [];
+    for (const [key, m] of this.locals) {
+      const [cls, id] = key.split(':').map(Number);
+      out.push({ cls, id, vars: [...m.entries()] });
+    }
+    return out;
+  }
+
   freeGlobals(): void {
     this.globals.clear();
   }
