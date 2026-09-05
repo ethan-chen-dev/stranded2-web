@@ -69,6 +69,7 @@ export function makeTestWorld(defs: Defs, map = flatMap()): TestWorld {
       return rec;
     },
     visibleItems: () => registry.all(CLS.item).filter(r => r.parentMode !== STORED_INSIDE),
+    spawnModel: async () => null,
   };
   const log = { info: (m: string) => logs.push(`info: ${m}`), warn: (m: string) => logs.push(`warn: ${m}`), error: (m: string) => logs.push(`error: ${m}`) } as unknown as Log;
   const sound = new Sounds();

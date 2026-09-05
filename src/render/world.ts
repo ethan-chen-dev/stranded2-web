@@ -37,6 +37,8 @@ export interface World {
   create(cls: number, typ: number, x: number, z: number, count?: number): EntityRecord | undefined;
   /** 场景内可见的物品记录。 */
   visibleItems(): EntityRecord[];
+  /** 按定义异步创建一个不登记实体的模型实例（投射物用）。 */
+  spawnModel(cls: number, typ: number): Promise<THREE.Object3D | null>;
 }
 
 const DEG = Math.PI / 180;
@@ -170,6 +172,15 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
 
   return {
     group, registry, mixers, stats,
+    async spawnModel(cls, typ) {
+      const def = registry.defFor(cls, typ);
+      if (!def?.model) return null;
+      const model = await res.model(def.model, { fx: def.fx, color: def.color, alpha: def.alpha });
+      if (!model) return null;
+      const obj = instantiate(model).object;
+      obj.scale.set(def.scale[0], def.scale[1], def.scale[2]);
+      return obj;
+    },
     sync(rec) {
       if (rec.cls === CLS.item && rec.parentMode === STORED_INSIDE) {
         detach(rec);

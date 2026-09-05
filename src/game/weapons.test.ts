@@ -28,6 +28,7 @@ function setup(): void {
       [28, testDef({ id: 28, name: 'Axe', weight: 1000, damage: 10, rate: 700, behaviour: 'blade' })],
       [30, testDef({ id: 30, name: 'Torch', weight: 300, damage: 2, behaviour: 'torch', weaponstate: 'fire' })],
       [50, testDef({ id: 50, name: 'Bow', behaviour: 'bow' })],
+      [51, testDef({ id: 51, name: 'Flute', behaviour: 'flute' })],
     ]),
   });
   tw.engine.stateTypes.set('fire', 4);
@@ -148,10 +149,14 @@ describe('Weapons', () => {
     expect(g('rk')).toBe('1');
     expect(tw.dead[0]).toBe(raptor);
   });
-  it('reports unsupported ranged weapons and blocks on skipevent', () => {
+  it('bow without ammo is blocked, unknown weapon types are unsupported, skipevent blocks', () => {
     const bow = tw.registry.make(CLS.item, 50, 0, 0, 0, 1);
     tw.registry.store(bow.id, CLS.unit, 1);
     w.takeInHand(50);
+    expect(w.attack1()).toBe('blocked');
+    const flute = tw.registry.make(CLS.item, 51, 0, 0, 0, 1);
+    tw.registry.store(flute.id, CLS.unit, 1);
+    w.takeInHand(51);
     expect(w.attack1()).toBe('unsupported');
     w.unequip();
     tw.engine.setTypeScript(CLS.unit, 1, 'on:attack1 { skipevent; }', 'units');
