@@ -110,7 +110,8 @@ export class Triggers {
     this.acc -= TRIGGER_INTERVAL_MS;
     const now = this.d.clock();
     const last = this.last ?? now;
-    for (const t of this.list.values()) {
+    for (const t of [...this.list.values()]) {
+      if (!this.d.registry.get(CLS.info, t.id)) { this.list.delete(t.id); continue; }
       switch (t.typ) {
         case AREA_TRIGGER:
           if (t.floats[1] !== 1) break;

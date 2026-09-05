@@ -146,6 +146,10 @@ describe('Triggers', () => {
     trig.stopAll();
     tick();
     expect(g('t')).toBe('2');
-    expect(trig.states()).toEqual([[1, 0], [2, 0], [3, 0], [4, 0]]);
+    trig.start(2);
+    tw.registry.remove(CLS.info, 2);
+    tick(3);
+    expect(g('t')).toBe('2');
+    expect(trig.states().map(x => x[0])).toEqual([1, 3, 4]);
   });
 });

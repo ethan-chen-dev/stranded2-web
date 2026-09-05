@@ -12,7 +12,9 @@ Stranded II（Unreal Software，2007，Blitz3D）的浏览器复刻，TypeScript
 
 - 子项目 6 战役与序列：主菜单（冒险、单个岛屿、读取存档）与暂停菜单；原版 `game_sequences.bb` 的过场序列（`seqstart`、字幕、黑边、淡入淡出、闪光、图片、`setcam`/`movecam`/`campath`/`cammode`/`camfollow` 镜头、`seqevent`/`seqscript`、Escape 跳过）；`loadmap` 地图切换与背包、武器、变量、日记、状态、建筑锁的继承（`loadmaptakeover`）；`msgbox`、`dialogue`（对话文件解析、按钮跳页与脚本）、`diary`（T 键日记）、`text`/`image` 界面槽、`loadfile`/`buffer`/`clear`/`add` 文本缓冲；存档为 localStorage 的 JSON 快照（实体、状态、定时器、变量、日记、锁、时钟、玩家），F5/F9 快速存读档。
 
-后续子项目：随机岛与编辑器。
+- 战役收尾：技能（`incskill`/`skillvalue`，随地图切换与存档保留，日记面板可查看）、单位路径（`unitpath`，开场的船沿信息点航行）、触发器信息点（区域、时间、物品计数、AI 区域，`starttrigger`/`stoptrigger`）、容器交换界面（`exchange`、`storage`、`freespace`）、`extendentry`/`showentry`、`def_override`/`def_extend`、`alterobject`、`revive`、`projectile`、`inview`，以及 `music` 循环音乐与地图背景音乐。
+
+后续可选：随机岛（原版 `randommap.bb`）与地图编辑器。
 
 ## 准备参考资料
 
