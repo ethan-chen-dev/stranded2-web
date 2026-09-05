@@ -25,6 +25,8 @@ import { ScriptEngine } from '../script/engine';
 import { createRegistry } from '../script/commands';
 import { GameScriptHost } from './script-host';
 import { Weapons } from './weapons';
+import { AiSystem } from './ai';
+import { Projectiles } from './projectiles';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -92,6 +94,8 @@ export class GameSession {
   readonly host: GameScriptHost;
   readonly playerRec: EntityRecord;
   readonly weapons: Weapons;
+  readonly ai: AiSystem;
+  readonly projectiles: Projectiles;
   readonly combine: Combine;
   readonly build: Build;
   readonly tools: Tools;
@@ -187,7 +191,38 @@ export class GameSession {
       eye: () => o.camera.getWorldPosition(new THREE.Vector3()), dir: () => o.camera.getWorldDirection(new THREE.Vector3()),
       terrainY: (x, zThree) => this.ground.heightAt(x, zThree), message, sound,
       onUnitDied: rec => this.unitDied(rec),
+      onUnitHurt: rec => this.ai.onHurt(rec),
     });
+    this.projectiles = new Projectiles({
+      registry, world: o.world, engine: this.engine, weapons: this.weapons, playerId: PLAYER_ID,
+      terrainY, now: () => this.gameMs, model: typ => o.world.spawnModel(CLS.item, typ),
+    });
+    this.weapons.launcher = this.projectiles;
+    this.ai = new AiSystem({
+      registry, engine: this.engine, world: o.world, playerId: PLAYER_ID,
+      player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z, alive: !this.stats.dead, underwater: this.player.eye().y < SEA_LEVEL }),
+      terrainY,
+      blocked: (rec, dx, dz) => this.unitBlocked(rec, dx, dz),
+      damagePlayer: (amount, by) => this.playerHurt(amount, by),
+      damageEntity: (cls, id, amount) => { this.weapons.damage(cls, id, amount, 'other'); },
+      random: (a, b) => this.host.random(a, b),
+    });
+    this.host.aiSignal = (kind, srcCls, srcId, range, unitTyp, behaviour) =>
+      this.ai.signal(kind, srcCls, srcId, range, rec => (unitTyp === undefined || rec.typ === unitTyp) && (behaviour === undefined || this.ai.code(rec) === behaviour));
+    this.host.aiMode = (unitId, mode, targetCls, targetId) => {
+      const rec = registry.get(CLS.unit, unitId);
+      return rec ? this.ai.command(rec, mode, targetCls, targetId) : false;
+    };
+    this.host.aiStay = (unitId, on) => {
+      const rec = registry.get(CLS.unit, unitId);
+      if (!rec) return;
+      const stick = this.engine.stateType('ai_stick');
+      if (on) { if (!this.engine.states.has(CLS.unit, unitId, stick)) this.engine.states.add(CLS.unit, unitId, stick); }
+      else this.engine.states.free(CLS.unit, unitId, stick);
+      this.ai.stay(rec, on);
+    };
+    this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
+    this.host.lastEater = () => this.ai.lastEater;
     this.host.impact = () => this.weapons.impact;
     this.host.playerWeapon = () => this.weapons.weaponTyp;
     this.host.setPlayerWeapon = typ => { const ok = this.weapons.takeInHand(typ); this.refreshWeaponHud(); return ok; };
@@ -362,6 +397,8 @@ export class GameSession {
     }
 
     this.engine.update(dtMs);
+    this.ai.update(dtMs, this.gameMs);
+    this.projectiles.update(dtMs);
 
     this.focusAcc += dtMs;
     if (this.focusAcc >= FOCUS_INTERVAL_MS) {
@@ -452,7 +489,7 @@ export class GameSession {
   private attack1(): void {
     const r = this.weapons.attack1();
     this.engine.update(0);
-    if (r === 'hit' || r === 'miss') this.refreshWeaponHud();
+    if (r !== 'cooldown') this.refreshWeaponHud();
   }
 
   private attack2(): void {
@@ -557,6 +594,26 @@ export class GameSession {
     if (!this.weapons.weaponItem()) {
       this.weapons.unequip();
       this.refreshWeaponHud();
+    }
+  }
+
+  /** 单位沿 (dx, dz)（Blitz 坐标）移动时被物体挡住超过一半距离。 */
+  private unitBlocked(rec: EntityRecord, dx: number, dz: number): boolean {
+    const def = rec.def;
+    const delta = new THREE.Vector3(dx, 0, -dz);
+    const resolved = this.collider.resolveMove(new THREE.Vector3(rec.x, rec.y, -rec.z), delta, def?.colxr ?? 10, def?.colyr ?? 10);
+    return resolved.length() < delta.length() * 0.5;
+  }
+
+  /** 单位攻击玩家：扣生命、提示与音效；生命归零时进入死亡画面。 */
+  private playerHurt(amount: number, by: EntityRecord): void {
+    if (this.stats.dead) return;
+    this.stats.health = Math.max(0, this.stats.health - amount);
+    this.hud.message(`${by.def?.name ?? '单位'} 攻击了你，失去 ${amount} 点生命`, 2);
+    this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
+    if (this.stats.dead) {
+      this.hud.showDead();
+      this.input.release();
     }
   }
 
