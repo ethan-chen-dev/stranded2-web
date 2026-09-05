@@ -84,24 +84,23 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         const mixer = inst.mixer;
         const def = rec.def;
         let current: THREE.AnimationAction | undefined;
-        const play = (name: string, loop: boolean): boolean => {
+        const play = (name: string, loop: boolean | 'pingpong'): boolean => {
           const range = def.anims.get(name) ?? (name === 'idle' ? [...def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1] : undefined);
           if (!range || model.clips.length === 0) return false;
           const clip = subclip(model.clips[0], name, range.start, range.end + 1, model.fps);
           const action = mixer.clipAction(clip);
           action.timeScale = (range.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
-          action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-          action.clampWhenFinished = !loop;
+          action.setLoop(loop === 'pingpong' ? THREE.LoopPingPong : loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+          action.clampWhenFinished = loop === false;
           current?.stop();
           action.reset().play();
           current = action;
           return true;
         };
         rec.playAnim = play;
-        if (play('idle1', true) || play('idle', true)) {
-          mixers.push(mixer);
-          rec.mixer = mixer;
-        }
+        mixers.push(mixer);
+        rec.mixer = mixer;
+        play('idle1', true) || play('idle', true);
       }
     } else {
       obj = placeholder();

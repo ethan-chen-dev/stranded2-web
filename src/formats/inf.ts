@@ -59,6 +59,14 @@ export interface EntityDef {
   /** 攻击冷却毫秒。 */
   rate: number;
   attackrange: number;
+  /** 陆地转向速度，度每 f。 */
+  turnspeed: number;
+  /** 活动中心半径与追击距离。 */
+  range: number;
+  /** 移动动画循环播放；为 0 时往返播放。 */
+  loopmoveani: number;
+  /** 投射物每 f 的俯角增量。 */
+  drag: number;
   /** 命中目标时附加的状态名，空串为无。 */
   weaponstate: string;
   /** 命中物体时掉落的百分比概率。 */
@@ -182,6 +190,10 @@ export function toEntityDef(e: InfEntry): EntityDef {
     damage: num('damage', 0),
     rate: num('rate', 500),
     attackrange: num('attackrange', 45),
+    turnspeed: num('turnspeed', 2),
+    range: num('range', 300),
+    loopmoveani: num('loopmoveani', 0),
+    drag: num('drag', 0),
     weaponstate: first('weaponstate') ?? '',
     findratio: num('findratio', 30),
     finds: (e.fields.get('find') ?? []).map(v => {

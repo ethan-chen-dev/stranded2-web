@@ -5,6 +5,7 @@
  */
 import type * as THREE from 'three';
 import type { EntityDef } from '../formats/inf';
+import type { UnitAiState } from './ai';
 import type { Defs } from '../render/world';
 
 export const CLS = { global: 0, object: 1, unit: 2, item: 3, info: 4, state: 5 } as const;
@@ -31,8 +32,10 @@ export interface EntityRecord {
   parentMode: number;
   /** 单位死亡后保留尸体，不再参与碰撞与拾取。 */
   dead?: boolean;
-  /** 播放定义里 ani_<name> 的动画片段；由 World 在创建场景对象时提供。 */
-  playAnim?: (name: string, loop: boolean) => boolean;
+  /** 播放定义里 ani_<name> 的动画片段；由 World 在创建场景对象时提供。loop 为 'pingpong' 时往返播放。 */
+  playAnim?: (name: string, loop: boolean | 'pingpong') => boolean;
+  /** 非玩家单位的 AI 状态，由 AiSystem 初始化。 */
+  ai?: UnitAiState;
 }
 
 export class EntityRegistry {

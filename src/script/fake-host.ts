@@ -24,6 +24,13 @@ export class FakeHost implements ScriptHost {
   infoRadius(id: number): number { return this.radii.get(id) ?? 0; }
   builtAt(objectId: number): number { return this.sites.get(objectId) ?? 0; }
   lastBuildingSite(): number { return 0; }
+  signals: { kind: string; srcCls: number; srcId: number; range: number; unitTyp?: number; behaviour?: number }[] = [];
+  aiSignal(kind: string, srcCls: number, srcId: number, range: number, unitTyp?: number, behaviour?: number): number { this.signals.push({ kind, srcCls, srcId, range, unitTyp, behaviour }); return 1; }
+  aiModes: { unitId: number; mode: string; targetCls: number; targetId: number }[] = [];
+  aiMode(unitId: number, mode: string, targetCls: number, targetId: number): boolean { this.aiModes.push({ unitId, mode, targetCls, targetId }); return true; }
+  aiStay(): void { /* 无状态 */ }
+  aiCenter(): void { /* 无状态 */ }
+  lastEater(): number { return 0; }
   impact(): ImpactInfo | null { return this.impactInfo; }
   playerWeapon(): number { return this.weapon; }
   setPlayerWeapon(typ: number): boolean { this.weapon = typ; return true; }

@@ -32,6 +32,11 @@ export class GameScriptHost implements ScriptHost {
   catalog = { combis: [] as string[], buildings: [] as number[] };
   builtAt: (objectId: number) => number = () => 0;
   lastBuildingSite: () => number = () => 0;
+  aiSignal: (kind: string, srcCls: number, srcId: number, range: number, unitTyp?: number, behaviour?: number) => number = () => 0;
+  aiMode: (unitId: number, mode: string, targetCls: number, targetId: number) => boolean = () => false;
+  aiStay: (unitId: number, on: boolean) => void = () => undefined;
+  aiCenter: (unitId: number) => void = () => undefined;
+  lastEater: () => number = () => 0;
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;
