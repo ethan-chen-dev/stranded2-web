@@ -32,6 +32,7 @@ describe('savegame', () => {
       mapPath: 'maps/adventure/map02.s2', registry: a.registry, engine: a.engine, now: 1000,
       clock: { day: 3, hour: 14, minute: 30 }, player: { x: 1, y: 2, z: 3, yaw: 45, pitch: -5 },
       stats: { health: 77, hunger: 10, thirst: 20, exhaustion: 30 }, weapon: 7, diary: a.host.diary, locks: a.host.locks, buffer: a.host.buffer.value,
+      skills: [{ name: 'wood', value: 4, caption: 'Lumbering' }], triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }],
     });
     const json = JSON.parse(JSON.stringify(snap));
     expect(json.entities.length).toBe(5);
@@ -40,13 +41,17 @@ describe('savegame', () => {
     const b = world();
     b.world.create(CLS.object, 1, 900, 900);
     let placed: unknown = null;
+    const restored: { triggers?: unknown; paths?: unknown } = {};
     const hands: number[] = [];
     restore({
       registry: b.registry, engine: b.engine, world: b.world, playerId: 1, now: 5000,
       clock: b.clock, stats: b.stats,
       setPlayer: p => { placed = p; }, takeInHand: t => { hands.push(t); },
       diary: b.host.diary, locks: b.host.locks, setBuffer: t => b.host.buffer.set(t),
+      setSkills: e => b.host.skills.load(e), setTriggers: st => { restored.triggers = st; }, setPaths: p => { restored.paths = p; },
     }, json);
+    expect(b.host.skills.value('wood')).toBe(4);
+    expect(restored).toEqual({ triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }] });
     expect(b.registry.all(CLS.object).map(r => [r.id, r.x, r.health])).toEqual([[palm.id, 100, 4]]);
     expect(b.registry.get(CLS.unit, 30)?.dead).toBe(true);
     expect(b.registry.get(CLS.unit, 1)?.health).toBe(77);

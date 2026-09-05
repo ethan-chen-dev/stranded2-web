@@ -7,6 +7,7 @@ import type { ScriptEngine } from '../script/engine';
 import type { World } from '../render/world';
 import type { DiaryEntry } from './panels';
 import type { SaveInfo } from './menu-ui';
+import type { SkillEntry } from './skills';
 
 export const SAVE_PREFIX = 'stranded2:save:';
 export const QUICKSAVE = 'QUICKSAVE';
@@ -36,6 +37,9 @@ export interface Snapshot {
   diary: DiaryEntry[];
   locks: string[];
   buffer: string;
+  skills: SkillEntry[];
+  triggers: [number, number][];
+  paths: { unitId: number; nodes: number[] }[];
 }
 
 export interface SnapshotSource {
@@ -51,6 +55,9 @@ export interface SnapshotSource {
   diary: DiaryEntry[];
   locks: Set<string>;
   buffer: string;
+  skills: SkillEntry[];
+  triggers: [number, number][];
+  paths: { unitId: number; nodes: number[] }[];
 }
 
 export interface RestoreTarget {
@@ -66,6 +73,9 @@ export interface RestoreTarget {
   diary: DiaryEntry[];
   locks: Set<string>;
   setBuffer(text: string): void;
+  setSkills(entries: SkillEntry[]): void;
+  setTriggers(states: [number, number][]): void;
+  setPaths(paths: { unitId: number; nodes: number[] }[]): void;
 }
 
 export function snapshot(s: SnapshotSource): Snapshot {
@@ -95,6 +105,9 @@ export function snapshot(s: SnapshotSource): Snapshot {
     diary: s.diary.map(e => ({ ...e })),
     locks: [...s.locks],
     buffer: s.buffer,
+    skills: s.skills,
+    triggers: s.triggers,
+    paths: s.paths,
   };
 }
 
@@ -140,6 +153,9 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
   t.locks.clear();
   for (const k of snap.locks) t.locks.add(k);
   t.setBuffer(snap.buffer);
+  t.setSkills(snap.skills ?? []);
+  t.setTriggers(snap.triggers ?? []);
+  t.setPaths(snap.paths ?? []);
   t.clock.day = snap.clock.day;
   t.clock.hour = snap.clock.hour;
   t.clock.minute = snap.clock.minute;

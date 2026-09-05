@@ -4,6 +4,7 @@ import type { Sequence } from '../game/sequence';
 import { TextBuffer } from '../game/textbuffer';
 import type { DiaryEntry } from '../game/panels';
 import type { TakeoverFlags } from '../game/takeover';
+import { Skills } from '../game/skills';
 
 export class FakeHost implements ScriptHost {
   readonly logs: string[] = [];
@@ -55,6 +56,13 @@ export class FakeHost implements ScriptHost {
   loadMapTakeover(): boolean { return this.tookOver; }
   quit(): void { this.quits.push('quit'); }
   credits(): void { this.quits.push('credits'); }
+  skills = new Skills();
+  paths: { unitId: number; nodes: number[] }[] = [];
+  triggers: [number, boolean][] = [];
+  unitPath(unitId: number, nodes: number[]): void { this.paths.push({ unitId, nodes }); }
+  freeUnitPath(unitId: number): void { this.paths = this.paths.filter(p => p.unitId !== unitId); }
+  setTrigger(id: number, on: boolean): boolean { this.triggers.push([id, on]); return true; }
+  stopTriggers(): void { this.triggers.push([-1, false]); }
   seq(): Sequence | undefined { return this.sequence; }
   textSource(source: string, section?: string): string | undefined { return this.loadScriptFile(source.replace(/\\/g, '/'), section); }
   impact(): ImpactInfo | null { return this.impactInfo; }

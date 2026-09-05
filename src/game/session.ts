@@ -30,6 +30,8 @@ import { Projectiles } from './projectiles';
 import { Sequence } from './sequence';
 import { SequenceUi } from './sequence-ui';
 import { Panels } from './panels';
+import { UnitPaths } from './unitpath';
+import { Triggers } from './triggers';
 import { parseDialogue } from '../formats/dialogue';
 import { collectTakeover, applyTakeover, stashTakeover, popTakeover } from './takeover';
 import { playUrl, MENU_URL, PauseMenu, loadSaveUrl } from './menu-ui';
@@ -111,6 +113,8 @@ export class GameSession {
   private readonly seqUi: SequenceUi;
   readonly panels: Panels;
   readonly pauseMenu: PauseMenu;
+  readonly unitPaths: UnitPaths;
+  readonly triggers: Triggers;
   /** 本地图由 loadmap 带数据载入。 */
   private tookOver = false;
   readonly combine: Combine;
@@ -224,7 +228,20 @@ export class GameSession {
       damagePlayer: (amount, by) => this.playerHurt(amount, by),
       damageEntity: (cls, id, amount) => { this.weapons.damage(cls, id, amount, 'other'); },
       random: (a, b) => this.host.random(a, b),
+      controlled: rec => this.unitPaths.controlled(rec.id),
     });
+    this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
+    this.triggers = new Triggers({
+      registry, engine: this.engine, playerId: PLAYER_ID,
+      player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z }),
+      clock: () => ({ day: this.clock.day, hour: this.clock.hour, minute: this.clock.minute }),
+      aiSignal: (kind, infoId, range) => { this.ai.signal(kind, CLS.info, infoId, range); },
+    });
+    this.triggers.load(o.map.infos);
+    this.host.unitPath = (unitId, nodes) => this.unitPaths.set(unitId, nodes);
+    this.host.freeUnitPath = unitId => this.unitPaths.free(unitId);
+    this.host.setTrigger = (id, on) => (on ? this.triggers.start(id) : this.triggers.stop(id));
+    this.host.stopTriggers = () => this.triggers.stopAll();
     this.host.aiSignal = (kind, srcCls, srcId, range, unitTyp, behaviour) =>
       this.ai.signal(kind, srcCls, srcId, range, rec => (unitTyp === undefined || rec.typ === unitTyp) && (behaviour === undefined || this.ai.code(rec) === behaviour));
     this.host.aiMode = (unitId, mode, targetCls, targetId) => {
@@ -289,7 +306,7 @@ export class GameSession {
     this.host.menuId = () => (this.sequence.active ? 100 : this.panels.menuId());
     this.host.closeMenu = () => { this.panels.close(); this.syncLock(); };
     this.host.loadMap = (path, flags) => {
-      stashTakeover(collectTakeover({ registry, playerId: PLAYER_ID, weaponTyp: this.weapons.weaponTyp, engine: this.engine, diary: this.host.diary, locks: this.host.locks }, flags));
+      stashTakeover(collectTakeover({ registry, playerId: PLAYER_ID, weaponTyp: this.weapons.weaponTyp, engine: this.engine, diary: this.host.diary, locks: this.host.locks, skills: this.host.skills }, flags));
       location.assign(playUrl(path.replace(/\\/g, '/')));
     };
     this.host.loadMapTakeover = () => this.tookOver;
@@ -339,8 +356,8 @@ export class GameSession {
     o.log.info(`游戏模式：出生点 ${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${(-pos.z).toFixed(0)}，可碰撞物体 ${this.collider.items.length}，合成 ${combinations.length} 条，建筑 ${buildings.length} 条，脚本 ${this.engine.syntaxErrors.length} 处语法错误`);
 
     const takeover = popTakeover();
-    if (takeover && (takeover.items.length || takeover.vars.length || takeover.diary.length || takeover.states.length || takeover.locks.length || takeover.weapon)) {
-      applyTakeover({ registry, playerId: PLAYER_ID, engine: this.engine, diary: this.host.diary, locks: this.host.locks, takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); } }, takeover);
+    if (takeover && (takeover.items.length || takeover.vars.length || takeover.diary.length || takeover.states.length || takeover.locks.length || takeover.weapon || takeover.skills?.length)) {
+      applyTakeover({ registry, playerId: PLAYER_ID, engine: this.engine, diary: this.host.diary, locks: this.host.locks, skills: this.host.skills, takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); } }, takeover);
       this.tookOver = true;
     }
     if (o.restore) {
@@ -349,6 +366,9 @@ export class GameSession {
         setPlayer: p => { this.player.position.set(p.x, p.y, -p.z); this.player.yaw = p.yaw * DEG; this.player.pitch = -p.pitch * DEG; },
         takeInHand: typ => { this.weapons.takeInHand(typ); this.refreshWeaponHud(); },
         diary: this.host.diary, locks: this.host.locks, setBuffer: text => this.host.buffer.set(text),
+        setSkills: entries => this.host.skills.load(entries),
+        setTriggers: states => this.triggers.restore(states),
+        setPaths: paths => { for (const p of paths) this.unitPaths.set(p.unitId, p.nodes); },
       }, o.restore);
       this.env.apply(this.clock.hour, this.clock.minute);
       this.player.applyTo(o.camera);
@@ -437,7 +457,7 @@ export class GameSession {
     const inSeq = this.sequence.active;
     if (!this.stats.dead) {
       if (inSeq && input.hit('Escape')) this.sequence.skip();
-      if (input.hit('KeyT') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary); this.syncLock(); }
+      if (input.hit('KeyT') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary, this.host.skills.entries()); this.syncLock(); }
       if (input.hit('Tab') && !inSeq) {
         if (this.buildUi.open) this.buildUi.close();
         this.invUi.toggle();
@@ -510,8 +530,10 @@ export class GameSession {
     }
 
     this.engine.update(dtMs);
+    this.unitPaths.update(dtMs);
     this.ai.update(dtMs, this.gameMs);
     this.projectiles.update(dtMs);
+    this.triggers.update(dtMs);
 
     this.focusAcc += dtMs;
     if (this.focusAcc >= FOCUS_INTERVAL_MS) {
@@ -762,6 +784,7 @@ export class GameSession {
       clock: { day: this.clock.day, hour: this.clock.hour, minute: this.clock.minute },
       player: { x: p.x, y: p.y, z: -p.z, yaw: this.player.yaw / DEG, pitch: -this.player.pitch / DEG },
       stats: this.stats, weapon: this.weapons.weaponTyp, diary: this.host.diary, locks: this.host.locks, buffer: this.host.buffer.value,
+      skills: this.host.skills.entries(), triggers: this.triggers.states(), paths: this.unitPaths.entries(),
     });
   }
 

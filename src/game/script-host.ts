@@ -13,6 +13,7 @@ import type { Sequence } from './sequence';
 import { TextBuffer } from './textbuffer';
 import type { DiaryEntry } from './panels';
 import type { TakeoverFlags } from './takeover';
+import { Skills } from './skills';
 
 export interface HostDeps {
   world: World;
@@ -54,6 +55,11 @@ export class GameScriptHost implements ScriptHost {
   loadMapTakeover: () => boolean = () => false;
   quit: () => void = () => undefined;
   credits: () => void = () => undefined;
+  readonly skills = new Skills();
+  unitPath: (unitId: number, nodes: number[]) => void = () => undefined;
+  freeUnitPath: (unitId: number) => void = () => undefined;
+  setTrigger: (id: number, on: boolean) => boolean = () => false;
+  stopTriggers: () => void = () => undefined;
   /** 由武器模块接管：最近命中与手持类型。 */
   impact: () => ImpactInfo | null = () => null;
   playerWeapon: () => number = () => 0;
