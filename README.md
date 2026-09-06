@@ -2,7 +2,7 @@
 
 用 TypeScript + Three.js 在浏览器里重现 Unreal Software 2007 年的荒岛生存游戏 Stranded II。直接读取原版的模型、贴图、地图和脚本，目标是忠实还原原版规则。
 
-试玩地址：见仓库首页的 GitHub Pages 链接（推送到 `main` 后由 Actions 自动构建发布）。
+试玩地址：https://ethanchen29.github.io/stranded2-web/
 
 ## 试玩说明
 
@@ -52,6 +52,8 @@ pnpm build
 
 单元测试直接读取 `reference/game` 里的真实文件（全部地图、全部模型、全部定义文件）。`pnpm build` 会把 mod 目录打进产物并生成 `filelist.json` 供静态托管使用；部署到子路径时设置 `BASE_PATH=/仓库名/`。
 
+发布到 GitHub Pages 在本机执行 `scripts/deploy-pages.sh`：构建后把 `dist` 强推到 `gh-pages` 分支。官网的下载链接会拦截 GitHub Actions 的机器，所以不在 CI 里构建。
+
 ## 实现范围
 
 - 地图查看器：地形、海面、天空盒、全部物体、单位、物品，动画播放。
@@ -71,7 +73,7 @@ pnpm build
 - `src/game`：会话与各游戏系统（玩家、AI、武器、建造、序列、面板、存档等）
 - `src/viewer`：页面入口、相机、日志
 - `docs/superpowers`：设计文档与实现计划
-- `.github/workflows/pages.yml`：构建并发布到 GitHub Pages
+- `scripts/deploy-pages.sh`：本机构建并发布到 GitHub Pages
 
 ## 许可与致谢
 
