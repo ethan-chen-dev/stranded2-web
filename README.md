@@ -2,7 +2,7 @@
 
 用 TypeScript + Three.js 在浏览器里重现 Unreal Software 2007 年的荒岛生存游戏 Stranded II。直接读取原版的模型、贴图、地图和脚本，目标是忠实还原原版规则。
 
-试玩地址：https://ethanchen29.github.io/stranded2-web/
+试玩地址：https://ethanchen-ai.github.io/stranded2-web/
 
 ## 试玩说明
 
