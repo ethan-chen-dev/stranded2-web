@@ -17,6 +17,9 @@ export const HAND_COOLDOWN_MS = 400;
 export const MELEE_RANGE = 50;
 export const PICK_RADIUS = 5;
 export const STATE_INVULNERABILITY = 17;
+/** 各材质的命中音效数量（sfx/mat_<材质><n>.wav），与原版 material_fx 一致。 */
+const MATERIAL_SOUNDS: Record<string, number> = { flesh: 5, wood: 2, stone: 1, leaf: 4, metal: 1, dust: 1, fruit: 2, glass: 2 };
+
 export const MELEE_BEHAVIOURS = new Set(['blade', 'fastblade', 'slowblade', 'hammer', 'spade', 'net', 'fishingrod', 'torch']);
 /** 需要弹药并发射投射物的武器。 */
 export const RANGED_BEHAVIOURS = new Set(['bow', 'slingshot', 'launcher', 'catapult']);
@@ -336,6 +339,7 @@ export class Weapons {
     if (!rec) return false;
     if (causer === 'player') this.d.engine.entityEvent(cls, id, 'hit');
     if (!this.d.engine.states.has(cls, id, STATE_INVULNERABILITY)) rec.health -= amount;
+    this.materialSound(rec.def?.mat ?? '');
     if (rec.health <= 0) {
       rec.health = 0;
       this.kill(rec);
@@ -343,6 +347,13 @@ export class Weapons {
       this.d.onUnitHurt?.(rec);
     }
     return true;
+  }
+
+  /** 按材质播放命中音效，没有对应材质时静默。 */
+  private materialSound(mat: string): void {
+    const n = MATERIAL_SOUNDS[mat.trim().toLowerCase()];
+    if (!n) return;
+    this.d.sound(`mat_${mat.trim().toLowerCase()}${this.d.random(1, n)}.wav`);
   }
 
   kill(rec: EntityRecord): void {

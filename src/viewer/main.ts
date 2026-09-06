@@ -28,7 +28,7 @@ async function loadDefs(res: Resources): Promise<Defs> {
   const load = (prefix: string) =>
     Promise.all(files.filter(f => f.toLowerCase().startsWith(prefix) && f.toLowerCase().endsWith('.inf')).map(f => res.text(`/sys/${f}`)));
   const [objects, units, items, infos] = await Promise.all([load('objects'), load('units'), load('items'), load('infos')]);
-  return { objects: buildDefTable(objects), units: buildDefTable(units), items: buildDefTable(items), infos: buildDefTable(infos) };
+  return { objects: buildDefTable(objects), units: buildDefTable(units, { mat: 'flesh' }), items: buildDefTable(items), infos: buildDefTable(infos) };
 }
 
 function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {

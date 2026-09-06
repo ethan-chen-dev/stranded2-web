@@ -207,10 +207,15 @@ export function toEntityDef(e: InfEntry): EntityDef {
   };
 }
 
-export function buildDefTable(texts: string[]): Map<number, EntityDef> {
+/** defaults 为该类定义的缺省字段：原版单位的 mat 缺省为 flesh，物体与物品缺省为 none。 */
+export function buildDefTable(texts: string[], defaults: Partial<EntityDef> = {}): Map<number, EntityDef> {
   const table = new Map<number, EntityDef>();
   for (const text of texts) {
-    for (const entry of parseInf(text)) table.set(entry.id, toEntityDef(entry));
+    for (const entry of parseInf(text)) {
+      const def = toEntityDef(entry);
+      if (defaults.mat && !def.mat) def.mat = defaults.mat;
+      table.set(entry.id, def);
+    }
   }
   return table;
 }

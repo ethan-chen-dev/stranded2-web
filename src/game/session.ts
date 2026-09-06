@@ -592,7 +592,13 @@ export class GameSession {
     if (this.focusAcc >= FOCUS_INTERVAL_MS) {
       this.focusAcc = 0;
       this.focused = this.pickup.focus();
-      this.hud.setFocus(this.focused ? `${this.focused.def?.name ?? '物品'}${this.focused.count > 1 ? ` × ${this.focused.count}` : ''}` : null);
+      if (this.focused) {
+        this.hud.setFocus(`${this.focused.def?.name ?? '物品'}${this.focused.count > 1 ? ` × ${this.focused.count}` : ''}`);
+      } else {
+        const hit = input.locked && !this.overlayOpen() ? this.weapons.pick(USE_ENTITY_RANGE) : null;
+        const corpse = hit && !hit.ground && hit.cls === CLS.unit ? this.o.world.registry.get(CLS.unit, hit.id) : undefined;
+        this.hud.setFocus(corpse?.dead ? `${corpse.def?.name ?? '单位'}的尸体（E 搜刮）` : null);
+      }
     }
 
     this.player.applyTo(this.o.camera);
@@ -734,8 +740,10 @@ export class GameSession {
     }
     const hit = this.weapons.pick(USE_ENTITY_RANGE);
     if (hit && !hit.ground && (hit.cls === CLS.unit || hit.cls === CLS.object)) {
-      this.engine.runNow(hit.cls, hit.id, 'use');
+      const r = this.engine.runNow(hit.cls, hit.id, 'use');
       this.engine.update(0);
+      const corpse = hit.cls === CLS.unit ? this.o.world.registry.get(CLS.unit, hit.id) : undefined;
+      if (!r.skipevent && corpse?.dead) this.openExchange(CLS.unit, hit.id, false, []);
       return;
     }
     const aim = this.aimGround();

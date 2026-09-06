@@ -18,6 +18,7 @@ function setup(): void {
     units: new Map([
       [1, testDef({ id: 1, name: 'Player', damage: 3, attackrange: 45, colxr: 8, colyr: 17, maxweight: 25000 })],
       [2, testDef({ id: 2, name: 'Raptor', colxr: 15, colyr: 30, health: 7, loots: [{ typ: 9, max: 3 }], script: 'on:kill { $rk=1; }' })],
+      [3, testDef({ id: 3, name: 'Crab', mat: 'flesh', colxr: 10, colyr: 10, health: 40, loots: [{ typ: 9, max: 1 }] })],
     ]),
     items: new Map([
       [7, testDef({ id: 7, name: 'Log', weight: 100 })],
@@ -161,6 +162,14 @@ describe('Weapons', () => {
     w.unequip();
     tw.engine.setTypeScript(CLS.unit, 1, 'on:attack1 { skipevent; }', 'units');
     expect(w.attack1()).toBe('blocked');
+  });
+  it('plays the material hit sound of the target', () => {
+    const crab = tw.world.create(CLS.unit, 3, 0, 30)!;
+    crab.y = 10;
+    tw.random = [4];
+    expect(w.attack1()).toBe('hit');
+    expect(crab.health).toBe(37);
+    expect(tw.sounds).toContain('mat_flesh4.wav');
   });
   it('hits the ground first when looking down', () => {
     dir = new THREE.Vector3(0, -1, 0);
