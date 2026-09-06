@@ -51,8 +51,17 @@ describe('b3dToThree', () => {
     expect(m.clips[0].duration).toBeGreaterThan(0);
     expect(m.frames).toBeGreaterThan(1);
     const idle = subclip(m.clips[0], 'idle1', 4, 8, m.fps);
-    expect(idle.duration).toBeGreaterThan(0);
+    expect(idle.duration).toBeCloseTo(4 / m.fps, 6);
     expect(idle.duration).toBeLessThan(m.clips[0].duration);
+  });
+  it('subclip keeps the interpolated lead-in of sparse keyframes', () => {
+    const m = b3dToThree(parseB3D(readRefBytes('gfx/bird01.b3d')), basic);
+    const move = subclip(m.clips[0], 'move', 2, 20, m.fps);
+    expect(move.duration).toBeCloseTo(18 / m.fps, 6);
+    const track = move.tracks.find(t => t.name.endsWith('.quaternion'))!;
+    expect(track.times[0]).toBe(0);
+    expect(track.times[track.times.length - 1]).toBeCloseTo(18 / m.fps, 6);
+    expect(track.times.length).toBe(5);
   });
   it('instantiates independent copies', () => {
     const m = b3dToThree(parseB3D(readRefBytes('gfx/raptor.b3d')), basic);

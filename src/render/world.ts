@@ -96,10 +96,11 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     return res.model(rec.def.model, { fx: rec.def.fx, color: rec.def.color, alpha: rec.def.alpha });
   };
 
+  /** 原版 pitch 正值为俯（左手系），镜像 z 后对应 Three 的负 rotation.x；yaw 符号一致。 */
   const applyTransform = (rec: EntityRecord): void => {
     if (!rec.object) return;
     rec.object.position.set(rec.x, rec.y, -rec.z);
-    rec.object.rotation.set(rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG);
+    rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG);
   };
 
   const attach = (rec: EntityRecord, model: ThreeModel | null): void => {
@@ -114,7 +115,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         const play = (name: string, loop: boolean | 'pingpong'): boolean => {
           const range = def.anims.get(name) ?? (name === 'idle' ? [...def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1] : undefined);
           if (!range || model.clips.length === 0) return false;
-          const clip = subclip(model.clips[0], name, range.start, range.end + 1, model.fps);
+          const clip = subclip(model.clips[0], name, range.start, range.end, model.fps);
           const action = mixer.clipAction(clip);
           action.timeScale = (range.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
           action.setLoop(loop === 'pingpong' ? THREE.LoopPingPong : loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);

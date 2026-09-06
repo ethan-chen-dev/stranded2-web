@@ -63,8 +63,35 @@ export function b3dToThree(model: B3DModel, makeMaterial: MaterialFactory): Thre
   return { object, clips, fps: CLIP_FPS, frames, skinned: !!b.skinnedMesh };
 }
 
+/**
+ * 截取 start..end 帧（含两端）为独立片段，对应原版 ExtractAnimSeq。
+ * 两端按插值采样，区间内的关键帧原样保留：原版模型的关键帧很稀疏（如 bird01 只在 1、16、17、18、20 帧有键），
+ * 只按关键帧过滤会丢掉区间前段的过渡，造成动画只剩末尾几帧反复播放。
+ */
 export function subclip(clip: THREE.AnimationClip, name: string, start: number, end: number, fps: number): THREE.AnimationClip {
-  return THREE.AnimationUtils.subclip(clip, name, start, end, fps);
+  const t0 = start / fps;
+  const t1 = Math.max(end, start) / fps;
+  const duration = Math.max(t1 - t0, 1 / fps);
+  const tracks: THREE.KeyframeTrack[] = [];
+  for (const track of clip.tracks) {
+    const size = track.getValueSize();
+    const interp = (track as unknown as { createInterpolant(): { evaluate(t: number): ArrayLike<number> } }).createInterpolant();
+    const times: number[] = [];
+    const values: number[] = [];
+    const push = (t: number, v: ArrayLike<number>) => {
+      times.push(t - t0);
+      for (let i = 0; i < size; i++) values.push(v[i]);
+    };
+    push(t0, interp.evaluate(t0));
+    for (let i = 0; i < track.times.length; i++) {
+      const t = track.times[i];
+      if (t > t0 && t < t1) push(t, track.values.subarray(i * size, (i + 1) * size));
+    }
+    if (t1 > t0) push(t1, interp.evaluate(t1));
+    const Track = track.constructor as new (name: string, times: number[], values: number[]) => THREE.KeyframeTrack;
+    tracks.push(new Track(track.name, times, values));
+  }
+  return new THREE.AnimationClip(name, duration, tracks);
 }
 
 /** 复制一份可独立摆放和播放动画的实例。 */

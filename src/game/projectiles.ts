@@ -143,7 +143,7 @@ export class Projectiles {
   private place(p: Projectile): void {
     if (!p.object) return;
     p.object.position.set(p.x, p.y, -p.z);
-    p.object.rotation.set(p.pitch * DEG, p.yaw * DEG, 0);
+    p.object.rotation.set(-p.pitch * DEG, p.yaw * DEG, 0);
   }
 
   private remove(p: Projectile): void {
