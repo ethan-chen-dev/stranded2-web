@@ -50,12 +50,11 @@ The build copies the mod directory into `dist/` and writes `dist/filelist.json`,
 | `src/script` | Lexer, parser, value semantics, interpreter, event engine and command implementations of the S2 scripting language |
 | `src/game` | The game session and its systems: player, survival stats, AI, weapons, projectiles, crafting, building, sequences, panels, save games |
 | `src/viewer` | Page entry, free camera, log panel |
-| `docs/superpowers` | Design documents and implementation plans, one pair per sub-project |
 | `scripts` | Reference download and deployment |
 
 ## Conventions
 
-- Rules are ported from the original source where possible; each design document under `docs/superpowers/specs` cites the Blitz3D files it was derived from.
+- Rules are ported from the original Blitz3D source where possible; module header comments name the source files they were derived from.
 - Coordinates in the registry are in the original left-handed Blitz space; the scene negates `z` when placing objects.
 - Time-based rules use the original per-frame factor `f = ms / 20`, converted to per-second values.
 
