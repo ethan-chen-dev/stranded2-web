@@ -1,43 +1,48 @@
-# Stranded
+# Stranded II 浏览器复刻
 
-Stranded II（Unreal Software，2007，Blitz3D）的浏览器复刻，TypeScript + Three.js，目标是忠实还原原版。
+用 TypeScript + Three.js 在浏览器里重现 Unreal Software 2007 年的荒岛生存游戏 Stranded II。直接读取原版的模型、贴图、地图和脚本，目标是忠实还原原版规则。
 
-## 现状
+试玩地址：见仓库首页的 GitHub Pages 链接（推送到 `main` 后由 Actions 自动构建发布）。
 
-- 子项目 1 地图查看器：在浏览器里加载原版地图，渲染地形、海面、天空盒和地图上的全部物体、单位、物品，动物播放待机动画。
-- 子项目 2 玩家与世界循环：第一人称行走、跳跃、游泳、与物体碰撞；游戏时间推进并按原版 `lightcycle.inf` 驱动天空、环境光与雾；饥饿、口渴、疲劳随活动上升，满值扣血；拾取物品进背包，背包可查看与丢弃。
-- 子项目 3 脚本解释器：原版 S2 脚本语言的词法、语法与解释器，保留原版值语义（整数/浮点/字符串、`+` 拼接、字符串内 `$变量` 插值）；事件挂载与任务队列、实体局部变量、状态、定时器、`process` 进度；`game.inf`、地图 briefing、定义文件、地图实例脚本与 `.s2s` 外部文件都能加载；开局、拾取、丢弃、使用、食用、换日、用水、用地事件已接入。已实现约 160 条指令，其余指令首次调用记一条日志并返回 0。
-- 子项目 4 物品使用与合成建造：手持物品、徒手与刀类近战攻击（`attack1`/`hit`/`impact`/`kill` 事件流、`find=` 掉落、`loot=`、武器状态）、右键工具动作（锤子建造、铲子挖掘、鱼竿钓鱼）、背包多选合成（`combinations*.inf`、相似分组、锁）、建筑菜单与工地建造（`buildings.inf`、放置约束、逐件投料、`build`/`build_finish` 事件、锁）。
-- 子项目 5 单位 AI 与战斗：按原版 `ai_units.bb` 的行为码与模式状态机让动物游荡、返回活动中心、胆小行为逃跑、捕食者追击并攻击玩家；受击反应、驯养（`tame` 状态）、觅食与 `ai_signal`/`ai_mode`/`ai_stay`/`ai_center`/`ai_eater` 指令；陆地、水中、空中三类物理。远程武器（弓、弹弓、发射器）与火器消耗 `ammo:<武器类型>` 弹药，投掷类把手持物品投出；投射物按 `speed`/`drag` 飞行，命中走与近战相同的伤害与 `impact` 事件流，`throw` 类落地变回物品，15 秒超时消失。
+## 试玩说明
 
-- 子项目 6 战役与序列：主菜单（冒险、单个岛屿、读取存档）与暂停菜单；原版 `game_sequences.bb` 的过场序列（`seqstart`、字幕、黑边、淡入淡出、闪光、图片、`setcam`/`movecam`/`campath`/`cammode`/`camfollow` 镜头、`seqevent`/`seqscript`、Escape 跳过）；`loadmap` 地图切换与背包、武器、变量、日记、状态、建筑锁的继承（`loadmaptakeover`）；`msgbox`、`dialogue`（对话文件解析、按钮跳页与脚本）、`diary`（T 键日记）、`text`/`image` 界面槽、`loadfile`/`buffer`/`clear`/`add` 文本缓冲；存档为 localStorage 的 JSON 快照（实体、状态、定时器、变量、日记、锁、时钟、玩家），F5/F9 快速存读档。
+目前是 alpha 版本，冒险战役 map01 到 map07 可以连续游玩，支持存档读档。只支持桌面浏览器（Chrome、Edge、Firefox），需要鼠标指针锁定，手机不支持。
 
-- 战役收尾：技能（`incskill`/`skillvalue`，随地图切换与存档保留，日记面板可查看）、单位路径（`unitpath`，开场的船沿信息点航行）、触发器信息点（区域、时间、物品计数、AI 区域，`starttrigger`/`stoptrigger`）、容器交换界面（`exchange`、`storage`、`freespace`）、`extendentry`/`showentry`、`def_override`/`def_extend`、`alterobject`、`revive`、`projectile`、`inview`，以及 `music` 循环音乐与地图背景音乐。
+操作：
 
-后续可选：随机岛（原版 `randommap.bb`）与地图编辑器。
+| 按键 | 作用 |
+|---|---|
+| 鼠标 | 转视角（点击画面锁定指针） |
+| W A S D、空格 | 移动、跳跃 |
+| 左键 | 攻击（徒手或手持武器、弓、投掷） |
+| 右键 | 用手持工具：锤子建造、铲子挖掘、鱼竿钓鱼；徒手时等于使用 |
+| E | 拾取、使用、和人对话、搜刮尸体、打开箱子 |
+| Tab | 背包（多选后可合成，物品可手持、使用、丢弃） |
+| B | 建筑菜单 |
+| T | 日记与技能 |
+| Esc | 暂停菜单（保存、读取）；过场序列中跳过 |
+| F5 / F9 | 快速存档、快速读档 |
 
-## 准备参考资料
+存档保存在浏览器的 localStorage 里，清除站点数据会丢失。
 
-原版游戏本体与源码不入库，运行前先下载：
+已知空缺：载具不能驾驭、对话里的交易界面没有、没有粒子特效、随机岛与地图编辑器没做。遇到问题请开 Issue，附上地图名和复现步骤。
+
+## 本地开发
+
+原版游戏本体与源码不入库，先下载：
 
 ```bash
 ./scripts/fetch-reference.sh
 ```
 
-脚本会把游戏本体解压到 `reference/game`，把 Blitz3D 源码克隆到 `reference/source`。开发服务器直接以 `reference/game/mods/Stranded II` 作为静态资源根目录，模型、贴图、定义文件、地图都在运行时按原格式读取，不做离线转换。
-
-## 运行
+脚本把游戏本体解压到 `reference/game`，把 Blitz3D 源码克隆到 `reference/source`。开发服务器直接以 `reference/game/mods/Stranded II` 作为静态资源根目录，所有资源在运行时按原格式读取，不做离线转换。
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-打开 `http://localhost:5173/?map=maps/adventure/map02.s2`。页面左上角可切换地图，拖拽鼠标转视角，WASD 移动，QE 升降，Shift 加速。
-
-点击"进入游戏"或在 URL 加 `&mode=play` 进入游戏模式：鼠标转视角（指针锁定），WASD 移动，空格跳跃，左键攻击（徒手或手持刀类），右键用手持工具（锤子投料建造、铲子挖掘、鱼竿钓鱼；徒手时等于使用），E 拾取准星前的物品或对地面/海面使用，Tab 开关背包，B 开关建筑菜单。背包里的物品按脚本事件显示"使用""吃/喝"按钮，另有"手持""丢弃"，点击物品格多选后可"合成"。右下角显示游戏时间，1 游戏分钟为 0.5 秒实时。
-
-## 测试与构建
+打开 `http://localhost:5173/` 进入主菜单；`?map=maps/adventure/map02.s2` 打开地图查看器，再加 `&mode=play` 直接进入游戏。
 
 ```bash
 pnpm test
@@ -45,18 +50,31 @@ pnpm typecheck
 pnpm build
 ```
 
-单元测试直接读取 `reference/game` 里的真实文件（全部地图、全部 321 个模型、全部定义文件）。
+单元测试直接读取 `reference/game` 里的真实文件（全部地图、全部模型、全部定义文件）。`pnpm build` 会把 mod 目录打进产物并生成 `filelist.json` 供静态托管使用；部署到子路径时设置 `BASE_PATH=/仓库名/`。
+
+## 实现范围
+
+- 地图查看器：地形、海面、天空盒、全部物体、单位、物品，动画播放。
+- 玩家与世界循环：第一人称移动、跳跃、游泳、碰撞；昼夜光照与雾；饥饿、口渴、疲劳；拾取与背包。
+- 脚本解释器：原版 S2 脚本语言的完整解释器，事件、任务队列、局部变量、状态、定时器；约 270 条指令。
+- 物品、合成、建造：近战、远程、火器与投掷武器，`find`/`loot` 掉落，背包合成，建筑菜单与工地投料，挖掘与钓鱼。
+- 单位 AI：原版行为状态机，游荡、逃跑、追击、攻击、受击反应、驯养、觅食、AI 信号，陆地、水中、空中物理。
+- 战役与序列：主菜单与暂停菜单，过场序列与镜头，地图切换与数据继承，消息框、对话、日记、界面文字图片，存档读档。
+- 战役收尾：技能、单位路径、触发器信息点、容器交换、日记扩展、定义脚本覆盖、音乐。
 
 ## 目录
 
-- `src/formats`：b3d、s2、inf 解析器，不依赖 DOM 与 Three.js
+- `src/formats`：b3d、s2、inf、对话文件解析器
 - `src/assets`：路径解析、带缓存的资源加载、b3d 转 Three.js
 - `src/render`：地形、海面、天空盒、世界组装
 - `src/script`：脚本词法、语法、值语义、解释器、事件引擎、指令实现
-- `src/game`：时钟、光照表、玩家物理、碰撞、生存数值、实体注册表、拾取、武器与攻击、合成、建造、工具动作、HUD、会话
+- `src/game`：会话与各游戏系统（玩家、AI、武器、建造、序列、面板、存档等）
 - `src/viewer`：页面入口、相机、日志
 - `docs/superpowers`：设计文档与实现计划
+- `.github/workflows/pages.yml`：构建并发布到 GitHub Pages
 
-## 许可
+## 许可与致谢
 
-本仓库代码按 CC BY-NC-SA 3.0 DE 使用 Stranded II 源码中的规则与数据结构，仅限非商业用途。游戏素材（模型、贴图、音效、地图）版权归 Peter Schauß / Unreal Software，仅供个人非商业研究使用，不随仓库分发。
+Stranded II 由 Peter Schauß / Unreal Software 制作，官网 https://www.unrealsoftware.de 。原版源码按 CC BY-NC-SA 3.0 DE 公开，本仓库的代码是其移植改编，同样按 CC BY-NC-SA 3.0 DE 发布，仅限非商业用途，详见 `LICENSE`。
+
+游戏素材（模型、贴图、音效、音乐、地图、定义文件）版权归 Peter Schauß / Unreal Software，不随仓库分发；试玩站点在构建时从官网下载并随页面一起托管，只用于这个非商业的复刻。

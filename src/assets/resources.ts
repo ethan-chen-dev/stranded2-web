@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { latin1 } from '../formats/binary-reader';
 import { parseB3D, TEX_ALPHA, TEX_MASKED, TEX_CLAMP_U, TEX_CLAMP_V, FX_FULLBRIGHT, FX_VERTEX_COLORS, FX_TWO_SIDED, type B3DBrush, type B3DModel, type B3DTexture } from '../formats/b3d';
 import { b3dToThree, type ThreeModel } from './b3d-to-three';
-import { modUrl, textureCandidates } from './paths';
+import { modUrl, textureCandidates, assetUrl } from './paths';
 import type { Log } from '../viewer/log';
 
 export interface ModelOptions {
@@ -28,7 +28,7 @@ export class Resources {
 
   bytes(url: string): Promise<Uint8Array> {
     return this.cached(`bytes:${url}`, async () => {
-      const res = await fetch(encodeURI(url));
+      const res = await fetch(encodeURI(assetUrl(url)));
       if (!res.ok) throw new Error(`${res.status} ${url}`);
       return new Uint8Array(await res.arrayBuffer());
     });
@@ -41,7 +41,7 @@ export class Resources {
   /** 加载失败返回 null 并记录警告。flags 为 b3d 贴图标志。 */
   texture(url: string, flags = 0): Promise<THREE.Texture | null> {
     return this.cached(`tex:${url}:${flags}`, async () => {
-      const image = await loadImage(encodeURI(url));
+      const image = await loadImage(encodeURI(assetUrl(url)));
       if (!image) {
         this.log.warn(`贴图缺失 ${url}`);
         return null;
@@ -58,7 +58,7 @@ export class Resources {
   /** 依次尝试候选 URL，全部失败返回 null。 */
   async textureFrom(candidates: string[], flags = 0): Promise<THREE.Texture | null> {
     for (const url of candidates) {
-      const image = await loadImage(encodeURI(url));
+      const image = await loadImage(encodeURI(assetUrl(url)));
       if (image) return this.texture(url, flags);
     }
     this.log.warn(`贴图缺失 ${candidates.join(' | ')}`);

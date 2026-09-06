@@ -4,7 +4,7 @@
  */
 import { buttonAction, type DialoguePage } from '../formats/dialogue';
 import { splitColoredLines } from './textbuffer';
-import { modUrl } from '../assets/paths';
+import { assetUrl } from '../assets/paths';
 
 export const MENU_NONE = 0;
 export const MENU_DIARY = 3;
@@ -176,7 +176,7 @@ export class Panels {
       this.imagesEl.append(el);
       this.images.set(id, el);
     }
-    el.src = encodeURI(modUrl(path));
+    el.src = encodeURI(assetUrl(path));
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
   }

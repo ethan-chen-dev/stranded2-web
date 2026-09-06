@@ -5,13 +5,16 @@ import { readdirSync } from 'node:fs';
 
 const MOD_ROOT = resolve(import.meta.dirname, 'reference/game/mods/Stranded II');
 
-/** 开发服务器上列出 mod 目录下的文件（相对路径），供页面枚举定义文件与地图。 */
+/** 开发服务器上列出 mod 目录下的文件（相对路径），供页面枚举定义文件与地图；构建时把全量索引写成 filelist.json。 */
 function modDirList(): Plugin {
   const walk = (dir: string, rel = ''): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap(f =>
       f.isDirectory() ? walk(resolve(dir, f.name), `${rel}${f.name}/`) : [`${rel}${f.name}`]);
   return {
     name: 'mod-dir-list',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'filelist.json', source: JSON.stringify(walk(MOD_ROOT)) });
+    },
     configureServer(server) {
       server.middlewares.use('/__list', (req, res) => {
         const dir = new URL(req.url ?? '/', 'http://x').searchParams.get('dir') ?? '';
@@ -29,6 +32,8 @@ function modDirList(): Plugin {
 }
 
 export default defineConfig({
+  /** 部署到 GitHub Pages 子路径时由 CI 传入，例如 /stranded2-web/。 */
+  base: process.env.BASE_PATH ?? '/',
   publicDir: MOD_ROOT,
   plugins: [modDirList()],
   test: { include: ['src/**/*.test.ts'] },

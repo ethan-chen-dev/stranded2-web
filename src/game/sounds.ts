@@ -1,4 +1,5 @@
 /** 用 HTMLAudio 播放 sfx/ 下的音效与循环音乐；文件缺失时静默。 */
+import { assetUrl } from '../assets/paths';
 export class Sounds {
   private readonly failed = new Set<string>();
   enabled = true;
@@ -12,7 +13,7 @@ export class Sounds {
     this.stopMusic();
     if (!this.enabled || typeof Audio === 'undefined' || !file) return;
     const name = file.replace(/\\/g, '/').replace(/^\/+/, '');
-    const url = name.startsWith('sfx/') ? `/${name}` : `/sfx/${name}`;
+    const url = assetUrl(name.startsWith('sfx/') ? name : `sfx/${name}`);
     try {
       const a = new Audio(encodeURI(url));
       a.loop = true;
@@ -53,7 +54,7 @@ export class Sounds {
   play(file: string, volume = 100): void {
     if (!this.enabled || typeof Audio === 'undefined') return;
     const name = file.replace(/\\/g, '/').replace(/^\/+/, '');
-    const url = name.startsWith('sfx/') ? `/${name}` : `/sfx/${name}`;
+    const url = assetUrl(name.startsWith('sfx/') ? name : `sfx/${name}`);
     if (this.failed.has(url)) return;
     try {
       const a = new Audio(encodeURI(url));

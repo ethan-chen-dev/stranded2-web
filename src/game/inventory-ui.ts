@@ -1,6 +1,6 @@
 /** 背包覆盖层：物品格可多选，支持使用、吃喝、手持、丢弃与合成。 */
 import type { EntityRecord } from './entities';
-import { modUrl } from '../assets/paths';
+import { assetUrl } from '../assets/paths';
 import type { Candidate } from './combine';
 
 export interface InventoryActions {
@@ -76,7 +76,7 @@ export class InventoryUi {
       pick.className = 'inv-pick';
       if (def?.icon) {
         const img = document.createElement('img');
-        img.src = encodeURI(modUrl(def.icon));
+        img.src = encodeURI(assetUrl(def.icon));
         img.alt = def.name;
         pick.append(img);
       }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 下载 Stranded II 1.0.0.1 游戏本体与 Blitz3D 源码到 reference/。
+# 下载 Stranded II 1.0.0.1 游戏本体与 Blitz3D 源码到 reference/；设置 SKIP_SOURCE=1 只下载游戏本体。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p reference
@@ -11,7 +11,7 @@ if [ ! -d reference/game ]; then
   unzip -q reference/stranded2_en.zip -d reference/game
   rm reference/stranded2_en.zip
 fi
-if [ ! -d reference/source ]; then
+if [ ! -d reference/source ] && [ -z "${SKIP_SOURCE:-}" ]; then
   git clone --depth 1 https://github.com/ttyborg/Stranded2.git reference/source
 fi
 echo "reference ready"

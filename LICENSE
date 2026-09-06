@@ -1,0 +1,22 @@
+Stranded II browser remake
+Copyright (c) 2026 the repository contributors
+
+This project is a port of the game logic of Stranded II by Peter Schauß /
+Unreal Software (https://www.unrealsoftware.de). The original Blitz3D source
+code of Stranded II was published under the Creative Commons
+Attribution-NonCommercial-ShareAlike 3.0 Germany license, and this derived
+code is released under the same license:
+
+  CC BY-NC-SA 3.0 DE
+  https://creativecommons.org/licenses/by-nc-sa/3.0/de/deed.en
+
+You may copy, modify and redistribute this code for non-commercial purposes
+as long as you keep this notice, credit Stranded II and Unreal Software, link
+https://www.unrealsoftware.de, and release derived works under the same
+license. Commercial use requires permission from Peter Schauß / Unreal
+Software.
+
+The game assets of Stranded II (models, textures, sounds, music, maps and
+definition files) are not part of this repository. They remain the property
+of Peter Schauß / Unreal Software and are downloaded from the official site
+at build time solely to run this non-commercial remake.

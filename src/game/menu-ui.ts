@@ -46,7 +46,10 @@ export class MainMenu {
     title.textContent = 'Stranded II';
     this.body = document.createElement('div');
     this.body.className = 'menu-body';
-    this.root.append(title, this.body);
+    const credit = document.createElement('div');
+    credit.className = 'menu-credit';
+    credit.textContent = 'Stranded II 由 Peter Schauß / Unreal Software 制作（unrealsoftware.de）。本页面是非商业的浏览器复刻，代码按 CC BY-NC-SA 3.0 DE 发布。';
+    this.root.append(title, this.body, credit);
     parent.append(this.root);
   }
 

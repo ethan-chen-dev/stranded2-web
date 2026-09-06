@@ -1,6 +1,6 @@
 /** 序列覆盖层：黑边、三条字幕、纯色遮盖、淡入淡出、闪光、居中图片与图片文字。 */
 import type { Sequence } from './sequence';
-import { modUrl } from '../assets/paths';
+import { assetUrl } from '../assets/paths';
 
 /** 原版 800x600 画面下黑边像素换算为视口高度比例。 */
 const BASE_HEIGHT = 600;
@@ -66,7 +66,7 @@ export class SequenceUi {
     if (path !== this.imagePath) {
       this.imagePath = path;
       this.imageTextCount = -1;
-      this.imageEl.src = path ? encodeURI(modUrl(path)) : '';
+      this.imageEl.src = path ? encodeURI(assetUrl(path)) : '';
     }
     this.imageWrap.hidden = !path;
     if (path && seq.imageTexts.length !== this.imageTextCount) {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import { Log } from './log';
 import { Resources } from '../assets/resources';
+import { BASE_URL } from '../assets/paths';
 import { parseS2Map, PREVIEW_W, PREVIEW_H, type MapData } from '../formats/s2map';
 import { buildDefTable } from '../formats/inf';
 import { buildTerrain, CELL } from '../render/terrain';
@@ -17,10 +18,19 @@ import { listSaves, deleteSave, loadGame } from '../game/savegame';
 
 const DEFAULT_MAP = 'maps/adventure/map02.s2';
 
+/** 构建产物里的全量文件索引（vite 插件在 build 时生成）。 */
+let fileIndex: Promise<string[]> | null = null;
+
+/** 列出 mod 目录下 dir 内的文件（递归，相对 dir）：开发时问开发服务器，部署后读文件索引。 */
 async function listFiles(dir: string): Promise<string[]> {
-  const res = await fetch(`/__list?dir=${encodeURIComponent(dir)}`);
-  if (!res.ok) return [];
-  return res.json();
+  if (import.meta.env.DEV) {
+    const res = await fetch(`/__list?dir=${encodeURIComponent(dir)}`);
+    if (!res.ok) return [];
+    return res.json();
+  }
+  fileIndex ??= fetch(`${BASE_URL}filelist.json`).then(r => (r.ok ? r.json() as Promise<string[]> : []));
+  const prefix = dir.replace(/\/+$/, '') + '/';
+  return (await fileIndex).filter(f => f.startsWith(prefix)).map(f => f.slice(prefix.length));
 }
 
 async function loadDefs(res: Resources): Promise<Defs> {

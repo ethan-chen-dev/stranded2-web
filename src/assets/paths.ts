@@ -1,4 +1,13 @@
-/** 原版反斜杠路径与浏览器 URL 之间的转换。URL 根即 mod 根目录。 */
+/** 原版反斜杠路径与浏览器 URL 之间的转换。URL 根即 mod 根目录；部署到子路径时由 assetUrl 加上 vite base。 */
+
+/** 部署子路径（vite base），结尾带斜杠；开发与测试时为 '/'。 */
+export const BASE_URL: string = (import.meta.env?.BASE_URL as string | undefined) ?? '/';
+
+/** mod 根目录下的路径转成实际请求 URL。 */
+export function assetUrl(modPath: string): string {
+  const p = modPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  return BASE_URL + p;
+}
 
 export function modUrl(blitzPath: string): string {
   const p = blitzPath.replace(/\\/g, '/');

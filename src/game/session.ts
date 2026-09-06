@@ -40,7 +40,7 @@ import { snapshot, restore, saveGame, loadGame, listSaves, QUICKSAVE, type Snaps
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
-import { modUrl } from '../assets/paths';
+import { assetUrl } from '../assets/paths';
 
 export interface SessionOptions {
   scene: THREE.Scene;
@@ -729,7 +729,7 @@ export class GameSession {
   private refreshWeaponHud(): void {
     const typ = this.weapons.weaponTyp;
     const def = typ ? this.o.defs.items.get(typ) : undefined;
-    this.hud.setWeapon(def ? { name: def.name, icon: def.icon ? encodeURI(modUrl(def.icon)) : undefined } : null);
+    this.hud.setWeapon(def ? { name: def.name, icon: def.icon ? encodeURI(assetUrl(def.icon)) : undefined } : null);
   }
 
   private use(): void {
@@ -857,7 +857,7 @@ export class GameSession {
         return false;
       },
       name: typ => this.o.defs.items.get(typ)?.name ?? `#${typ}`,
-      icon: typ => { const icon = this.o.defs.items.get(typ)?.icon; return icon ? encodeURI(modUrl(icon)) : undefined; },
+      icon: typ => { const icon = this.o.defs.items.get(typ)?.icon; return icon ? encodeURI(assetUrl(icon)) : undefined; },
       capacity: () => {
         const max = holder.def?.maxweight ?? 0;
         return max > 0 ? `容器承重 ${registry.usedWeight(cls, id)} / ${max}` : '';
