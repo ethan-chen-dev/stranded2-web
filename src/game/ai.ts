@@ -206,6 +206,7 @@ export class AiSystem {
     const def = rec.def!;
     const speed = def.speed * f;
     const turn = def.turnspeed * f;
+    if (FREE_HEIGHT.has(code) && st.mode !== AI.rise && st.mode !== AI.fall) rec.pitch = 0;
     switch (st.mode) {
       case AI.idle:
         if (now < st.animUntil) st.timer = now;
@@ -228,6 +229,7 @@ export class AiSystem {
       case AI.fall:
         rec.pitch = 35;
         this.advance(rec, code, speed);
+        rec.yaw -= turn;
         break;
       case AI.ret:
       case AI.sret: {
@@ -371,10 +373,10 @@ export class AiSystem {
     if (STATIONARY.has(code)) { this.setMode(rec, AI.idle, undefined, 0, 0, now); return; }
     if (CIRCLING.has(code)) { this.setMode(rec, st.mode === AI.movel ? AI.mover : AI.movel, undefined, 0, 0, now); return; }
     if (FREE_HEIGHT.has(code)) {
-      const onGround = rec.y <= this.d.terrainY(rec.x, rec.z) + rec.def!.colyr + 1;
-      if (onGround) { this.setMode(rec, r(4) === 0 ? AI.rise : AI.idle, undefined, 0, 0, now); return; }
-      const n = r(7);
-      this.setMode(rec, n <= 1 ? AI.move : n <= 4 ? AI.movel : n <= 6 ? AI.mover : AI.fall, n === 7 ? 20000 : undefined, 0, 0, now);
+      if (st.mode === AI.idle) { this.setMode(rec, r(10) <= 7 ? AI.idle : AI.rise, undefined, 0, 0, now); return; }
+      const n = r(10);
+      if (n >= 9) this.setMode(rec, AI.fall, this.d.random(8000, 15000), 0, 0, now);
+      else this.setMode(rec, n <= 1 ? AI.move : n <= 4 ? AI.movel : n <= 7 ? AI.mover : AI.rise, undefined, 0, 0, now);
       return;
     }
     if (code === 200) {
@@ -446,11 +448,11 @@ export class AiSystem {
     } else if (pm === 3) {
       const base = Math.max(ground, 1) + (AIR_OFFSET[code] ?? 350);
       if (FREE_HEIGHT.has(code)) {
-        if (rec.y < ground + def.colyr) {
+        if (rec.y < ground) {
           if (st.mode === AI.fall && ground > 2) { rec.y = ground + def.colyr; rec.pitch = 0; this.setMode(rec, AI.idle); }
-          else { rec.y = ground + def.colyr; if (st.mode !== AI.idle) this.setMode(rec, AI.rise, 3000); }
-        } else if (rec.y > base && st.mode !== AI.rise) {
-          rec.y = Math.max(rec.y - 0.2 * f, base);
+          else { rec.y = ground; this.setMode(rec, AI.rise, this.d.random(3000, 10000)); }
+        } else if (rec.y > base) {
+          rec.y -= 0.2 * f;
         }
       } else if (rec.y < base) {
         rec.y = base;
