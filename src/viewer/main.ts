@@ -77,6 +77,10 @@ async function main(): Promise<void> {
   help.textContent = '拖拽鼠标转视角，WASD 移动，QE 升降，Shift 加速';
   app.append(canvas, hud, logEl, help);
   const log = new Log(logEl);
+  const loading = document.createElement('div');
+  loading.className = 'loading';
+  loading.textContent = '加载中…';
+  app.append(loading);
 
   const params = new URLSearchParams(location.search);
   const saveName = params.get('save');
@@ -109,6 +113,7 @@ async function main(): Promise<void> {
 
   const res = new Resources(log);
   log.info(`加载 ${mapPath}`);
+  loading.textContent = `加载 ${mapPath}…`;
   const t0 = performance.now();
   const [defs, mapBytes] = await Promise.all([loadDefs(res), res.bytes('/' + mapPath)]);
   const map = parseS2Map(mapBytes);
@@ -133,7 +138,8 @@ async function main(): Promise<void> {
   const sea = buildSea(await res.texture('/gfx/water.jpg'), map.terrainSize * CELL * 6);
   scene.add(sea.group);
 
-  const world = await buildWorld(map, defs, res, log);
+  const world = await buildWorld(map, defs, res, log, (done, total) => { loading.textContent = `加载模型 ${done}/${total}…`; });
+  loading.remove();
   scene.add(world.group);
   const cycle = parseLightcycle(await res.text('/sys/lightcycle.inf'));
   new Environment(scene, sky, ambient, sun, map.header.fog, cycle).apply(map.header.hour, map.header.minute);

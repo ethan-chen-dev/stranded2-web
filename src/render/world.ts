@@ -50,7 +50,32 @@ function placeholder(): THREE.Object3D {
   return new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
 }
 
-export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: Log): Promise<World> {
+/** 并发预取地图用到的全部模型，让之后逐个实体的创建直接命中缓存；首次访问站点时加载时间由串行请求数决定。 */
+async function preloadModels(map: MapData, registry: EntityRegistry, res: Resources, onProgress?: (done: number, total: number) => void): Promise<void> {
+  const wanted = new Map<string, { cls: number; typ: number }>();
+  for (const o of map.objects) wanted.set(`${CLS.object}:${o.typ}`, { cls: CLS.object, typ: o.typ });
+  for (const u of map.units) wanted.set(`${CLS.unit}:${u.typ}`, { cls: CLS.unit, typ: u.typ });
+  for (const it of map.items) if (it.parentMode !== STORED_INSIDE) wanted.set(`${CLS.item}:${it.typ}`, { cls: CLS.item, typ: it.typ });
+  const jobs = [...wanted.values()].map(w => registry.defFor(w.cls, w.typ)).filter((d): d is NonNullable<typeof d> => !!d && !!d.model);
+  let done = 0;
+  onProgress?.(0, jobs.length);
+  const CONCURRENCY = 8;
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < jobs.length) {
+      const def = jobs[next++];
+      try {
+        await res.model(def.model, { fx: def.fx, color: def.color, alpha: def.alpha });
+      } catch {
+        /* 缺失的模型在 spawn 时按占位块处理 */
+      }
+      onProgress?.(++done, jobs.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
+}
+
+export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: Log, onProgress?: (done: number, total: number) => void): Promise<World> {
   const group = new THREE.Group();
   group.name = 'world';
   const registry = new EntityRegistry(defs);
@@ -132,6 +157,8 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     if (rec.cls === CLS.item && rec.parentMode === STORED_INSIDE) return;
     attach(rec, model);
   };
+
+  await preloadModels(map, registry, res, onProgress);
 
   for (const o of map.objects) {
     let y = worldHeight(map, o.x, o.z);

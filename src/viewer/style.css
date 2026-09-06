@@ -104,3 +104,4 @@ body.play .hud, body.play .help { display: none; }
 .exchange-cell:disabled { opacity: .45; }
 .exchange-cap { margin-top: 8px; font-size: 12px; opacity: .85; }
 .menu-credit { margin-top: 12px; font-size: 11px; opacity: .7; line-height: 1.4; }
+.loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 10px 18px; background: rgba(0,0,0,.7); border-radius: 6px; font-size: 16px; z-index: 6; }
