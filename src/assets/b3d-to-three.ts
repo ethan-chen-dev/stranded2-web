@@ -22,9 +22,13 @@ export const CLIP_FPS = 30;
 
 const DEFAULT_BRUSH: B3DBrush = { name: '', color: [1, 1, 1, 1], shininess: 0, blend: 1, fx: 0, textureIds: [] };
 
+/**
+ * b3d 里的四元数 (w, x, y, z) 是 Blitz3D 行向量约定下的旋转，等价于标准约定的逆旋转；
+ * 再把 z 镜像到右手系，得到 (x, y, -z, w)。鹦鹉飞行帧（身体前倾 60 度）可以直接验证方向。
+ */
 export function convertQuaternion(q: [number, number, number, number]): THREE.Quaternion {
   const [w, x, y, z] = q;
-  return new THREE.Quaternion(-x, -y, z, w);
+  return new THREE.Quaternion(x, y, -z, w);
 }
 
 interface Build {
