@@ -1,0 +1,32 @@
+ASSETS-LICENSE.txt
+  s_6ad32bf078c2dc::t_6807d3675a0358 1-15
+LICENSE
+  s_6ad32bf078c2dc::t_4b6af3f6cc2f4a 21-22
+README.md
+  s_6ad32bf078c2dc::t_5e7de08e0d830f 51
+README.zh-CN.md
+  s_6ad32bf078c2dc::t_b7ec9e99147324 51
+scripts/deploy-pages.sh
+  s_6ad32bf078c2dc::t_929678cb6a64c5 13-15
+src/game/menu-ui.ts
+  s_6ad32bf078c2dc::t_eac67ba1a01c13 51-63
+src/viewer/style.css
+  s_6ad32bf078c2dc::t_8d5587df0de510 106-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "dafb487c012239a4d3a4ccad466ba84a29746997",
+  "prompts": {},
+  "logical_commit_id": "dafb487c012239a4d3a4ccad466ba84a29746997",
+  "sessions": {
+    "s_6ad32bf078c2dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23cccbb6-0dd6-48c7-a25f-dfb3193f5d01",
+        "model": "unknown"
+      },
+      "human_author": "ethan-chen-dev <129498926+ethan-chen-dev@users.noreply.github.com>"
+    }
+  }
+}
