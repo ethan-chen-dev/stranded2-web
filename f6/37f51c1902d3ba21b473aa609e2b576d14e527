@@ -1,0 +1,245 @@
+ASSETS-LICENSE.txt
+  h_e76006828a4bb4 1-15
+LICENSE.txt
+  h_e76006828a4bb4 1-22
+README.md
+  h_e76006828a4bb4 1-51
+assets/index-B8gTSyq4.js
+  h_e76006828a4bb4 1-4126
+assets/index-C2uM5Jn6.css
+  h_e76006828a4bb4 1
+filelist.json
+  h_e76006828a4bb4 1
+index.html
+  h_e76006828a4bb4 1-12
+"maps/Color Game/info.txt"
+  h_e76006828a4bb4 1
+"maps/Shooting Range.s2"
+  h_e76006828a4bb4 1-480
+"maps/Survival Guide.s2"
+  h_e76006828a4bb4 1-49
+"maps/Tower Defense/Build.s2s"
+  h_e76006828a4bb4 1-13
+"maps/Tower Defense/Spawns.s2s"
+  h_e76006828a4bb4 1-46
+"maps/Tower Defense/Tower.s2s"
+  h_e76006828a4bb4 1-75
+"maps/Tower Defense/Upgrade.s2s"
+  h_e76006828a4bb4 1-51
+"maps/Tower Defense/Waves.s2s"
+  h_e76006828a4bb4 1-141
+maps/adventure/map01_intro.s2s
+  h_e76006828a4bb4 1-142
+maps/adventure/map02.s2s
+  h_e76006828a4bb4 1-546
+maps/adventure/map03.s2s
+  h_e76006828a4bb4 1-283
+maps/adventure/map04.s2s
+  h_e76006828a4bb4 1-57
+maps/adventure/map05.s2
+  h_e76006828a4bb4 1-882
+maps/adventure/map05.s2s
+  h_e76006828a4bb4 1-1059
+maps/adventure/map05_villager.s2s
+  h_e76006828a4bb4 1-400
+maps/adventure/map06.s2
+  h_e76006828a4bb4 1-26
+maps/adventure/map06.s2s
+  h_e76006828a4bb4 1-24
+maps/adventure/map07.s2
+  h_e76006828a4bb4 1-96
+maps/editor/checkmap.s2
+  h_e76006828a4bb4 1-237
+maps/editor/info.txt
+  h_e76006828a4bb4 1
+maps/menu/info.txt
+  h_e76006828a4bb4 1
+maps/menu/menu.s2
+  h_e76006828a4bb4 1-48
+maps/pvimgs/info.txt
+  h_e76006828a4bb4 1-3
+saves/info.txt
+  h_e76006828a4bb4 1
+sfx/bird_ide.inf
+  h_e76006828a4bb4 1
+sfx/eagle_die.inf
+  h_e76006828a4bb4 1
+sfx/floracarnivora_attack.inf
+  h_e76006828a4bb4 1
+sfx/kiwi_idle1.inf
+  h_e76006828a4bb4 1
+sfx/kiwi_idle3.inf
+  h_e76006828a4bb4 1
+sfx/lion_idle1.inf
+  h_e76006828a4bb4 1
+sfx/lion_idle2.inf
+  h_e76006828a4bb4 1
+sfx/lion_idle3.inf
+  h_e76006828a4bb4 1
+sfx/lion_move.inf
+  h_e76006828a4bb4 1
+sfx/native_move.inf
+  h_e76006828a4bb4 1
+sfx/piranha_attack.inf
+  h_e76006828a4bb4 1
+sfx/raptor_move.inf
+  h_e76006828a4bb4 1
+sys/buildings.inf
+  h_e76006828a4bb4 1-280
+sys/combinations.inf
+  h_e76006828a4bb4 1-69
+sys/combinations_actions.inf
+  h_e76006828a4bb4 1-112
+sys/combinations_ammo.inf
+  h_e76006828a4bb4 1-98
+sys/combinations_basic.inf
+  h_e76006828a4bb4 1-130
+sys/combinations_potions.inf
+  h_e76006828a4bb4 1-137
+sys/combinations_stuff.inf
+  h_e76006828a4bb4 1-15
+sys/combinations_tools.inf
+  h_e76006828a4bb4 1-99
+sys/combinations_weapons.inf
+  h_e76006828a4bb4 1-103
+sys/credits.inf
+  h_e76006828a4bb4 1-144
+sys/game.inf
+  h_e76006828a4bb4 1-558
+sys/groups.inf
+  h_e76006828a4bb4 1-41
+sys/infos.inf
+  h_e76006828a4bb4 1-241
+sys/items.inf
+  h_e76006828a4bb4 1-137
+sys/items_edible.inf
+  h_e76006828a4bb4 1-1020
+sys/items_material.inf
+  h_e76006828a4bb4 1-365
+sys/items_stuff.inf
+  h_e76006828a4bb4 1-450
+sys/items_tools.inf
+  h_e76006828a4bb4 1-548
+sys/items_weapons.inf
+  h_e76006828a4bb4 1-545
+sys/keys.inf
+  h_e76006828a4bb4 1-127
+sys/lightcycle.inf
+  h_e76006828a4bb4 1-24
+sys/objects.inf
+  h_e76006828a4bb4 1-180
+sys/objects_buildings.inf
+  h_e76006828a4bb4 1-1181
+sys/objects_bushes.inf
+  h_e76006828a4bb4 1-396
+sys/objects_flowers.inf
+  h_e76006828a4bb4 1-148
+sys/objects_gras.inf
+  h_e76006828a4bb4 1-45
+sys/objects_palms.inf
+  h_e76006828a4bb4 1-268
+sys/objects_stone.inf
+  h_e76006828a4bb4 1-241
+sys/objects_stuff.inf
+  h_e76006828a4bb4 1-538
+sys/objects_trees.inf
+  h_e76006828a4bb4 1-383
+sys/random_01_endless_e.inf
+  h_e76006828a4bb4 1-202
+sys/random_02_endless_n.inf
+  h_e76006828a4bb4 1-208
+sys/random_03_endless_h.inf
+  h_e76006828a4bb4 1-200
+sys/random_05_raptors.inf
+  h_e76006828a4bb4 1-179
+sys/scripts/butterflygarden.txt
+  h_e76006828a4bb4 1
+sys/scripts/defensetower.s2s
+  h_e76006828a4bb4 1
+sys/scripts/fireplace.s2s
+  h_e76006828a4bb4 1-3
+sys/scripts/herbalgarden.s2s
+  h_e76006828a4bb4 1
+sys/scripts/kiwibreeding.s2s
+  h_e76006828a4bb4 1
+sys/scripts/monkey.s2s
+  h_e76006828a4bb4 1-43
+sys/scripts/random_05_raptors.s2s
+  h_e76006828a4bb4 1-4
+sys/scripts/random_char_chieftain.s2s
+  h_e76006828a4bb4 1-41
+sys/scripts/random_char_hempguy.s2s
+  h_e76006828a4bb4 1-56
+sys/scripts/random_char_native.s2s
+  h_e76006828a4bb4 1-70
+sys/scripts/random_char_pirate.s2s
+  h_e76006828a4bb4 1-84
+sys/scripts/random_char_prof.s2s
+  h_e76006828a4bb4 1-43
+sys/scripts/random_charscripts.s2s
+  h_e76006828a4bb4 1-20
+sys/scripts/random_events.s2s
+  h_e76006828a4bb4 1-132
+sys/scripts/random_start.s2s
+  h_e76006828a4bb4 1-46
+sys/scripts/tent.s2s
+  h_e76006828a4bb4 1-5
+sys/scripts/torch.s2s
+  h_e76006828a4bb4 1
+sys/scripts/train_monkey.s2s
+  h_e76006828a4bb4 1-35
+sys/settings.cfg
+  h_e76006828a4bb4 1-21
+sys/skillinfos/dig.inf
+  h_e76006828a4bb4 1-18
+sys/skillinfos/fish.inf
+  h_e76006828a4bb4 1-17
+sys/skillinfos/hunt.inf
+  h_e76006828a4bb4 1-14
+sys/skillinfos/plant.inf
+  h_e76006828a4bb4 1-17
+sys/skillinfos/wood.inf
+  h_e76006828a4bb4 1-23
+sys/states.inf
+  h_e76006828a4bb4 1-103
+sys/strings.inf
+  h_e76006828a4bb4 1-529
+sys/units.inf
+  h_e76006828a4bb4 1-1374
+tutorial/01.txt
+  h_e76006828a4bb4 1-13
+tutorial/02.txt
+  h_e76006828a4bb4 1-9
+tutorial/03.txt
+  h_e76006828a4bb4 1-12
+tutorial/04.txt
+  h_e76006828a4bb4 1-10
+tutorial/05.txt
+  h_e76006828a4bb4 1-27
+tutorial/06.txt
+  h_e76006828a4bb4 1-14
+tutorial/07.txt
+  h_e76006828a4bb4 1-10
+tutorial/08.txt
+  h_e76006828a4bb4 1-15
+tutorial/09.txt
+  h_e76006828a4bb4 1-3
+tutorial/10.txt
+  h_e76006828a4bb4 1-10
+tutorial/11.txt
+  h_e76006828a4bb4 1-3
+tutorial/12.txt
+  h_e76006828a4bb4 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f637f51c1902d3ba21b473aa609e2b576d14e527",
+  "prompts": {},
+  "logical_commit_id": "f637f51c1902d3ba21b473aa609e2b576d14e527",
+  "humans": {
+    "h_e76006828a4bb4": {
+      "author": "chenyesheng <chenyesheng@bigo.sg>"
+    }
+  }
+}
