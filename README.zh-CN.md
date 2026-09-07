@@ -48,4 +48,4 @@ Unreal Software 2007 年荒岛生存游戏《Stranded II》的浏览器复刻，
 
 《Stranded II》由 Peter Schauß / Unreal Software 制作，官网 https://www.unrealsoftware.de 。原版源码按 CC BY-NC-SA 3.0 DE 公开，本项目是其移植改编，按相同许可发布，仅限非商业用途，详见 [LICENSE](LICENSE)。
 
-游戏素材（模型、贴图、音效、音乐、地图、定义文件）版权归 Peter Schauß / Unreal Software，不包含在本仓库中；试玩站点在构建时从官方下载获取素材，仅用于运行这个非商业的复刻。
+游戏素材（模型、贴图、音效、音乐、地图、定义文件）版权归 Peter Schauß / Unreal Software，不包含在本仓库中；试玩站点经作者许可（2026-09-06 邮件同意）托管这些素材，见 [ASSETS-LICENSE.txt](ASSETS-LICENSE.txt)。

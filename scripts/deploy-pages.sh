@@ -10,6 +10,9 @@ pnpm test
 rm -rf dist
 BASE_PATH="/$repo/" pnpm build
 touch dist/.nojekyll
+cp LICENSE dist/LICENSE.txt
+cp README.md dist/README.md
+cp ASSETS-LICENSE.txt dist/ASSETS-LICENSE.txt
 (
   cd dist
   git init -q

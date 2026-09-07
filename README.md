@@ -48,4 +48,4 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup, tests, build, project 
 
 *Stranded II* was created by Peter Schauß / Unreal Software, https://www.unrealsoftware.de. Its source code was released under CC BY-NC-SA 3.0 DE; this remake is a derived work released under the same license for non-commercial use only. See [LICENSE](LICENSE).
 
-The game assets (models, textures, sounds, music, maps and definition files) remain the property of Peter Schauß / Unreal Software. They are not part of this repository; the playable site fetches them from the official download at build time solely to run this non-commercial remake.
+The game assets (models, textures, sounds, music, maps and definition files) remain the property of Peter Schauß / Unreal Software. They are not part of this repository; the playable site hosts them with the author's permission (granted by e-mail on 2026-09-06), see [ASSETS-LICENSE.txt](ASSETS-LICENSE.txt).

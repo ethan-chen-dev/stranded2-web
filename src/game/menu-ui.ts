@@ -48,7 +48,19 @@ export class MainMenu {
     this.body.className = 'menu-body';
     const credit = document.createElement('div');
     credit.className = 'menu-credit';
-    credit.textContent = 'Stranded II 由 Peter Schauß / Unreal Software 制作（unrealsoftware.de）。本页面是非商业的浏览器复刻，代码按 CC BY-NC-SA 3.0 DE 发布。';
+    credit.append('Stranded II by Peter Schauß / Unreal Software, ');
+    const site = document.createElement('a');
+    site.href = 'https://www.unrealsoftware.de';
+    site.target = '_blank';
+    site.rel = 'noopener';
+    site.textContent = 'unrealsoftware.de';
+    credit.append(site, '. Non-commercial browser remake, code under CC BY-NC-SA 3.0 DE. Game assets hosted with the author\'s permission; see ');
+    const notice = document.createElement('a');
+    notice.href = 'ASSETS-LICENSE.txt';
+    notice.target = '_blank';
+    notice.rel = 'noopener';
+    notice.textContent = 'ASSETS-LICENSE.txt';
+    credit.append(notice, '.');
     this.root.append(title, this.body, credit);
     parent.append(this.root);
   }
