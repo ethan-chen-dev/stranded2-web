@@ -1,0 +1,72 @@
+src/game/tools.test.ts
+  s_f36ad3f36474fc::t_049fe4612a7815 31
+src/game/weapons.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 140,167,442
+src/game/menu-ui.ts
+  s_f36ad3f36474fc::t_ed587a412a4a6f 77-82
+  s_f36ad3f36474fc::t_c700abd2ebabe4 85-88,107,138,162-165,173,176
+  s_f36ad3f36474fc::t_f4449e97b23e47 96,113,116,177,186,189
+src/game/session.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 178,407,426,481,552,596,600,638,669,680,711,781,798,822,832,847,863,884
+  s_f36ad3f36474fc::t_f4449e97b23e47 774,856
+src/script/commands/player.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 28
+src/game/build-ui.ts
+  s_f36ad3f36474fc::t_c700abd2ebabe4 22,48
+src/script/engine.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 182
+src/game/tools.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 52,56
+src/viewer/log.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 12,14,21,36
+src/viewer/style.css
+  s_f36ad3f36474fc::t_ed587a412a4a6f 49-54,114-117
+src/game/build.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 45,47-50,53,118,127,142
+src/game/panels.ts
+  s_f36ad3f36474fc::t_c700abd2ebabe4 88,93,105,111,130,133-134,142
+src/game/projectiles.test.ts
+  s_f36ad3f36474fc::t_049fe4612a7815 120
+src/game/sequence.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 208,279,355,373,411
+src/script/commands/entity.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 104-105,112,116
+src/game/combine.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 73
+src/game/inventory-ui.ts
+  s_f36ad3f36474fc::t_c700abd2ebabe4 35,99-103,109,116,120,122,129,140
+src/viewer/main.ts
+  s_f36ad3f36474fc::t_c7244f3b953c2a 65,78,83,88,97,124-125,130-131,150,155-156,202,216
+  s_f36ad3f36474fc::t_ed587a412a4a6f 62-64,66-67,92-94
+src/script/commands/ui.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 32,42,76,89,117
+src/script/interpreter.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 164
+src/script/registry.ts
+  s_f36ad3f36474fc::t_f4449e97b23e47 53
+src/game/hud.ts
+  s_f36ad3f36474fc::t_c700abd2ebabe4 49,52,115,127
+src/game/exchange-ui.ts
+  s_f36ad3f36474fc::t_c700abd2ebabe4 45,75,104
+index.html
+  s_f36ad3f36474fc::t_3fa27c7b1f3f90 2,5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "dac77b79ac6ef8bff564bc1b18c60c9b68c741f0",
+  "prompts": {},
+  "logical_commit_id": "dac77b79ac6ef8bff564bc1b18c60c9b68c741f0",
+  "sessions": {
+    "s_f36ad3f36474fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "69d2f502-647f-4e8e-b48e-bc19a189067f",
+        "model": "claude-opus-5"
+      },
+      "human_author": "ethan-chen-dev <129498926+ethan-chen-dev@users.noreply.github.com>",
+      "total_additions": 151,
+      "total_deletions": 127
+    }
+  }
+}
