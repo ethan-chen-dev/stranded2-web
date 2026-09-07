@@ -28,6 +28,6 @@ describe('Tools', () => {
   });
   it('fails outside the area', () => {
     expect(t.finish('dig', 1000, 1000)).toBe(false);
-    expect(tw.messages.at(-1)).toContain('挖不到');
+    expect(tw.messages.at(-1)).toContain('Nothing to dig up');
   });
 });

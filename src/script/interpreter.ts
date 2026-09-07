@@ -161,7 +161,7 @@ class Runner {
       return this.stop;
     } catch (e) {
       if (e instanceof ScriptRuntimeError) {
-        this.o.host.log('error', `脚本错误 ${this.o.origin}${e.line ? ` 第 ${e.line} 行` : ''}（事件 ${this.env.event}）: ${e.message}`);
+        this.o.host.log('error', `script error in ${this.o.origin}${e.line ? ` line ${e.line}` : ''} (event ${this.env.event}): ${e.message}`);
         return 'error';
       }
       throw e;

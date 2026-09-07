@@ -46,10 +46,10 @@ export class Hud {
     this.clockEl.className = 'clock';
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'hint';
-    this.hintEl.textContent = '点击画面开始（Esc 菜单，Tab 背包，B 建造，T 日记，F5/F9 快速存读档）';
+    this.hintEl.textContent = 'Click to play. Esc menu, Tab inventory, B build, T diary, F5/F9 quick save and load';
     this.deadEl = document.createElement('div');
     this.deadEl.className = 'dead';
-    this.deadEl.textContent = '你死了';
+    this.deadEl.textContent = 'You died';
     this.deadEl.hidden = true;
     this.processEl = document.createElement('div');
     this.processEl.className = 'process';
@@ -112,7 +112,7 @@ export class Hud {
 
   /** 右下角手持物品；null 为徒手。 */
   setWeapon(item: { name: string; icon?: string } | null): void {
-    this.weaponName.textContent = item ? item.name : '徒手';
+    this.weaponName.textContent = item ? item.name : 'Bare hands';
     this.weaponIcon.hidden = !item?.icon;
     if (item?.icon) this.weaponIcon.src = item.icon;
   }
@@ -124,7 +124,7 @@ export class Hud {
   }
 
   setClock(day: number, hour: number, minute: number): void {
-    this.clockEl.textContent = `第 ${day} 天 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    this.clockEl.textContent = `Day ${day}  ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   }
 
   showHint(show: boolean): void {

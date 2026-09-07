@@ -42,7 +42,7 @@ export class ExchangeUi {
     const buttons = document.createElement('div');
     buttons.className = 'panel-buttons';
     const close = document.createElement('button');
-    close.textContent = '关闭';
+    close.textContent = 'Close';
     close.addEventListener('click', () => this.close());
     buttons.append(close);
     this.root.append(this.titleEl, main, this.capEl, buttons);
@@ -72,7 +72,7 @@ export class ExchangeUi {
   refresh(): void {
     const a = this.actions;
     if (!a) return;
-    this.titleEl.textContent = `${a.title()}（左：背包，右：容器，点击移动一件）`;
+    this.titleEl.textContent = `${a.title()} - left: inventory, right: container. Click an item to move one.`;
     this.capEl.textContent = a.capacity();
     this.fill(this.left, a.playerItems(), true);
     this.fill(this.right, a.containerItems(), false);
@@ -101,7 +101,7 @@ export class ExchangeUi {
     if (items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'inv-empty';
-      empty.textContent = '空';
+      empty.textContent = 'Empty';
       list.append(empty);
     }
   }

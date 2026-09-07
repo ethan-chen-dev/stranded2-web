@@ -19,7 +19,7 @@ export class BuildUi {
     this.root.hidden = true;
     const title = document.createElement('div');
     title.className = 'inv-title';
-    title.textContent = '建造（B 关闭）选择后在准星落点放置工地，再按 B 或左键确认';
+    title.textContent = 'Build (B to close). Pick one, aim at the ground, then press B or left click to place the site.';
     this.list = document.createElement('div');
     this.list.className = 'build-list';
     this.root.append(title, this.list);
@@ -45,7 +45,7 @@ export class BuildUi {
     this.list.replaceChildren();
     const list = this.actions.buildings();
     if (list.length === 0) {
-      this.list.textContent = '还没有可建造的建筑';
+      this.list.textContent = 'Nothing unlocked to build yet.';
       return;
     }
     for (const b of list) {

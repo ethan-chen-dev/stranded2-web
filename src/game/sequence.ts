@@ -205,7 +205,7 @@ export class Sequence {
       case 'script': {
         const src = s(1);
         const txt = this.d.loadText(src);
-        if (!txt) this.d.log(`seqscript 找不到来源 ${src}`);
+        if (!txt) this.d.log(`seqscript: text source ${src} not found`);
         ev.text = txt ?? '';
         break;
       }
@@ -276,7 +276,7 @@ export class Sequence {
         break;
       }
       default:
-        this.d.log(`未知序列事件 ${kind}`);
+        this.d.log(`unknown sequence event ${kind}`);
         return;
     }
     this.events.push(ev);
@@ -352,7 +352,7 @@ export class Sequence {
       case 'hideplayer': this.hidePlayer = e.ints[0] !== 0; break;
       case 'setcam': {
         const info = this.d.info(e.ints[0]);
-        if (!info) { this.d.log(`setcam @ ${e.t} ms：信息点 ${e.ints[0]} 不存在`); break; }
+        if (!info) { this.d.log(`setcam @ ${e.t} ms: info ${e.ints[0]} does not exist`); break; }
         this.camera = { x: info.x, y: info.y, z: info.z, pitch: info.pitch, yaw: info.yaw };
         this.setPivot();
         this.move = null;
@@ -370,7 +370,7 @@ export class Sequence {
           sdx: this.camera.x + fw.x * FAR, sdy: this.camera.y + fw.y * FAR, sdz: this.camera.z + fw.z * FAR,
           edx: end.x + efw.x * FAR, edy: end.y + efw.y * FAR, edz: end.z + efw.z * FAR,
         };
-        if (!info) this.d.log(`movecam @ ${e.t} ms：信息点 ${e.ints[1]} 不存在`);
+        if (!info) this.d.log(`movecam @ ${e.t} ms: info ${e.ints[1]} does not exist`);
         this.setPivot();
         this.moveCamera();
         this.rotateCamera();
@@ -408,7 +408,7 @@ export class Sequence {
         if (this.image) this.imageTexts.push({ text: e.text, x: e.ints[0], y: e.ints[1], color: e.ints[2], align: e.ints[3] });
         break;
       default:
-        this.d.log(`序列事件 ${e.kind} 未实现`);
+        this.d.log(`sequence event ${e.kind} is not implemented`);
     }
   }
 

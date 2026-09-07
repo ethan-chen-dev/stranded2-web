@@ -85,12 +85,12 @@ export class Panels {
 
   msgbox(title: string, text: string, onClose?: () => void): void {
     this.show(MENU_MSGBOX, title, text, false);
-    this.buttonsEl.replaceChildren(this.button('确定', () => { this.close(); onClose?.(); }));
+    this.buttonsEl.replaceChildren(this.button('OK', () => { this.close(); onClose?.(); }));
   }
 
   dialogue(pages: Map<string, DialoguePage>, page: string): boolean {
     if (!pages.has(page)) {
-      this.actions.log(`对话页 ${page} 不存在`);
+      this.actions.log(`dialogue page ${page} not found`);
       return false;
     }
     this.pages = pages;
@@ -102,13 +102,13 @@ export class Panels {
   private showPage(name: string): void {
     const page = this.pages?.get(name);
     if (!page) {
-      this.actions.log(`对话页 ${name} 不存在`);
+      this.actions.log(`dialogue page ${name} not found`);
       return;
     }
     if (page.title) this.dialogueTitle = page.title;
     this.show(MENU_DIALOGUE, this.dialogueTitle, page.text, false);
     this.buttonsEl.replaceChildren(...page.buttons.map(b => this.button(b.text, () => this.press(b.target))));
-    if (page.trades.length) this.actions.log(`对话页 ${name} 含 ${page.trades.length} 段交易，交易界面未实现`);
+    if (page.trades.length) this.actions.log(`dialogue page ${name} has ${page.trades.length} trade blocks; trading UI is not implemented`);
     if (page.script.trim()) {
       this.actions.runScript(page.script, `dialogue ${name}`);
     }
@@ -127,11 +127,11 @@ export class Panels {
   openDiary(entries: DiaryEntry[], skills: { caption: string; value: number }[] = [], focusTitle?: string): void {
     const focus = focusTitle !== undefined ? entries.find(e => e.title === focusTitle) : undefined;
     const first = focus ?? entries[entries.length - 1];
-    this.show(MENU_DIARY, '日记', first ? first.text : '还没有日记。', true);
+    this.show(MENU_DIARY, 'Diary', first ? first.text : 'No diary entries yet.', true);
     const skillBtn = document.createElement('button');
     skillBtn.className = 'panel-entry panel-skills';
-    skillBtn.textContent = '技能';
-    skillBtn.addEventListener('click', () => this.renderText(skills.length ? skills.map(s => `${s.caption}: ${s.value}`).join('\n') : '还没有技能。'));
+    skillBtn.textContent = 'Skills';
+    skillBtn.addEventListener('click', () => this.renderText(skills.length ? skills.map(s => `${s.caption}: ${s.value}`).join('\n') : 'No skills yet.'));
     this.sideEl.replaceChildren(skillBtn, ...entries.map((e, i) => {
       const b = document.createElement('button');
       b.className = 'panel-entry';
@@ -139,7 +139,7 @@ export class Panels {
       b.addEventListener('click', () => this.renderText(e.text));
       return b;
     }).reverse());
-    this.buttonsEl.replaceChildren(this.button('关闭', () => this.close()));
+    this.buttonsEl.replaceChildren(this.button('Close', () => this.close()));
   }
 
   uiText(id: number, text: string, font: number, x?: number, y?: number, align = 1): void {

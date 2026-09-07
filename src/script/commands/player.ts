@@ -25,7 +25,7 @@ export function registerPlayer(r: CommandRegistry): void {
     }
   });
   r.register(['player_speed', 'player_damage', 'player_attackrange', 'player_maxweight', 'player_mat', 'player_ammo'], (ctx, args) => {
-    ctx.host.log('info', `玩家属性指令仅记录: ${args.join(',')}`);
+    ctx.host.log('info', `player attribute command logged only: ${args.join(',')}`);
   });
 
   r.register('find', (ctx, args) => {

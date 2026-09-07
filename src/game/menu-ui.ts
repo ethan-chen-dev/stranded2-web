@@ -74,12 +74,18 @@ export class MainMenu {
     this.root.hidden = true;
   }
 
+  /** 关闭菜单并进入地图查看器（显示地图选择与预览）。 */
+  private toViewer(): void {
+    document.body.classList.add('viewer');
+    this.hide();
+  }
+
   private home(): void {
     this.body.replaceChildren(
-      button('冒险', () => location.assign(playUrl(ADVENTURE_MAP))),
-      button('单个岛屿', () => { void this.mapList(); }),
-      button('读取存档', () => this.saveList()),
-      button('地图查看器', () => this.hide()),
+      button('Adventure', () => location.assign(playUrl(ADVENTURE_MAP))),
+      button('Single island', () => { void this.mapList(); }),
+      button('Load game', () => this.saveList()),
+      button('Map viewer', () => this.toViewer()),
     );
   }
 
@@ -87,7 +93,7 @@ export class MainMenu {
     const maps = await this.actions.maps();
     this.body.replaceChildren(
       ...maps.map(m => button(m.replace(/^maps\//, '').replace(/\.s2$/i, ''), () => location.assign(playUrl(m)))),
-      button('返回', () => this.home()),
+      button('Back', () => this.home()),
     );
   }
 
@@ -98,16 +104,16 @@ export class MainMenu {
       row.className = 'menu-row';
       row.append(
         button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))),
-        button('删除', () => { this.actions.deleteSave(s.name); this.saveList(); }),
+        button('Delete', () => { this.actions.deleteSave(s.name); this.saveList(); }),
       );
       return row;
     });
     if (rows.length === 0) {
       const none = document.createElement('div');
-      none.textContent = '没有存档';
+      none.textContent = 'No saved games';
       rows.push(none);
     }
-    this.body.replaceChildren(...rows, button('返回', () => this.home()));
+    this.body.replaceChildren(...rows, button('Back', () => this.home()));
   }
 }
 
@@ -129,7 +135,7 @@ export class PauseMenu {
     this.root.hidden = true;
     const title = document.createElement('div');
     title.className = 'menu-title';
-    title.textContent = '暂停';
+    title.textContent = 'Paused';
     this.body = document.createElement('div');
     this.body.className = 'menu-body';
     this.root.append(title, this.body);
@@ -153,10 +159,10 @@ export class PauseMenu {
 
   private home(): void {
     this.body.replaceChildren(
-      button('继续', () => this.actions.resume()),
-      button('保存', () => this.saveForm()),
-      button('读取', () => this.loadList()),
-      button('回主菜单', () => location.assign(MENU_URL)),
+      button('Resume', () => this.actions.resume()),
+      button('Save', () => this.saveForm()),
+      button('Load', () => this.loadList()),
+      button('Main menu', () => location.assign(MENU_URL)),
     );
   }
 
@@ -164,11 +170,11 @@ export class PauseMenu {
     const input = document.createElement('input');
     input.className = 'menu-input';
     input.value = this.actions.quickSaveName;
-    input.placeholder = '存档名称';
+    input.placeholder = 'Save name';
     const row = document.createElement('div');
     row.className = 'menu-row';
-    row.append(input, button('保存', () => { const name = input.value.trim(); if (name) { this.actions.save(name); this.home(); } }));
-    this.body.replaceChildren(row, button('返回', () => this.home()));
+    row.append(input, button('Save', () => { const name = input.value.trim(); if (name) { this.actions.save(name); this.home(); } }));
+    this.body.replaceChildren(row, button('Back', () => this.home()));
     input.focus();
   }
 
@@ -177,9 +183,9 @@ export class PauseMenu {
     const rows: HTMLElement[] = saves.map(s => button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))));
     if (rows.length === 0) {
       const none = document.createElement('div');
-      none.textContent = '没有存档';
+      none.textContent = 'No saved games';
       rows.push(none);
     }
-    this.body.replaceChildren(...rows, button('返回', () => this.home()));
+    this.body.replaceChildren(...rows, button('Back', () => this.home()));
   }
 }

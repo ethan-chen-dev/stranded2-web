@@ -117,7 +117,7 @@ describe('Projectiles', () => {
     expect(w.attack1()).toBe('blocked');
     tw.engine.update(0);
     expect(g('na')).toBe('1');
-    expect(tw.messages.some(m => m.includes('弹药'))).toBe(true);
+    expect(tw.messages.some(m => m.includes('No ammunition'))).toBe(true);
     expect(pr.list).toHaveLength(0);
   });
 

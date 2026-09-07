@@ -9,16 +9,16 @@ export class Log {
     const header = document.createElement('div');
     header.className = 'log-header';
     this.summary = document.createElement('span');
-    this.summary.textContent = '日志';
+    this.summary.textContent = 'Log';
     const toggle = document.createElement('button');
-    toggle.textContent = '折叠';
+    toggle.textContent = 'Hide';
     header.append(this.summary, toggle);
     this.list = document.createElement('div');
     this.list.className = 'log-list';
     container.append(header, this.list);
     toggle.addEventListener('click', () => {
       const hidden = this.list.hidden = !this.list.hidden;
-      toggle.textContent = hidden ? '展开' : '折叠';
+      toggle.textContent = hidden ? 'Show' : 'Hide';
     });
   }
 
@@ -33,6 +33,6 @@ export class Log {
     line.textContent = msg;
     this.list.append(line);
     this.list.scrollTop = this.list.scrollHeight;
-    this.summary.textContent = `日志 warn ${this.counts.warn} error ${this.counts.error}`;
+    this.summary.textContent = `Log  warn ${this.counts.warn}  error ${this.counts.error}`;
   }
 }

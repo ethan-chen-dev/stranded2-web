@@ -50,7 +50,7 @@ export class CommandRegistry {
   unimplemented(name: string, log: ScriptHost['log']): Value {
     if (!this.reported.has(name)) {
       this.reported.add(name);
-      log('warn', `脚本指令未实现: ${name}`);
+      log('warn', `script command not implemented: ${name}`);
     }
     return '0';
   }

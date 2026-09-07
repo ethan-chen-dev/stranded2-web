@@ -179,7 +179,7 @@ export class ScriptEngine {
     } catch (e) {
       if (e instanceof ScriptSyntaxError) {
         this.syntaxErrors.push({ origin, message: e.message, line: e.line });
-        this.host.log('error', `脚本语法错误 ${origin}: ${e.message}`);
+        this.host.log('error', `script syntax error in ${origin}: ${e.message}`);
         return { cls, id, text, script: null, events: new Set(), origin };
       }
       throw e;

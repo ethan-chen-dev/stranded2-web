@@ -49,11 +49,11 @@ export class Tools {
         return true;
       }
       this.d.registry.remove(CLS.item, item.id);
-      this.d.message('没有空间了', 2);
+      this.d.message('No space left', 2);
       this.d.sound('fail.wav');
       return false;
     }
-    this.d.message(kind === 'dig' ? '这里挖不到什么' : '这里钓不到鱼', 2);
+    this.d.message(kind === 'dig' ? 'Nothing to dig up here' : 'No fish to catch here', 2);
     this.d.sound('fail.wav');
     return false;
   }

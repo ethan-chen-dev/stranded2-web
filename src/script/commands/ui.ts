@@ -29,7 +29,7 @@ export function registerUi(r: CommandRegistry): void {
     const source = args[next] ?? '';
     const text = source.includes('.') || /^\d+$/.test(source.trim()) ? ctx.host.textSource(source, args[next + 1]) : source;
     if (text === undefined) {
-      ctx.host.log('warn', `addscript: 找不到脚本 ${source}`);
+      ctx.host.log('warn', `addscript: script ${source} not found`);
       return;
     }
     ctx.engine.addInstanceScript(cls, id, text, false, `addscript ${source}`);
@@ -39,7 +39,7 @@ export function registerUi(r: CommandRegistry): void {
     const source = args[next] ?? '';
     const text = source.includes('.') || /^\d+$/.test(source.trim()) ? ctx.host.textSource(source, args[next + 1]) : source;
     if (text === undefined) {
-      ctx.host.log('warn', `extendscript: 找不到脚本 ${source}`);
+      ctx.host.log('warn', `extendscript: script ${source} not found`);
       return;
     }
     ctx.engine.addInstanceScript(cls, id, text, true, `extendscript ${source}`);
@@ -73,7 +73,7 @@ export function registerUi(r: CommandRegistry): void {
   const sourceText = (ctx: CommandContext, source: Value | undefined, section: Value | undefined): string | undefined => {
     if (source === undefined || source === '') return ctx.host.buffer.take();
     const text = ctx.host.textSource(String(source), section === undefined ? undefined : String(section));
-    if (text === undefined) ctx.host.log('warn', `找不到文本来源 ${source}${section ? ` 段 ${section}` : ''}`);
+    if (text === undefined) ctx.host.log('warn', `text source ${source}${section ? ` section ${section}` : ''} not found`);
     return text;
   };
   r.register('msgbox', (ctx, args) => {
@@ -86,7 +86,7 @@ export function registerUi(r: CommandRegistry): void {
   });
   r.register('dialogue', (ctx, args) => {
     if (!ctx.host.dialogue(args[0] ?? '', args[1] ?? '', args[2] === undefined ? undefined : String(args[2]))) {
-      ctx.host.log('warn', `对话 ${args[0]} 打不开：${args[1]}`);
+      ctx.host.log('warn', `cannot open dialogue ${args[0]} from ${args[1]}`);
     }
   });
   r.register('text', (ctx, args) => {
@@ -114,7 +114,7 @@ export function registerUi(r: CommandRegistry): void {
     const cls = requireClass(args[0] ?? '');
     const typ = int(args[1] ?? '0');
     const text = args[2] === undefined ? '' : ctx.host.textSource(String(args[2]), args[3] === undefined ? undefined : String(args[3]));
-    if (text === undefined) { ctx.host.log('warn', `找不到脚本来源 ${args[2]}`); return; }
+    if (text === undefined) { ctx.host.log('warn', `script source ${args[2]} not found`); return; }
     apply(ctx, cls, typ, text);
   };
   r.register('def_override', defCommand((ctx, cls, typ, text) => ctx.engine.setTypeScript(cls, typ, text, `def_override ${cls}:${typ}`)));

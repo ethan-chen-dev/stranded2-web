@@ -59,6 +59,12 @@ function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {
   ctx.putImageData(img, 0, 0);
 }
 
+/** 加载提示：一行进度文字加一行说明。 */
+function setLoading(el: HTMLElement, text: string, percent?: number): void {
+  const bar = percent === undefined ? '' : `<div class="loading-bar"><i style="width:${percent}%"></i></div>`;
+  el.innerHTML = `<div>${text}…</div>${bar}<div class="loading-hint">First visit downloads about 24 MB of original game assets</div>`;
+}
+
 async function main(): Promise<void> {
   const app = document.getElementById('app')!;
   const canvas = document.createElement('canvas');
@@ -69,23 +75,26 @@ async function main(): Promise<void> {
   const preview = document.createElement('canvas');
   const statsEl = document.createElement('pre');
   const playBtn = document.createElement('button');
-  playBtn.textContent = '进入游戏';
+  playBtn.textContent = 'Play';
   hud.append(select, preview, statsEl, playBtn);
   const logEl = document.createElement('div');
   const help = document.createElement('div');
   help.className = 'help';
-  help.textContent = '拖拽鼠标转视角，WASD 移动，QE 升降，Shift 加速';
+  help.textContent = 'Drag to look, WASD to move, Q/E up and down, Shift to speed up';
   app.append(canvas, hud, logEl, help);
   const log = new Log(logEl);
   const loading = document.createElement('div');
   loading.className = 'loading';
-  loading.textContent = '加载中…';
+  loading.innerHTML = '<div>Loading…</div><div class="loading-hint">First visit downloads about 24 MB of original game assets</div>';
   app.append(loading);
 
   const params = new URLSearchParams(location.search);
+  /** 地图选择、预览、fps 与日志面板只在 ?debug=1 或地图查看器里显示。 */
+  if (params.get('debug') === '1') document.body.classList.add('debug');
+  if (params.has('map') && params.get('mode') !== 'play') document.body.classList.add('viewer');
   const saveName = params.get('save');
   const restoreSnap = saveName ? loadGame(saveName) : null;
-  if (saveName && !restoreSnap) log.error(`存档 ${saveName} 不存在或已损坏`);
+  if (saveName && !restoreSnap) log.error(`save ${saveName} is missing or corrupted`);
   const mapPath = restoreSnap?.mapPath ?? params.get('map') ?? DEFAULT_MAP;
   const maps = await listFiles('maps');
   for (const m of maps.filter(f => f.endsWith('.s2'))) {
@@ -112,14 +121,14 @@ async function main(): Promise<void> {
   resize();
 
   const res = new Resources(log);
-  log.info(`加载 ${mapPath}`);
-  loading.textContent = `加载 ${mapPath}…`;
+  log.info(`loading ${mapPath}`);
+  setLoading(loading, `Loading map ${mapPath.split('/').pop()}`);
   const t0 = performance.now();
   const [defs, mapBytes] = await Promise.all([loadDefs(res), res.bytes('/' + mapPath)]);
   const map = parseS2Map(mapBytes);
   drawPreview(preview, map);
-  log.info(`定义 objects ${defs.objects.size} units ${defs.units.size} items ${defs.items.size}`);
-  log.info(`地图 ${map.terrainSize}x${map.terrainSize} 天空 ${map.header.skybox || 'sky'} 时间 ${map.header.hour}:${map.header.minute}`);
+  log.info(`definitions: objects ${defs.objects.size}, units ${defs.units.size}, items ${defs.items.size}`);
+  log.info(`map ${map.terrainSize}x${map.terrainSize}, sky ${map.header.skybox || 'sky'}, time ${map.header.hour}:${map.header.minute}`);
 
   const ambient = new THREE.AmbientLight(0xffffff, 1.2);
   scene.add(ambient);
@@ -138,13 +147,13 @@ async function main(): Promise<void> {
   const sea = buildSea(await res.texture('/gfx/water.jpg'), map.terrainSize * CELL * 6);
   scene.add(sea.group);
 
-  const world = await buildWorld(map, defs, res, log, (done, total) => { loading.textContent = `加载模型 ${done}/${total}…`; });
+  const world = await buildWorld(map, defs, res, log, (done, total) => { setLoading(loading, `Loading models ${done}/${total}`, Math.round((done / Math.max(total, 1)) * 100)); });
   loading.remove();
   scene.add(world.group);
   const cycle = parseLightcycle(await res.text('/sys/lightcycle.inf'));
   new Environment(scene, sky, ambient, sun, map.header.fog, cycle).apply(map.header.hour, map.header.minute);
-  log.info(`实体 objects ${world.stats.objects} units ${world.stats.units} items ${world.stats.items} 缺失 ${world.stats.missing}，${Math.round(performance.now() - t0)} ms`);
-  log.info(`定义 infos ${defs.infos?.size ?? 0}`);
+  log.info(`entities: objects ${world.stats.objects}, units ${world.stats.units}, items ${world.stats.items}, missing ${world.stats.missing}, ${Math.round(performance.now() - t0)} ms`);
+  log.info(`definitions: infos ${defs.infos?.size ?? 0}`);
 
   const player = map.units.find(u => u.typ === 1);
   if (player) {
@@ -190,7 +199,7 @@ async function main(): Promise<void> {
     fpsTime += dt;
     if (fpsTime >= 0.5) {
       const p = camera.position;
-      statsEl.textContent = `fps ${Math.round(frames / fpsTime)}\n位置 ${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${(-p.z).toFixed(0)}\n物体 ${world.stats.objects} 单位 ${world.stats.units} 物品 ${world.stats.items} 缺失 ${world.stats.missing}`;
+      statsEl.textContent = `fps ${Math.round(frames / fpsTime)}\npos ${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${(-p.z).toFixed(0)}\nobjects ${world.stats.objects} units ${world.stats.units} items ${world.stats.items} missing ${world.stats.missing}`;
       frames = 0;
       fpsTime = 0;
     }
@@ -204,6 +213,6 @@ main().catch(e => {
   const el = document.createElement('pre');
   el.style.color = '#f66';
   el.style.padding = '16px';
-  el.textContent = `加载失败：${(e as Error).stack ?? e}`;
+  el.textContent = `Failed to load: ${(e as Error).stack ?? e}`;
   document.getElementById('app')!.append(el);
 });

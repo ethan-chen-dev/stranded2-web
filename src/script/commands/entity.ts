@@ -101,19 +101,19 @@ export function registerEntity(r: CommandRegistry): void {
   const unitArg = (ctx: CommandContext, v: Value | undefined): number => (v === undefined || v === 'self' ? ctx.env.id : int(v));
   r.register('unitpath', (ctx, args) => { ctx.host.unitPath(unitArg(ctx, args[0]), args.slice(1).map(a => int(a))); });
   r.register('freeunitpath', (ctx, args) => { ctx.host.freeUnitPath(unitArg(ctx, args[0])); });
-  r.register('starttrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), true)) ctx.host.log('warn', `starttrigger: 信息点 ${args[0]} 不是触发器`); });
-  r.register('stoptrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), false)) ctx.host.log('warn', `stoptrigger: 信息点 ${args[0]} 不是触发器`); });
+  r.register('starttrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), true)) ctx.host.log('warn', `starttrigger: info ${args[0]} is not a trigger`); });
+  r.register('stoptrigger', (ctx, args) => { if (!ctx.host.setTrigger(unitArg(ctx, args[0]), false)) ctx.host.log('warn', `stoptrigger: info ${args[0]} is not a trigger`); });
   r.register('stoptriggers', ctx => { ctx.host.stopTriggers(); });
   r.register('storage', (ctx, args) => { const { cls, id, next } = classId(ctx, args, 0); return str(ctx.host.storage(cls, id, int(args[next] ?? '0'))); });
   r.register('freespace', (ctx, args) => {
     const on = (i: number, d: boolean) => (args[i] === undefined ? d : int(args[i]) !== 0);
     return bool(ctx.host.freeSpace(num(args[0] ?? '0'), num(args[1] ?? '0'), num(args[2] ?? '0'), num(args[3] ?? '300'), { objects: on(4, true), units: on(5, true), items: on(6, true), infos: on(7, false) }));
   });
-  r.register('alterobject', (ctx, args) => { if (!ctx.host.alterObject(unitArg(ctx, args[0]), int(args[1] ?? '0'))) ctx.host.log('warn', `alterobject: 物体 ${args[0]} 不存在`); });
+  r.register('alterobject', (ctx, args) => { if (!ctx.host.alterObject(unitArg(ctx, args[0]), int(args[1] ?? '0'))) ctx.host.log('warn', `alterobject: object ${args[0]} does not exist`); });
   r.register('revive', (ctx, args) => { ctx.host.revive(unitArg(ctx, args[0])); });
   r.register('projectile', (ctx, args) => {
     const mode = int(args[4] ?? '0');
-    if (mode !== 1) { ctx.host.log('warn', `projectile 模式 ${mode} 未实现`); return; }
+    if (mode !== 1) { ctx.host.log('warn', `projectile mode ${mode} is not implemented`); return; }
     const { cls, id, next } = classId(ctx, args, 5);
     const rest = args.slice(next + 1);
     ctx.host.fireProjectile({

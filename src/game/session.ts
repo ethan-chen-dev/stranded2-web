@@ -175,7 +175,7 @@ export class GameSession {
       pitch = -spawn.pitch * DEG;
     } else {
       pos = new THREE.Vector3(0, this.ground.heightAt(0, 0) + PLAYER.halfHeight, 0);
-      o.log.warn('地图没有出生点信息点，放在地图中心');
+      o.log.warn('map has no start position info; spawning at the map center');
     }
     this.player = new Player(pos, yaw, pitch);
 
@@ -404,7 +404,7 @@ export class GameSession {
     this.player.applyTo(o.camera);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
-    o.log.info(`游戏模式：出生点 ${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${(-pos.z).toFixed(0)}，可碰撞物体 ${this.collider.items.length}，合成 ${combinations.length} 条，建筑 ${buildings.length} 条，脚本 ${this.engine.syntaxErrors.length} 处语法错误`);
+    o.log.info(`play mode: spawn ${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${(-pos.z).toFixed(0)}, ${this.collider.items.length} colliders, ${combinations.length} combinations, ${buildings.length} buildings, ${this.engine.syntaxErrors.length} script syntax errors`);
 
     const takeover = popTakeover();
     if (takeover && (takeover.items.length || takeover.vars.length || takeover.diary.length || takeover.states.length || takeover.locks.length || takeover.weapon || takeover.skills?.length)) {
@@ -423,7 +423,7 @@ export class GameSession {
       }, o.restore);
       this.env.apply(this.clock.hour, this.clock.minute);
       this.player.applyTo(o.camera);
-      o.log.info(`读档：${o.restore.savedAt}，${o.restore.entities.length} 个实体`);
+      o.log.info(`loaded save from ${o.restore.savedAt}, ${o.restore.entities.length} entities`);
     } else {
       this.engine.globalEvent('start');
     }
@@ -478,7 +478,7 @@ export class GameSession {
         }
       }
     }
-    if (this.engine.syntaxErrors.length) log.warn(`脚本语法错误 ${this.engine.syntaxErrors.length} 处，详见控制台`);
+    if (this.engine.syntaxErrors.length) log.warn(`${this.engine.syntaxErrors.length} script syntax errors; see the console`);
   }
 
   private overlayOpen(): boolean {
@@ -549,7 +549,7 @@ export class GameSession {
         this.player.update(dtMs, now, { forward: false, backward: false, left: false, right: false, jump: false, lookDx: 0, lookDy: 0 }, this.ground, this.collider);
       }
       const damage = this.stats.update(dtMs, this.player.movedThisFrame, this.player.swimming);
-      if (damage > 0) this.hud.message(`饥渴交加，失去 ${damage} 点生命`, 2);
+      if (damage > 0) this.hud.message(`Starving and thirsty, you lose ${damage} health`, 2);
       if (this.stats.dead) {
         this.hud.showDead();
         input.release();
@@ -593,11 +593,11 @@ export class GameSession {
       this.focusAcc = 0;
       this.focused = this.pickup.focus();
       if (this.focused) {
-        this.hud.setFocus(`${this.focused.def?.name ?? '物品'}${this.focused.count > 1 ? ` × ${this.focused.count}` : ''}`);
+        this.hud.setFocus(`${this.focused.def?.name ?? 'Item'}${this.focused.count > 1 ? ` x ${this.focused.count}` : ''}`);
       } else {
         const hit = input.locked && !this.overlayOpen() ? this.weapons.pick(USE_ENTITY_RANGE) : null;
         const corpse = hit && !hit.ground && hit.cls === CLS.unit ? this.o.world.registry.get(CLS.unit, hit.id) : undefined;
-        this.hud.setFocus(corpse?.dead ? `${corpse.def?.name ?? '单位'}的尸体（E 搜刮）` : null);
+        this.hud.setFocus(corpse?.dead ? `Dead ${corpse.def?.name ?? 'animal'} (E to loot)` : null);
       }
     }
 
@@ -635,7 +635,7 @@ export class GameSession {
     this.buildUi.close();
     this.syncLock();
     this.placing = { building: b };
-    this.hud.setMode(`放置 ${b.name}：B 或左键确认，Esc 取消`);
+    this.hud.setMode(`Placing ${b.name}: B or left click to confirm, Esc to cancel`);
     this.updatePlacing();
   }
 
@@ -666,7 +666,7 @@ export class GameSession {
       this.o.world.sync(preview);
     }
     const fail = this.build.checkSpace(b, t.x, t.z);
-    this.hud.setMode(fail ? `放置 ${b.name}：${fail}` : `放置 ${b.name}：B 或左键确认，Esc 取消`);
+    this.hud.setMode(fail ? `Placing ${b.name}: ${fail}` : `Placing ${b.name}: B or left click to confirm, Esc to cancel`);
   }
 
   private confirmPlacing(): void {
@@ -677,7 +677,7 @@ export class GameSession {
     this.placing = null;
     this.hud.setMode(null);
     const site = this.build.place(building, t.x, t.z, this.player.yaw / DEG);
-    if (site) this.hud.message(`已放置 ${building.name} 的工地，手持锤子右键投入材料`, 1);
+    if (site) this.hud.message(`Building site for ${building.name} placed. Hold a hammer and right click it to add materials.`, 1);
     this.engine.update(0);
   }
 
@@ -708,7 +708,7 @@ export class GameSession {
     switch (this.weapons.behaviour()) {
       case 'hammer': {
         const r = this.build.hammer(this.playerRec.x, this.playerRec.z);
-        if (r === 'none') this.hud.message('附近没有工地', 2);
+        if (r === 'none') this.hud.message('No building site nearby', 2);
         break;
       }
       case 'spade': this.startTool('dig'); break;
@@ -771,14 +771,14 @@ export class GameSession {
     const name = rec.def?.name ?? `#${rec.typ}`;
     const stored = registry.store(rec.id, CLS.unit, PLAYER_ID);
     if (stored <= 0) {
-      this.hud.message('没有空间了', 2);
+      this.hud.message('No space left', 2);
       this.sounds.play('fail.wav');
       return;
     }
     const still = registry.get(CLS.item, rec.id);
     if (still) this.o.world.sync(still);
     else this.o.world.remove(rec);
-    this.hud.message(`拾取 ${name} × ${stored}`, 1);
+    this.hud.message(`Picked up ${name} x ${stored}`, 1);
     this.sounds.play('collect.wav');
     this.focused = null;
     this.hud.setFocus(null);
@@ -795,7 +795,7 @@ export class GameSession {
       this.weapons.unequip();
       this.refreshWeaponHud();
     }
-    this.hud.message(`丢下 ${rec.def?.name ?? `#${rec.typ}`}`, 0);
+    this.hud.message(`Dropped ${rec.def?.name ?? `#${rec.typ}`}`, 0);
   }
 
   private useItem(rec: EntityRecord, event: 'use' | 'eat'): void {
@@ -819,7 +819,7 @@ export class GameSession {
   private playerHurt(amount: number, by: EntityRecord): void {
     if (this.stats.dead) return;
     this.stats.health = Math.max(0, this.stats.health - amount);
-    this.hud.message(`${by.def?.name ?? '单位'} 攻击了你，失去 ${amount} 点生命`, 2);
+    this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 2);
     this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
     if (this.stats.dead) {
       this.hud.showDead();
@@ -829,7 +829,7 @@ export class GameSession {
 
   private unitDied(rec: EntityRecord): void {
     rec.playAnim?.('die', false);
-    this.hud.message(`${rec.def?.name ?? '单位'} 死了`, 0);
+    this.hud.message(`${rec.def?.name ?? 'The animal'} died`, 0);
   }
 
   private entityDied(rec: EntityRecord): void {
@@ -844,7 +844,7 @@ export class GameSession {
     if (!holder) return;
     const p = this.player.position;
     this.exchangeUi.show({
-      title: () => holder.def?.name ?? '容器',
+      title: () => holder.def?.name ?? 'Container',
       playerItems: () => registry.storedIn(CLS.unit, PLAYER_ID),
       containerItems: () => registry.storedIn(cls, id),
       move: (item, toContainer) => {
@@ -853,14 +853,14 @@ export class GameSession {
         if (!loose) return false;
         if (registry.store(loose.id, toCls, toId) > 0) return true;
         registry.store(loose.id, fromCls, fromId);
-        this.hud.message('没有空间了', 2);
+        this.hud.message('No space left', 2);
         return false;
       },
       name: typ => this.o.defs.items.get(typ)?.name ?? `#${typ}`,
       icon: typ => { const icon = this.o.defs.items.get(typ)?.icon; return icon ? encodeURI(assetUrl(icon)) : undefined; },
       capacity: () => {
         const max = holder.def?.maxweight ?? 0;
-        return max > 0 ? `容器承重 ${registry.usedWeight(cls, id)} / ${max}` : '';
+        return max > 0 ? `Container load ${registry.usedWeight(cls, id)} / ${max}` : '';
       },
       onClose: () => { this.refreshWeaponHud(); this.syncLock(); },
     }, allowStore, only);
@@ -881,7 +881,7 @@ export class GameSession {
 
   save(name: string): void {
     const ok = saveGame(name, this.snapshot());
-    this.hud.message(ok ? `已保存到 ${name}` : '保存失败', ok ? 1 : 2);
+    this.hud.message(ok ? `Saved to ${name}` : 'Saving failed', ok ? 1 : 2);
   }
 
   /** 调试：把时钟拨到指定时间并立即应用光照。 */

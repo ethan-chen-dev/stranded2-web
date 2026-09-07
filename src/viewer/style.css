@@ -46,6 +46,12 @@ canvas.view { display: block; width: 100%; height: 100%; }
 .inv-empty { grid-column: 1 / -1; text-align: center; opacity: .7; }
 .inv-footer { margin-top: 8px; font-size: 12px; text-align: right; }
 body.play .hud, body.play .help { display: none; }
+/* 调试面板默认隐藏：地图选择与预览只在地图查看器里出现，日志只在 ?debug=1 时出现。 */
+.hud, .help { display: none; }
+body.viewer .hud, body.viewer .help, body.debug .hud, body.debug .help { display: block; }
+body.play .hud, body.play .help { display: none; }
+.log { display: none; }
+body.debug .log { display: flex; }
 .inv-cell.selected { outline: 2px solid #ffd766; }
 .inv-cell.inhand { background: rgba(80, 60, 20, .8); }
 .inv-pick { cursor: pointer; }
@@ -105,4 +111,7 @@ body.play .hud, body.play .help { display: none; }
 .exchange-cap { margin-top: 8px; font-size: 12px; opacity: .85; }
 .menu-credit { margin-top: 12px; font-size: 11px; opacity: .8; line-height: 1.4; }
 .menu-credit a { color: #ffd766; pointer-events: auto; }
-.loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 10px 18px; background: rgba(0,0,0,.7); border-radius: 6px; font-size: 16px; z-index: 6; }
+.loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 14px 22px; background: rgba(0,0,0,.72); border-radius: 6px; font-size: 16px; text-align: center; z-index: 6; }
+.loading-hint { margin-top: 6px; font-size: 12px; opacity: .7; }
+.loading-bar { margin-top: 8px; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
+.loading-bar i { display: block; height: 100%; background: #ffd766; transition: width .2s; }

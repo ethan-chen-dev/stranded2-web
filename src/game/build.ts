@@ -42,15 +42,15 @@ export class Build {
   checkSpace(b: Building, x: number, z: number): string | null {
     const y = this.d.terrainY(x, z);
     switch (b.space) {
-      case 'land': return y < 0 ? '需要建在陆地上' : null;
+      case 'land': return y < 0 ? 'must be built on land' : null;
       case 'landwater': return null;
-      case 'water': return y > 0 ? '需要建在水面上' : null;
-      case 'shore': return y < -3 || y > 3 ? '需要建在岸边' : null;
-      case 'hill': return y < 100 ? '需要建在山地上' : null;
-      case 'shallow': return y < -3 || y > -0.1 ? '需要建在浅水里' : null;
+      case 'water': return y > 0 ? 'must be built on water' : null;
+      case 'shore': return y < -3 || y > 3 ? 'must be built on the shore' : null;
+      case 'hill': return y < 100 ? 'must be built on a hill' : null;
+      case 'shallow': return y < -3 || y > -0.1 ? 'must be built in shallow water' : null;
       case 'atobject': {
         const ok = this.d.registry.all(CLS.object, b.atObject).some(o => Math.hypot(o.x - x, o.z - z) <= AT_OBJECT_RANGE);
-        return ok ? null : '需要建在指定的物体上';
+        return ok ? null : 'must be built at the required object';
       }
       default: return null;
     }
@@ -115,7 +115,7 @@ export class Build {
           stored.parentMode = STORED_INSIDE;
         }
         const name = this.d.registry.defFor(CLS.item, req.typ)?.name ?? `#${req.typ}`;
-        this.d.message(`放入 ${name}（${have + 1}/${req.count}）`, 1);
+        this.d.message(`Added ${name} (${have + 1}/${req.count})`, 1);
         this.d.sound('build.wav');
         return 'added';
       }
@@ -124,7 +124,7 @@ export class Build {
       this.finish(site, b);
       return 'finished';
     }
-    this.d.message('缺少材料', 2);
+    this.d.message('Missing materials', 2);
     this.d.sound('fail.wav');
     return 'missing';
   }
@@ -139,7 +139,7 @@ export class Build {
     if (!rec) return null;
     rec.yaw = yaw;
     this.d.world.sync(rec);
-    this.d.message('建造完成', 1);
+    this.d.message('Construction finished', 1);
     this.d.sound('build_finish.wav');
     if (b.script) this.d.engine.runText(b.script, { cls, id: rec.id, event: 'build', info: '(buildings.inf-script)' }, `building ${b.id}`);
     this.d.engine.runNow(cls, rec.id, 'build_finish');

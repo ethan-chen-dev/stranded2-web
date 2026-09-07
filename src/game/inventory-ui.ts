@@ -32,7 +32,7 @@ export class InventoryUi {
     this.root.hidden = true;
     const title = document.createElement('div');
     title.className = 'inv-title';
-    title.textContent = '背包（Tab 关闭）点击物品可多选后合成';
+    title.textContent = 'Inventory (Tab to close). Select several items to combine them.';
     this.grid = document.createElement('div');
     this.grid.className = 'inv-grid';
     this.combineBar = document.createElement('div');
@@ -96,37 +96,37 @@ export class InventoryUi {
         b.addEventListener('click', () => { fn(); this.refresh(); });
         cell.append(b);
       };
-      if (this.actions.hasEvent(rec, 'use')) button('使用', () => this.actions.use(rec));
-      if (this.actions.hasEvent(rec, 'eat')) button(def?.group === 'drink' ? '喝' : '吃', () => this.actions.eat(rec));
-      if (rec.typ === weapon) button('放下', () => this.actions.takeInHand(null));
-      else button('手持', () => this.actions.takeInHand(rec));
-      button('丢弃', () => this.actions.drop(rec));
+      if (this.actions.hasEvent(rec, 'use')) button('Use', () => this.actions.use(rec));
+      if (this.actions.hasEvent(rec, 'eat')) button(def?.group === 'drink' ? 'Drink' : 'Eat', () => this.actions.eat(rec));
+      if (rec.typ === weapon) button('Put away', () => this.actions.takeInHand(null));
+      else button('Hold', () => this.actions.takeInHand(rec));
+      button('Drop', () => this.actions.drop(rec));
       this.grid.append(cell);
     }
     if (items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'inv-empty';
-      empty.textContent = '空';
+      empty.textContent = 'Empty';
       this.grid.append(empty);
     }
     this.combineBar.replaceChildren();
     const sel = this.selectedRecords(items);
     if (sel.length >= 2) {
       const btn = document.createElement('button');
-      btn.textContent = `合成（已选 ${sel.length} 件）`;
+      btn.textContent = `Combine (${sel.length} selected)`;
       btn.addEventListener('click', () => this.showCandidates(sel));
       this.combineBar.append(btn);
     } else if (sel.length === 1) {
-      this.combineBar.textContent = '再选一件物品可以尝试合成';
+      this.combineBar.textContent = 'Select one more item to try combining.';
     }
-    this.footer.textContent = `重量 ${this.actions.usedWeight()} / ${this.actions.maxWeight()}`;
+    this.footer.textContent = `Weight ${this.actions.usedWeight()} / ${this.actions.maxWeight()}`;
   }
 
   private showCandidates(sel: EntityRecord[]): void {
     const cands = this.actions.combineCandidates(sel);
     this.choices.replaceChildren();
     if (cands.length === 0) {
-      this.choices.textContent = '这些物品无法合成';
+      this.choices.textContent = 'These items cannot be combined.';
       return;
     }
     if (cands.length === 1) {
@@ -137,7 +137,7 @@ export class InventoryUi {
     }
     for (const c of cands) {
       const b = document.createElement('button');
-      b.textContent = `${c.combi.name || c.combi.key}${c.locked ? '（未解锁）' : c.feasible ? '' : '（数量不足）'}`;
+      b.textContent = `${c.combi.name || c.combi.key}${c.locked ? ' (locked)' : c.feasible ? '' : ' (not enough)'}`;
       b.disabled = !c.feasible;
       b.addEventListener('click', () => { this.actions.combine(c, sel); this.selected.clear(); this.refresh(); });
       this.choices.append(b);

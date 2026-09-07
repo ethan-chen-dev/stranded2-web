@@ -137,7 +137,7 @@ export class Weapons {
     if (THROW_BEHAVIOURS.has(beh)) return this.throwItem(now, item!, def!);
     if (!this.reportedUnsupported.has(beh)) {
       this.reportedUnsupported.add(beh);
-      this.d.message(`武器类型 ${beh} 尚未实现`, 2);
+      this.d.message(`Weapon type ${beh} is not implemented yet`, 2);
     }
     return 'unsupported';
   }
@@ -164,7 +164,7 @@ export class Weapons {
   private shoot(now: number, item: EntityRecord, def: EntityDef, hitscan: boolean): AttackResult {
     const ammo = this.ammoFor(def.id);
     if (!ammo || !ammo.def) {
-      this.d.message('没有弹药', 2);
+      this.d.message('No ammunition', 2);
       this.d.sound('fail.wav');
       this.d.engine.entityEvent(CLS.item, item.id, 'noammo');
       return 'blocked';
@@ -439,7 +439,7 @@ export class Weapons {
       if (left && left.parentMode !== STORED_INSIDE) this.d.registry.remove(CLS.item, item.id);
     } else {
       this.d.registry.remove(CLS.item, item.id);
-      this.d.message('没有空间了', 2);
+      this.d.message('No space left', 2);
       this.d.sound('fail.wav');
     }
   }

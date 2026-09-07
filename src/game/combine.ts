@@ -70,7 +70,7 @@ export class Combine {
         this.d.message(`${name} × ${stored}`, 1);
       } else {
         this.d.registry.remove(CLS.item, item.id);
-        this.d.message('没有空间了', 2);
+        this.d.message('No space left', 2);
         this.d.sound('fail.wav');
       }
       const left = this.d.registry.get(CLS.item, item.id);
