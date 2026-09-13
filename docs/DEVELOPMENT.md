@@ -67,3 +67,11 @@ scripts/deploy-pages.sh
 ```
 
 The script runs the tests, builds with `BASE_PATH=/<repository>/` and force-pushes `dist/` to `gh-pages`. The build is not done in GitHub Actions because the official download rejects requests from Actions runners.
+
+For an itch.io upload:
+
+```bash
+scripts/pack-itch.sh
+```
+
+This builds with a relative base, because itch serves the game from an arbitrary path inside a sandboxed iframe, and writes `stranded2-web-itch.zip` with `index.html` at its root.

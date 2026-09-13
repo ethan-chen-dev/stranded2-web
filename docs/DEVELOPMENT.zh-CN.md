@@ -67,3 +67,11 @@ scripts/deploy-pages.sh
 ```
 
 脚本会运行测试，以 `BASE_PATH=/<仓库名>/` 构建，并把 `dist/` 强推到 `gh-pages`。不在 GitHub Actions 里构建，因为官方下载链接拒绝来自 Actions 机器的请求。
+
+打包上传 itch.io：
+
+```bash
+scripts/pack-itch.sh
+```
+
+itch 把游戏放在沙箱 iframe 的任意路径下，所以这里用相对路径构建，产物是 `index.html` 位于根目录的 `stranded2-web-itch.zip`。
