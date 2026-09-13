@@ -38,7 +38,7 @@ Unreal Software 2007 年荒岛生存游戏《Stranded II》的浏览器复刻，
 
 尚未实现：载具驾驭、对话中的交易页、粒子特效、随机岛生成器、地图编辑器。
 
-欢迎通过 GitHub Issue 反馈问题，请附上地图名和复现步骤。
+发现与原版不一致的地方也算 bug，见置顶的 [bug reports and feedback](https://github.com/ethan-chen-dev/stranded2-web/issues/1)。开放式的想法和提问用 [Discussions](https://github.com/ethan-chen-dev/stranded2-web/discussions)。
 
 ## 开发
 
