@@ -141,17 +141,17 @@ export class GameSession {
     const combiTexts = await Promise.all(sysFiles.filter(f => /^combinations.*\.inf$/i.test(f)).map(async f => [f, await text(`/sys/${f}`)] as const));
     const combinations = combiTexts.flatMap(([f, t]) => parseCombinations(t, f));
     assignGroups(combinations);
+    // 脚本与文本来源（.s2s、.txt）由 msgbox/dialogue/diary/addscript 等指令同步读取，
+    // 全 mod 只有几十个、共两百多 KB，创建会话时一次并发读入。
     const files = new Map<string, string>();
-    const scriptFiles = (await o.listFiles('sys/scripts')).filter(f => f.toLowerCase().endsWith('.s2s')).map(f => `sys/scripts/${f}`);
-    const mapDir = o.mapPath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
-    const mapScripts = (await o.listFiles(mapDir)).filter(f => f.toLowerCase().endsWith('.s2s')).map(f => `${mapDir}/${f}`);
-    for (const f of [...scriptFiles, mapScripts.length ? mapScripts : [o.mapPath.replace(/\.s2$/i, '.s2s')]].flat()) {
+    const textFiles = (await o.listFiles('')).filter(f => /\.(s2s|txt)$/i.test(f));
+    await Promise.all(textFiles.map(async f => {
       try {
         files.set(f.toLowerCase(), await o.res.text('/' + f));
       } catch {
-        /* 地图不一定有同名脚本文件 */
+        /* 单个文件读取失败时该来源视为不存在 */
       }
-    }
+    }));
     return new GameSession(o, parseLightcycle(cycleText), gameInf, statesInf, files, combinations, parseBuildings(buildingsInf));
   }
 

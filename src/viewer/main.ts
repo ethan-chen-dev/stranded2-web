@@ -29,7 +29,8 @@ async function listFiles(dir: string): Promise<string[]> {
     return res.json();
   }
   fileIndex ??= fetch(`${BASE_URL}filelist.json`).then(r => (r.ok ? r.json() as Promise<string[]> : []));
-  const prefix = dir.replace(/\/+$/, '') + '/';
+  const clean = dir.replace(/\/+$/, '');
+  const prefix = clean ? `${clean}/` : '';
   return (await fileIndex).filter(f => f.startsWith(prefix)).map(f => f.slice(prefix.length));
 }
 
