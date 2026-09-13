@@ -1,0 +1,22 @@
+name: Missing or wrong game mechanic
+description: A rule from the original game that is missing or behaves differently
+labels: [enhancement]
+body:
+  - type: textarea
+    id: mechanic
+    attributes:
+      label: The mechanic
+      description: What the original does, and what this port does instead.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Original source reference
+      description: Optional. If you know the Blitz3D file or the definition entry it comes from, name it.
+      placeholder: ai_units.bb, behaviour 402 predatorbird
+  - type: input
+    id: where
+    attributes:
+      label: Where it shows up
+      placeholder: adventure map05, talking to the cartographer

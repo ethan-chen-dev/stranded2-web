@@ -1,0 +1,51 @@
+name: Bug report
+description: Something behaves differently from the original game, or breaks outright
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for playing. The more precisely you can point at the moment it went wrong, the faster it gets fixed.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what the original game does instead if you know.
+      placeholder: The parrot flew on its back after taking off from the beach.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Map and location
+      description: Which map, and roughly where. The debug overlay at `?debug=1` prints your position.
+      placeholder: adventure map02, beach near the start position
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the adventure
+        2. Walk west along the beach
+        3. Get within 100 units of a parrot
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 141 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: Optional. Open the page with `?debug=1`, reproduce, and paste anything red or yellow.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I reloaded the page with a hard refresh and the problem is still there

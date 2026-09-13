@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and general feedback
+    url: https://github.com/ethan-chen-dev/stranded2-web/discussions
+    about: Impressions, questions about how the port works, and anything that is not a concrete bug.
+  - name: Play the game
+    url: https://ethan-chen-dev.github.io/stranded2-web/
+    about: The playable build.
+  - name: Original game and its author
+    url: https://www.unrealsoftware.de
+    about: Stranded II by Peter Schauss / Unreal Software.
