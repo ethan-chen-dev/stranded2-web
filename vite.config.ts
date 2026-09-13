@@ -1,7 +1,9 @@
 /// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'node:path';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { zipSync } from 'fflate';
 
 const MOD_ROOT = resolve(import.meta.dirname, 'reference/game/mods/Stranded II');
 
@@ -13,7 +15,18 @@ function modDirList(): Plugin {
   return {
     name: 'mod-dir-list',
     generateBundle() {
-      this.emitFile({ type: 'asset', fileName: 'filelist.json', source: JSON.stringify(walk(MOD_ROOT)) });
+      const files = walk(MOD_ROOT).filter(f => !f.startsWith('saves/'));
+      this.emitFile({ type: 'asset', fileName: 'filelist.json', source: JSON.stringify(files) });
+      // 已压缩的图片与音频存储时不再压缩；其余（b3d、bmp、inf、地图）压缩。
+      const entries: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
+      for (const f of files) {
+        const stored = /\.(jpg|jpeg|png|mp3|ogg)$/i.test(f);
+        entries[f] = [new Uint8Array(readFileSync(resolve(MOD_ROOT, f))), { level: stored ? 0 : 6 }];
+      }
+      const zip = zipSync(entries);
+      const hash = createHash('sha1').update(zip).digest('hex').slice(0, 12);
+      this.emitFile({ type: 'asset', fileName: 'assets.zip', source: zip });
+      this.emitFile({ type: 'asset', fileName: 'assets.json', source: JSON.stringify({ hash, size: zip.length, files: files.length }) });
     },
     configureServer(server) {
       server.middlewares.use('/__list', (req, res) => {

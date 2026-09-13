@@ -38,7 +38,7 @@ pnpm typecheck
 pnpm build       # tsc + vite; output in dist/
 ```
 
-The build copies the mod directory into `dist/` and writes `dist/filelist.json`, the file index the page uses instead of the dev server's directory listing. Set `BASE_PATH=/name/` when the site is served from a sub-path.
+The build copies the mod directory into `dist/`, writes `dist/filelist.json` (the file index the page uses instead of the dev server's directory listing) and packs all assets into `dist/assets.zip` with `assets.json` carrying its content hash. The page downloads the archive once, keeps it in Cache Storage and reads models, textures and sounds from memory; without `assets.json` (dev server) it falls back to per-file requests. Set `BASE_PATH=/name/` when the site is served from a sub-path.
 
 ## Project layout
 

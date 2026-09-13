@@ -72,3 +72,27 @@ describe('savegame', () => {
     expect(b.registry.nextId(CLS.unit)).toBeGreaterThan(30);
   });
 });
+
+describe('save export and import', () => {
+  it('round-trips a snapshot through the exported JSON text', async () => {
+    const store = new Map<string, string>();
+    const fake = {
+      get length() { return store.size; },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); },
+    };
+    (globalThis as { localStorage?: unknown }).localStorage = fake;
+    const { saveGame, loadGame, importSaveText, listSaves } = await import('./savegame');
+    const snap = { version: 1 as const, mapPath: 'maps/adventure/map02.s2', savedAt: '2026-09-13T00:00:00.000Z', clock: { day: 1, hour: 8, minute: 0 }, player: { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 }, stats: { health: 1, hunger: 0, thirst: 0, exhaustion: 0 }, weapon: 0, entities: [], states: [], timers: [], globals: [], locals: [], diary: [], locks: [], buffer: '', skills: [], triggers: [], paths: [] };
+    expect(saveGame('A', snap)).toBe(true);
+    const exported = JSON.stringify({ ...loadGame('A'), saveName: 'B' });
+    expect(importSaveText(exported, 'ignored')).toBe('B');
+    expect(importSaveText('{"version":2}', 'x')).toBeNull();
+    expect(importSaveText('not json', 'x')).toBeNull();
+    expect(listSaves().map(s => s.name).sort()).toEqual(['A', 'B']);
+    expect(loadGame('B')?.mapPath).toBe('maps/adventure/map02.s2');
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+});

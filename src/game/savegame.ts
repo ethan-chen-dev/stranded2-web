@@ -210,3 +210,48 @@ export function listSaves(): SaveInfo[] {
   }
   return out.sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
 }
+
+/** 导出为 JSON 文件下载；文件里附带存档名，导入时沿用。 */
+export function downloadSave(name: string): boolean {
+  const snap = loadGame(name);
+  if (!snap || typeof document === 'undefined') return false;
+  const blob = new Blob([JSON.stringify({ ...snap, saveName: name }, null, 0)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stranded2-${name}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+/** 解析导出的 JSON 并写入存档；返回存档名，无效时为 null。 */
+export function importSaveText(text: string, fallbackName: string): string | null {
+  let data: (Snapshot & { saveName?: string }) | null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!data || data.version !== 1 || typeof data.mapPath !== 'string' || !Array.isArray(data.entities)) return null;
+  const name = (data.saveName ?? fallbackName).trim() || QUICKSAVE;
+  const { saveName: _drop, ...snap } = data;
+  void _drop;
+  return saveGame(name, snap as Snapshot) ? name : null;
+}
+
+/** 弹出文件选择框导入存档；用户取消或文件无效时为 null。 */
+export function pickAndImportSave(): Promise<string | null> {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) { resolve(null); return; }
+      file.text().then(text => resolve(importSaveText(text, file.name.replace(/^stranded2-/, '').replace(/\.json$/i, '')))).catch(() => resolve(null));
+    });
+    input.addEventListener('cancel', () => resolve(null));
+    input.click();
+  });
+}

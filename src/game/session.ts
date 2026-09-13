@@ -36,7 +36,7 @@ import { ExchangeUi } from './exchange-ui';
 import { parseDialogue } from '../formats/dialogue';
 import { collectTakeover, applyTakeover, stashTakeover, popTakeover } from './takeover';
 import { playUrl, MENU_URL, PauseMenu, loadSaveUrl } from './menu-ui';
-import { snapshot, restore, saveGame, loadGame, listSaves, QUICKSAVE, type Snapshot } from './savegame';
+import { snapshot, restore, saveGame, loadGame, listSaves, downloadSave, pickAndImportSave, QUICKSAVE, type Snapshot } from './savegame';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -343,6 +343,8 @@ export class GameSession {
       save: name => { this.save(name); },
       saves: () => listSaves(),
       quickSaveName: QUICKSAVE,
+      exportSave: name => { downloadSave(name); },
+      importSave: () => pickAndImportSave(),
     });
     this.host.msgbox = (title, text) => { this.panels.msgbox(title, text); this.syncLock(); };
     this.host.dialogue = (page, source, section) => {

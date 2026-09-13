@@ -3,6 +3,7 @@ import './style.css';
 import { Log } from './log';
 import { Resources } from '../assets/resources';
 import { BASE_URL } from '../assets/paths';
+import { AssetBundle, setAssetBundle } from '../assets/bundle';
 import { parseS2Map, PREVIEW_W, PREVIEW_H, type MapData } from '../formats/s2map';
 import { buildDefTable } from '../formats/inf';
 import { buildTerrain, CELL } from '../render/terrain';
@@ -14,7 +15,7 @@ import { GameSession } from '../game/session';
 import { Environment } from '../game/environment';
 import { parseLightcycle } from '../game/lightcycle';
 import { MainMenu } from '../game/menu-ui';
-import { listSaves, deleteSave, loadGame } from '../game/savegame';
+import { listSaves, deleteSave, loadGame, downloadSave, pickAndImportSave } from '../game/savegame';
 
 const DEFAULT_MAP = 'maps/adventure/map02.s2';
 
@@ -63,7 +64,7 @@ function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {
 /** 加载提示：一行进度文字加一行说明。 */
 function setLoading(el: HTMLElement, text: string, percent?: number): void {
   const bar = percent === undefined ? '' : `<div class="loading-bar"><i style="width:${percent}%"></i></div>`;
-  el.innerHTML = `<div>${text}…</div>${bar}<div class="loading-hint">First visit downloads about 24 MB of original game assets</div>`;
+  el.innerHTML = `<div>${text}…</div>${bar}<div class="loading-hint">First visit downloads about 13 MB of original game assets; later visits use the browser cache</div>`;
 }
 
 async function main(): Promise<void> {
@@ -86,7 +87,7 @@ async function main(): Promise<void> {
   const log = new Log(logEl);
   const loading = document.createElement('div');
   loading.className = 'loading';
-  loading.innerHTML = '<div>Loading…</div><div class="loading-hint">First visit downloads about 24 MB of original game assets</div>';
+  loading.innerHTML = '<div>Loading…</div><div class="loading-hint">First visit downloads about 13 MB of original game assets; later visits use the browser cache</div>';
   app.append(loading);
 
   const params = new URLSearchParams(location.search);
@@ -122,6 +123,13 @@ async function main(): Promise<void> {
   resize();
 
   const res = new Resources(log);
+  const mb = (n: number) => (n / 1048576).toFixed(1);
+  const bundle = await AssetBundle.load(p => {
+    if (p.source === 'cache') setLoading(loading, 'Loading cached game assets', 100);
+    else setLoading(loading, `Downloading game assets ${mb(p.loaded)} / ${mb(p.total)} MB`, Math.round((p.loaded / Math.max(p.total, 1)) * 100));
+  });
+  setAssetBundle(bundle);
+  if (bundle) log.info(`asset bundle: ${bundle.count} files`);
   log.info(`loading ${mapPath}`);
   setLoading(loading, `Loading map ${mapPath.split('/').pop()}`);
   const t0 = performance.now();
@@ -181,6 +189,8 @@ async function main(): Promise<void> {
     maps: async () => (await listFiles('maps')).filter(f => f.toLowerCase().endsWith('.s2')).map(f => `maps/${f}`),
     saves: () => listSaves(),
     deleteSave: name => deleteSave(name),
+    exportSave: name => { downloadSave(name); },
+    importSave: () => pickAndImportSave(),
   });
   if (params.get('menu') === '1' || (saveName && !restoreSnap) || (!params.has('map') && !params.has('mode') && !params.has('save'))) menu.show();
 

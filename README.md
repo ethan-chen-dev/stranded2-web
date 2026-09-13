@@ -15,7 +15,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 - Items, crafting, building, digging and fishing driven by the original definition files and the S2 scripting language (about 270 script commands implemented).
 - Animal AI ported from the original state machine: wandering, fleeing, hunting, attacking, taming and feeding.
 - Melee, ranged, firearm and thrown weapons with projectiles.
-- Save and load, quick save (F5) and quick load (F9); saves live in the browser's local storage.
+- Save and load, quick save (F5) and quick load (F9); saves live in the browser's local storage and can be exported to and imported from JSON files.
 
 ## Controls
 

@@ -115,3 +115,4 @@ body.debug .log { display: flex; }
 .loading-hint { margin-top: 6px; font-size: 12px; opacity: .7; }
 .loading-bar { margin-top: 8px; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
 .loading-bar i { display: block; height: 100%; background: #ffd766; transition: width .2s; }
+.menu-hint { font-size: 11px; opacity: .75; }

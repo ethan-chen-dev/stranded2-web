@@ -38,7 +38,7 @@ pnpm typecheck
 pnpm build       # tsc + vite，产物在 dist/
 ```
 
-构建会把 mod 目录复制进 `dist/`，并生成 `dist/filelist.json` 作为页面的文件索引，替代开发服务器的目录列表。部署到子路径时设置 `BASE_PATH=/名称/`。
+构建会把 mod 目录复制进 `dist/`，生成 `dist/filelist.json` 作为页面的文件索引（替代开发服务器的目录列表），并把全部素材打成 `dist/assets.zip`，`assets.json` 记录其内容哈希。页面只下载一次压缩包，存进 Cache Storage，模型、贴图、音效都从内存读取；没有 `assets.json`（开发服务器）时回退为逐文件请求。部署到子路径时设置 `BASE_PATH=/名称/`。
 
 ## 目录结构
 

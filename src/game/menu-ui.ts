@@ -11,6 +11,9 @@ export interface MainMenuActions {
   maps(): Promise<string[]>;
   saves(): SaveInfo[];
   deleteSave(name: string): void;
+  exportSave(name: string): void;
+  /** 导入后返回存档名，取消或无效为 null。 */
+  importSave(): Promise<string | null>;
 }
 
 export const ADVENTURE_MAP = 'maps/adventure/map01.s2';
@@ -104,6 +107,7 @@ export class MainMenu {
       row.className = 'menu-row';
       row.append(
         button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))),
+        button('Export', () => this.actions.exportSave(s.name)),
         button('Delete', () => { this.actions.deleteSave(s.name); this.saveList(); }),
       );
       return row;
@@ -113,7 +117,10 @@ export class MainMenu {
       none.textContent = 'No saved games';
       rows.push(none);
     }
-    this.body.replaceChildren(...rows, button('Back', () => this.home()));
+    const hint = document.createElement('div');
+    hint.className = 'menu-hint';
+    hint.textContent = 'Saves live in this browser. Export to a file to move them elsewhere.';
+    this.body.replaceChildren(...rows, hint, button('Import from file…', () => { void this.actions.importSave().then(() => this.saveList()); }), button('Back', () => this.home()));
   }
 }
 
@@ -122,6 +129,8 @@ export interface PauseMenuActions {
   save(name: string): void;
   saves(): SaveInfo[];
   quickSaveName: string;
+  exportSave(name: string): void;
+  importSave(): Promise<string | null>;
 }
 
 export class PauseMenu {
@@ -180,12 +189,20 @@ export class PauseMenu {
 
   private loadList(): void {
     const saves = this.actions.saves();
-    const rows: HTMLElement[] = saves.map(s => button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))));
+    const rows: HTMLElement[] = saves.map(s => {
+      const row = document.createElement('div');
+      row.className = 'menu-row';
+      row.append(
+        button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))),
+        button('Export', () => this.actions.exportSave(s.name)),
+      );
+      return row;
+    });
     if (rows.length === 0) {
       const none = document.createElement('div');
       none.textContent = 'No saved games';
       rows.push(none);
     }
-    this.body.replaceChildren(...rows, button('Back', () => this.home()));
+    this.body.replaceChildren(...rows, button('Import from file…', () => { void this.actions.importSave().then(() => this.loadList()); }), button('Back', () => this.home()));
   }
 }
