@@ -74,6 +74,7 @@ export class GameScriptHost implements ScriptHost {
   /** 玩家位置由控制器持有，每帧写回注册表，所以脚本移动玩家要改控制器。 */
   movePlayer: (x: number, y: number, z: number) => void = () => undefined;
   playerSpotted: () => boolean = () => false;
+  explosion: (x: number, y: number, z: number, range: number, damage: number, style: number) => void = () => undefined;
   skyColor: (o: { color: [number, number, number]; mix: number } | null) => void = () => undefined;
   autosave: () => void = () => undefined;
 

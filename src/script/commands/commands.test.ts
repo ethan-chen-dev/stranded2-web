@@ -97,6 +97,10 @@ describe('commands', () => {
     run(`skycolor 0;`);
     expect(host.sky).toBeNull();
   });
+  it('explosion passes position, range, damage and style with the original defaults', () => {
+    run(`explosion 1,2,3; explode 4,5,6,100,0,3;`);
+    expect(host.explosions).toEqual([[1, 2, 3, 50, 50, 1], [4, 5, 6, 100, 0, 3]]);
+  });
   it('store and unstore', () => {
     run(`$id=create("item",24,0,0); $s=store($id,"unit",1); $c=count_stored("unit",1,24); unstore $id; $c2=count_stored("unit",1,24);`);
     expect([g('s'), g('c'), g('c2')]).toEqual(['1', '1', '0']);

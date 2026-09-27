@@ -72,6 +72,8 @@ const PLACE_DISTANCE = 60;
 const USE_ENTITY_RANGE = 60;
 /** 撬锁左、右、上、下的音效，原版 load_media.bb 的 sfx_crack。 */
 const CRACK_SOUNDS = ['crack1.wav', 'crack2.wav', 'crack3.wav', 'crack4.wav'];
+/** 爆炸音效，原版 load_media.bb 的 sfx_explode。 */
+const EXPLODE_SOUNDS = ['explode1.wav', 'explode2.wav', 'explode3.wav', 'explode4.wav'];
 
 interface ProcessState {
   title: string;
@@ -321,6 +323,18 @@ export class GameSession {
     this.host.playerSpotted = () => this.ai.playerSpotted();
     this.host.skyColor = o => { this.env.override = o; this.env.apply(this.clock.hour, this.clock.minute); };
     this.host.autosave = () => { this.pendingAutosave = true; };
+    this.host.explosion = (x, y, z, range, damage, style) => {
+      const hit = (r: EntityRecord) => Math.hypot(r.x - x, r.y - y, r.z - z) < range;
+      for (const cls of [CLS.object, CLS.unit, CLS.item]) {
+        for (const rec of [...registry.all(cls)]) {
+          if (rec.dead || (cls === CLS.unit && rec.id === PLAYER_ID) || (cls === CLS.item && rec.parentMode === STORED_INSIDE)) continue;
+          if (hit(rec)) this.weapons.damage(cls, rec.id, damage, 'other');
+        }
+      }
+      if (damage > 0 && hit(this.playerRec)) this.playerHurt(damage);
+      if (style === 1) this.sounds.play(EXPLODE_SOUNDS[this.host.random(0, 3)]);
+      else if (style === 3) this.sounds.play('pang.wav');
+    };
     this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
     this.host.lastEater = () => this.ai.lastEater;
     this.sequence = new Sequence({
@@ -849,10 +863,10 @@ export class GameSession {
   }
 
   /** 单位攻击玩家：扣生命、提示与音效；生命归零时进入死亡画面。 */
-  private playerHurt(amount: number, by: EntityRecord): void {
+  private playerHurt(amount: number, by?: EntityRecord): void {
     if (this.stats.dead) return;
     this.stats.health = Math.max(0, this.stats.health - amount);
-    this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 2);
+    if (by) this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 2);
     this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
     if (this.stats.dead) {
       this.hud.showDead();

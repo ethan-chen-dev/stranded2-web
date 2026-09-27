@@ -59,7 +59,12 @@ export function registerUi(r: CommandRegistry): void {
   });
   r.register('builtat', (ctx, args) => str(ctx.host.builtAt(int(args[0] ?? '0'))));
   r.register('lastbuildingsite', ctx => str(ctx.host.lastBuildingSite()));
-  r.register(['corona', 'flash', 'blur', 'particle', 'particlec', 'thunder', 'explosion', 'explode'], () => { /* 视觉效果不做 */ });
+  r.register(['corona', 'flash', 'blur', 'particle', 'particlec', 'thunder'], () => { /* 视觉效果不做 */ });
+  /** explosion x,y,z[,range[,damage[,style]]]：范围内的物体、单位与未收纳物品受伤害（game_functions.bb game_explosion）。 */
+  r.register(['explosion', 'explode'], (ctx, args) => {
+    ctx.host.explosion(num(args[0] ?? '0'), num(args[1] ?? '0'), num(args[2] ?? '0'),
+      args[3] === undefined ? 50 : num(args[3]), args[4] === undefined ? 50 : num(args[4]), args[5] === undefined ? 1 : int(args[5]));
+  });
   r.register('closemenu', ctx => { ctx.host.closeMenu(); });
   r.register('menu', ctx => str(ctx.host.menuId()));
   r.register('loadfile', (ctx, args) => {

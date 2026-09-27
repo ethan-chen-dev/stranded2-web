@@ -94,6 +94,8 @@ export interface ScriptHost {
   setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
   freezeUnit(id: number, on: boolean): void;
   playerSpotted(): boolean;
+  /** style 1 爆炸、3 燃烧，0 与 2 无效果音。 */
+  explosion(x: number, y: number, z: number, range: number, damage: number, style: number): void;
   /** skycolor：null 取消覆盖。 */
   skyColor(o: { color: [number, number, number]; mix: number } | null): void;
   /** 在当前脚本执行完后存到自动存档。 */
