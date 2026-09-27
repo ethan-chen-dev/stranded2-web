@@ -12,7 +12,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 
 - The full adventure campaign, map01 to map07, including the intro sequence, dialogues, diary and map transitions.
 - The original survival loop: hunger, thirst and exhaustion, day and night cycle driven by the original light table.
-- Items, crafting, building, digging and fishing driven by the original definition files and the S2 scripting language (about 270 script commands implemented).
+- Items, crafting, building, digging and fishing driven by the original definition files and the S2 scripting language (about 260 script commands implemented).
 - Animal AI ported from the original state machine: wandering, fleeing, hunting, attacking, taming and feeding.
 - Melee, ranged, firearm and thrown weapons with projectiles.
 - Save and load, quick save (F5) and quick load (F9); saves live in the browser's local storage and can be exported to and imported from JSON files.
@@ -36,7 +36,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 
 This is an alpha. Desktop browsers only (Chrome, Edge, Firefox); pointer lock is required, so phones and tablets are not supported.
 
-Not implemented yet: driving vehicles, the trade tab in dialogues, particle effects, the random island generator and the map editor.
+Not implemented yet: driving vehicles, the underwater air supply, the trade tab in dialogues, particle effects, the random island generator and the map editor.
 
 Found something that behaves unlike the original? That counts as a bug: see the pinned [bug reports and feedback](https://github.com/ethan-chen-dev/stranded2-web/issues/1) issue. For impressions and open questions there is [Discussions](https://github.com/ethan-chen-dev/stranded2-web/discussions).
 

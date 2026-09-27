@@ -12,7 +12,7 @@ Unreal Software 2007 年荒岛生存游戏《Stranded II》的浏览器复刻，
 
 - 完整的冒险战役 map01 到 map07，包括开场序列、对话、日记与地图切换。
 - 原版生存循环：饥饿、口渴、疲劳，昼夜循环与原版光照表。
-- 由原版定义文件与 S2 脚本语言驱动的物品、合成、建造、挖掘与钓鱼（已实现约 270 条脚本指令）。
+- 由原版定义文件与 S2 脚本语言驱动的物品、合成、建造、挖掘与钓鱼（已实现约 260 条脚本指令）。
 - 按原版状态机移植的动物 AI：游荡、逃跑、追击、攻击、驯养与觅食。
 - 近战、远程、火器与投掷武器，带投射物。
 - 存档与读档，F5 快速存档、F9 快速读档；存档保存在浏览器本地存储中，可导出、导入 JSON 文件。
@@ -36,7 +36,7 @@ Unreal Software 2007 年荒岛生存游戏《Stranded II》的浏览器复刻，
 
 目前是 alpha 版本。只支持桌面浏览器（Chrome、Edge、Firefox），需要指针锁定，手机和平板不支持。
 
-尚未实现：载具驾驭、对话中的交易页、粒子特效、随机岛生成器、地图编辑器。
+尚未实现：载具驾驭、水下氧气、对话中的交易页、粒子特效、随机岛生成器、地图编辑器。
 
 发现与原版不一致的地方也算 bug，见置顶的 [bug reports and feedback](https://github.com/ethan-chen-dev/stranded2-web/issues/1)。开放式的想法和提问用 [Discussions](https://github.com/ethan-chen-dev/stranded2-web/discussions)。
 
