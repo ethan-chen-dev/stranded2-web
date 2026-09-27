@@ -6,6 +6,9 @@ const BAR_KEYS = ['health', 'hunger', 'thirst', 'exhaustion'] as const;
 const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
 const MAX_MESSAGES = 6;
 
+const HINT_PLAY = 'Click to play. Esc menu, Tab inventory, B build, T diary, F5/F9 quick save and load';
+const HINT_REFUSED = 'The browser did not capture the mouse. Click again; if it keeps failing, open the game in its own browser tab.';
+
 export class Hud {
   private readonly root: HTMLElement;
   private readonly bars = new Map<string, HTMLElement>();
@@ -46,7 +49,7 @@ export class Hud {
     this.clockEl.className = 'clock';
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'hint';
-    this.hintEl.textContent = 'Click to play. Esc menu, Tab inventory, B build, T diary, F5/F9 quick save and load';
+    this.hintEl.textContent = HINT_PLAY;
     this.deadEl = document.createElement('div');
     this.deadEl.className = 'dead';
     this.deadEl.textContent = 'You died';
@@ -127,8 +130,11 @@ export class Hud {
     this.clockEl.textContent = `Day ${day}  ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   }
 
-  showHint(show: boolean): void {
+  /** refused 为真时改为说明鼠标锁定被拒绝。 */
+  showHint(show: boolean, refused = false): void {
     this.hintEl.hidden = !show;
+    const text = refused ? HINT_REFUSED : HINT_PLAY;
+    if (this.hintEl.textContent !== text) this.hintEl.textContent = text;
   }
 
   setVisible(on: boolean): void {

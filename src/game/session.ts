@@ -443,7 +443,7 @@ export class GameSession {
       have: typ => registry.countStored(CLS.unit, PLAYER_ID, typ),
       choose: b => this.startPlacing(b),
     });
-    o.canvas.addEventListener('click', () => { if (!this.overlayOpen() && !this.stats.dead) this.input.requestLock(); });
+    o.canvas.addEventListener('click', () => { if (!this.overlayOpen() && !this.stats.dead) this.input.requestLock(true); });
     this.player.applyTo(o.camera);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
@@ -656,7 +656,7 @@ export class GameSession {
     this.hud.setVisible(!this.sequence.active);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
-    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active);
+    this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active, input.lockRefused);
     if (this.pendingAutosave) {
       this.pendingAutosave = false;
       if (!saveGame(AUTOSAVE, this.snapshot())) this.hud.message('Saving failed', 2);

@@ -54,6 +54,14 @@ export class MainMenu {
     const title = document.createElement('div');
     title.className = 'menu-title';
     title.textContent = 'Stranded II';
+    const note = document.createElement('div');
+    note.className = 'menu-note';
+    /** 没有精确指针（鼠标、触控板）的设备多半是手机或平板，提示更醒目。 */
+    const touchOnly = typeof matchMedia === 'function' && !matchMedia('(any-pointer: fine)').matches;
+    note.classList.toggle('menu-note-warn', touchOnly);
+    note.textContent = touchOnly
+      ? 'This game needs a desktop browser with mouse and keyboard. Phones and tablets are not supported.'
+      : 'Desktop browser with mouse and keyboard required.';
     this.body = document.createElement('div');
     this.body.className = 'menu-body';
     const credit = document.createElement('div');
@@ -71,7 +79,7 @@ export class MainMenu {
     notice.rel = 'noopener';
     notice.textContent = 'ASSETS-LICENSE.txt';
     credit.append(notice, '.');
-    this.root.append(title, this.body, credit);
+    this.root.append(title, note, this.body, credit);
     parent.append(this.root);
   }
 

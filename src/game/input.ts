@@ -5,7 +5,14 @@ export class InputState {
   private dx = 0;
   private dy = 0;
   locked = false;
-  private readonly onLockChange = () => { this.locked = document.pointerLockElement === this.el; };
+  /** 玩家点击后锁定被拒绝（嵌入页不允许锁定，或刚按 Esc 退出后点得太快）；锁定成功后清除。 */
+  lockRefused = false;
+  private clickRequested = false;
+  private readonly onLockChange = () => {
+    this.locked = document.pointerLockElement === this.el;
+    if (this.locked) this.lockRefused = false;
+  };
+  private readonly onLockError = () => { if (this.clickRequested) this.lockRefused = true; };
 
   constructor(private readonly el: HTMLElement) {
     addEventListener('keydown', ev => {
@@ -25,6 +32,7 @@ export class InputState {
     });
     el.addEventListener('contextmenu', ev => ev.preventDefault());
     document.addEventListener('pointerlockchange', this.onLockChange);
+    document.addEventListener('pointerlockerror', this.onLockError);
   }
 
   pressed(code: string): boolean {
@@ -42,14 +50,18 @@ export class InputState {
     return r;
   }
 
-  /** 指针锁定需要用户手势，且部分嵌入环境不支持；失败时保持未锁定状态。 */
-  requestLock(): void {
+  /**
+   * 指针锁定需要用户手势，且部分嵌入环境不支持；失败时保持未锁定状态。
+   * 只有玩家点击触发的请求失败才记为被拒绝，程序自动请求（没有手势）失败是正常的。
+   */
+  requestLock(fromClick = false): void {
     if (this.locked) return;
+    this.clickRequested = fromClick;
     try {
       const r = this.el.requestPointerLock?.() as { catch?: (f: () => void) => unknown } | undefined;
-      if (r && typeof r.catch === 'function') r.catch(() => undefined);
+      if (r && typeof r.catch === 'function') r.catch(() => this.onLockError());
     } catch {
-      /* 环境不支持指针锁定 */
+      this.onLockError();
     }
   }
 
