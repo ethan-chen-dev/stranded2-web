@@ -16,6 +16,7 @@ import { Environment } from '../game/environment';
 import { parseLightcycle } from '../game/lightcycle';
 import { MainMenu } from '../game/menu-ui';
 import { listSaves, deleteSave, loadGame, downloadSave, pickAndImportSave } from '../game/savegame';
+import { resolveMapPath } from './params';
 
 const DEFAULT_MAP = 'maps/adventure/map02.s2';
 
@@ -61,10 +62,23 @@ function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {
   ctx.putImageData(img, 0, 0);
 }
 
-/** 加载提示：一行进度文字加一行说明。 */
+/** 加载提示：一行进度文字、可选进度条与一行说明。文字里可能带地图名，一律按纯文本写入。 */
 function setLoading(el: HTMLElement, text: string, percent?: number): void {
-  const bar = percent === undefined ? '' : `<div class="loading-bar"><i style="width:${percent}%"></i></div>`;
-  el.innerHTML = `<div>${text}…</div>${bar}<div class="loading-hint">First visit downloads about 13 MB of original game assets; later visits use the browser cache</div>`;
+  const line = document.createElement('div');
+  line.textContent = `${text}…`;
+  const hint = document.createElement('div');
+  hint.className = 'loading-hint';
+  hint.textContent = 'First visit downloads about 13 MB of original game assets; later visits use the browser cache';
+  if (percent === undefined) {
+    el.replaceChildren(line, hint);
+    return;
+  }
+  const bar = document.createElement('div');
+  bar.className = 'loading-bar';
+  const fill = document.createElement('i');
+  fill.style.width = `${percent}%`;
+  bar.append(fill);
+  el.replaceChildren(line, bar, hint);
 }
 
 async function main(): Promise<void> {
@@ -87,7 +101,7 @@ async function main(): Promise<void> {
   const log = new Log(logEl);
   const loading = document.createElement('div');
   loading.className = 'loading';
-  loading.innerHTML = '<div>Loading…</div><div class="loading-hint">First visit downloads about 13 MB of original game assets; later visits use the browser cache</div>';
+  setLoading(loading, 'Loading');
   app.append(loading);
 
   const params = new URLSearchParams(location.search);
@@ -95,10 +109,16 @@ async function main(): Promise<void> {
   if (params.get('debug') === '1') document.body.classList.add('debug');
   if (params.has('map') && params.get('mode') !== 'play') document.body.classList.add('viewer');
   const saveName = params.get('save');
-  const restoreSnap = saveName ? loadGame(saveName) : null;
+  let restoreSnap = saveName ? loadGame(saveName) : null;
   if (saveName && !restoreSnap) log.error(`save ${saveName} is missing or corrupted`);
-  const mapPath = restoreSnap?.mapPath ?? params.get('map') ?? DEFAULT_MAP;
   const maps = await listFiles('maps');
+  const requested = restoreSnap?.mapPath ?? params.get('map') ?? DEFAULT_MAP;
+  const resolved = resolveMapPath(requested, maps.filter(f => f.toLowerCase().endsWith('.s2')).map(f => `maps/${f}`));
+  if (!resolved) {
+    log.error(`unknown map ${requested}`);
+    restoreSnap = null;
+  }
+  const mapPath = resolved ?? DEFAULT_MAP;
   for (const m of maps.filter(f => f.endsWith('.s2'))) {
     const opt = document.createElement('option');
     opt.value = `maps/${m}`;
@@ -184,7 +204,7 @@ async function main(): Promise<void> {
     session.input.requestLock();
   };
   playBtn.addEventListener('click', () => { void enterPlay(); });
-  if (params.get('mode') === 'play') void enterPlay();
+  if (params.get('mode') === 'play' && resolved) void enterPlay();
   const menu = new MainMenu(app, {
     maps: async () => (await listFiles('maps')).filter(f => f.toLowerCase().endsWith('.s2')).map(f => `maps/${f}`),
     saves: () => listSaves(),
@@ -192,7 +212,7 @@ async function main(): Promise<void> {
     exportSave: name => { downloadSave(name); },
     importSave: () => pickAndImportSave(),
   });
-  if (params.get('menu') === '1' || (saveName && !restoreSnap) || (!params.has('map') && !params.has('mode') && !params.has('save'))) menu.show();
+  if (params.get('menu') === '1' || !resolved || (saveName && !restoreSnap) || (!params.has('map') && !params.has('mode') && !params.has('save'))) menu.show();
 
   const timer = new THREE.Timer();
   let frames = 0;
