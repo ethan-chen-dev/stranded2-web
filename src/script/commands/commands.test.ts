@@ -101,6 +101,15 @@ describe('commands', () => {
     run(`explosion 1,2,3; explode 4,5,6,100,0,3;`);
     expect(host.explosions).toEqual([[1, 2, 3, 50, 50, 1], [4, 5, 6, 100, 0, 3]]);
   });
+  it('savevars and loadvars keep globals in a named cache', () => {
+    run(`$score=12; $name="x"; $ok=savevars("colorgame","score"); $all=savevars();`);
+    engine.vars.globals.set('score', '0');
+    run(`$l=loadvars("colorgame"); $miss=loadvars("nothing");`);
+    expect([g('ok'), g('all'), g('score'), g('l'), g('miss')]).toEqual(['1', '1', '12', '1', '0']);
+    expect(host.varCaches.get('varcache')?.map(e => e[0])).toContain('name');
+    run(`msg_replace "a","b";`);
+    expect(host.replacements).toEqual([['a', 'b']]);
+  });
   it('store and unstore', () => {
     run(`$id=create("item",24,0,0); $s=store($id,"unit",1); $c=count_stored("unit",1,24); unstore $id; $c2=count_stored("unit",1,24);`);
     expect([g('s'), g('c'), g('c2')]).toEqual(['1', '1', '0']);

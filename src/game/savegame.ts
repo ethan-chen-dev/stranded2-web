@@ -178,6 +178,28 @@ function storage(): Storage | null {
   return typeof localStorage === 'undefined' ? null : localStorage;
 }
 
+const VARCACHE_PREFIX = 'stranded2:vars:';
+
+/** savevars：原版写到 mod 目录下的文件，这里按文件名存进 localStorage。 */
+export function saveVarCache(file: string, entries: [string, string][]): boolean {
+  try {
+    storage()?.setItem(VARCACHE_PREFIX + file.toLowerCase(), JSON.stringify(entries));
+    return !!storage();
+  } catch {
+    return false;
+  }
+}
+
+export function loadVarCache(file: string): [string, string][] | null {
+  try {
+    const raw = storage()?.getItem(VARCACHE_PREFIX + file.toLowerCase());
+    const entries = raw ? JSON.parse(raw) : null;
+    return Array.isArray(entries) ? entries.filter((e): e is [string, string] => Array.isArray(e) && e.length === 2).map(([k, v]) => [String(k), String(v)]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function saveGame(name: string, snap: Snapshot): boolean {
   const st = storage();
   if (!st) return false;

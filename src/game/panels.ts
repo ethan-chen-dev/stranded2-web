@@ -276,6 +276,12 @@ export class Panels {
     this.box.hidden = false;
   }
 
+  /** msg_replace：替换消息框或对话正文里的文字。 */
+  replaceText(from: string, to: string): void {
+    if ((this.menu !== MENU_MSGBOX && this.menu !== MENU_DIALOGUE) || !from) return;
+    this.renderText(this.bodyText.split(from).join(to));
+  }
+
   /** msg_extend：接到消息框或对话正文后面。 */
   extendText(text: string): void {
     if (this.menu !== MENU_MSGBOX && this.menu !== MENU_DIALOGUE) return;

@@ -86,6 +86,7 @@ export function registerUi(r: CommandRegistry): void {
     const text = sourceText(ctx, args[0], args[1]);
     if (text) ctx.host.extendMessage(text);
   });
+  r.register('msg_replace', (ctx, args) => { ctx.host.replaceMessage(String(args[0] ?? ''), String(args[1] ?? '')); });
   r.register('msgbox', (ctx, args) => {
     const text = sourceText(ctx, args[1], args[2]);
     if (text !== undefined) ctx.host.msgbox(args[0] ?? '', text);

@@ -383,6 +383,7 @@ export class GameSession {
       return ok;
     };
     this.host.extendMessage = text => this.panels.extendText(text);
+    this.host.replaceMessage = (from, to) => this.panels.replaceText(from, to);
     this.host.dialogueButton = (id, text, target) => this.panels.setButton(id, text, target);
     this.host.freeDialogueButton = id => this.panels.freeButton(id);
     this.host.crackLock = (title, mode, code, cls, id) => {

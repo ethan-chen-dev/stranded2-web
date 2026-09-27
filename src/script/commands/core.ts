@@ -26,6 +26,18 @@ export function registerCore(r: CommandRegistry): void {
     ctx.vars.freeGlobals();
     if (int(args[0] ?? '0')) ctx.vars.freeLocalsOf(ctx.env.cls, ctx.env.id);
   });
+  /** savevars [file[,"a,b"]]：保存全部或列出的全局变量；loadvars [file] 读回。默认文件 varcache。 */
+  r.register('savevars', (ctx, args) => {
+    const only = args[1] === undefined ? null : new Set(String(args[1]).replace(/\s/g, '').split(',').map(n => n.replace(/^\$/, '')));
+    const entries = [...ctx.vars.globals.entries()].filter(([k]) => !only || only.has(k)).map(([k, v]) => [k, String(v)] as [string, string]);
+    return bool(ctx.host.saveVarCache(String(args[0] ?? 'varcache'), entries));
+  });
+  r.register('loadvars', (ctx, args) => {
+    const entries = ctx.host.loadVarCache(String(args[0] ?? 'varcache'));
+    if (!entries) return '0';
+    for (const [k, v] of entries) ctx.vars.globals.set(k, v);
+    return '1';
+  });
   r.register('varexists', (ctx, args) => bool(ctx.vars.exists(ctx.env, varName(undefined, args[0]))));
   r.register('rename', (ctx, args) => { ctx.vars.rename(ctx.env, varName(undefined, args[0]), varName(undefined, args[1])); });
   r.register('getlocal', (ctx, args) => {

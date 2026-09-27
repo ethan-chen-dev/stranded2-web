@@ -51,6 +51,11 @@ export class FakeHost implements ScriptHost {
   skyColor(o: { color: [number, number, number]; mix: number } | null): void { this.sky = o; }
   explosions: number[][] = [];
   explosion(x: number, y: number, z: number, range: number, damage: number, style: number): void { this.explosions.push([x, y, z, range, damage, style]); }
+  varCaches = new Map<string, [string, string][]>();
+  saveVarCache(file: string, entries: [string, string][]): boolean { this.varCaches.set(file, entries); return true; }
+  loadVarCache(file: string): [string, string][] | null { return this.varCaches.get(file) ?? null; }
+  replacements: [string, string][] = [];
+  replaceMessage(from: string, to: string): void { this.replacements.push([from, to]); }
   spotted = false;
   autosaves = 0;
   playerSpotted(): boolean { return this.spotted; }

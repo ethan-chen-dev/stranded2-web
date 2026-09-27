@@ -94,6 +94,11 @@ export interface ScriptHost {
   setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
   freezeUnit(id: number, on: boolean): void;
   playerSpotted(): boolean;
+  /** savevars/loadvars 的变量缓存；读不到返回 null。 */
+  saveVarCache(file: string, entries: [string, string][]): boolean;
+  loadVarCache(file: string): [string, string][] | null;
+  /** msg_replace：替换当前消息框或对话正文里的文字。 */
+  replaceMessage(from: string, to: string): void;
   /** style 1 爆炸、3 燃烧，0 与 2 无效果音。 */
   explosion(x: number, y: number, z: number, range: number, damage: number, style: number): void;
   /** skycolor：null 取消覆盖。 */

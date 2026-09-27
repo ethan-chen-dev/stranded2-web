@@ -15,6 +15,7 @@ import type { DiaryEntry } from './panels';
 import type { TakeoverFlags } from './takeover';
 import { Skills } from './skills';
 import { storageValue, freeSpace } from './queries';
+import { saveVarCache, loadVarCache } from './savegame';
 
 export interface HostDeps {
   world: World;
@@ -74,6 +75,10 @@ export class GameScriptHost implements ScriptHost {
   /** 玩家位置由控制器持有，每帧写回注册表，所以脚本移动玩家要改控制器。 */
   movePlayer: (x: number, y: number, z: number) => void = () => undefined;
   playerSpotted: () => boolean = () => false;
+  replaceMessage: (from: string, to: string) => void = () => undefined;
+
+  saveVarCache(file: string, entries: [string, string][]): boolean { return saveVarCache(file, entries); }
+  loadVarCache(file: string): [string, string][] | null { return loadVarCache(file); }
   explosion: (x: number, y: number, z: number, range: number, damage: number, style: number) => void = () => undefined;
   skyColor: (o: { color: [number, number, number]; mix: number } | null) => void = () => undefined;
   autosave: () => void = () => undefined;
