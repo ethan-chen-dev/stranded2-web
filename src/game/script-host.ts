@@ -48,6 +48,10 @@ export class GameScriptHost implements ScriptHost {
   readonly diary: DiaryEntry[] = [];
   msgbox: (title: string, text: string) => void = () => undefined;
   dialogue: (page: string, source: string, section?: string) => boolean = () => false;
+  extendMessage: (text: string) => void = () => undefined;
+  dialogueButton: (id: number, text: string, target: string) => void = () => undefined;
+  freeDialogueButton: (id: number) => void = () => undefined;
+  crackLock: (title: string, mode: number, code: string, cls: number, id: number) => void = () => undefined;
   uiText: (id: number, text: string, font: number, x?: number, y?: number, align?: number) => void = () => undefined;
   uiImage: (id: number, path: string, x: number, y: number) => void = () => undefined;
   menuId: () => number = () => 0;
@@ -67,6 +71,11 @@ export class GameScriptHost implements ScriptHost {
   revive: (unitId: number) => boolean = () => false;
   fireProjectile: (o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }) => boolean = () => false;
   inView: (cls: number, id: number) => boolean = () => false;
+  /** 玩家位置由控制器持有，每帧写回注册表，所以脚本移动玩家要改控制器。 */
+  movePlayer: (x: number, y: number, z: number) => void = () => undefined;
+  playerSpotted: () => boolean = () => false;
+  skyColor: (o: { color: [number, number, number]; mix: number } | null) => void = () => undefined;
+  autosave: () => void = () => undefined;
 
   music(file: string, volume: number): void { this.d.sounds.music(file, volume); }
   stopMusic(): void { this.d.sounds.stopMusic(); }
@@ -137,10 +146,34 @@ export class GameScriptHost implements ScriptHost {
   }
 
   setPosition(cls: number, id: number, x: number, y: number, z: number): void {
+    if (cls === CLS.unit && id === this.d.playerId) {
+      this.movePlayer(x, y, z);
+      return;
+    }
     const rec = this.registry.get(cls, id);
     if (!rec) return;
     rec.x = x; rec.y = y; rec.z = z;
     this.d.world.sync(rec);
+  }
+
+  setLook(cls: number, id: number, look: NonNullable<EntityRecord['look']>): boolean {
+    const rec = this.registry.get(cls, id);
+    if (!rec || cls === CLS.info) return false;
+    rec.look = { ...rec.look, ...look };
+    this.d.world.restyle(rec);
+    return true;
+  }
+
+  /** 冻结或解冻单位；动画随之停住。 */
+  freezeUnit(id: number, on: boolean): void {
+    const rec = this.registry.get(CLS.unit, id);
+    if (!rec) return;
+    rec.frozen = on;
+    if (rec.mixer) rec.mixer.timeScale = on ? 0 : 1;
+  }
+
+  unitFrozen(id: number): boolean {
+    return !!this.registry.get(CLS.unit, id)?.frozen;
   }
 
   setRotation(cls: number, id: number, pitch: number, yaw: number, roll: number): void {

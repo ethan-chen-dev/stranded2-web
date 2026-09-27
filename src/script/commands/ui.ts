@@ -3,6 +3,7 @@ import type { CommandRegistry, CommandContext } from '../registry';
 import { classId, int, num, str, bool, requireClass } from './util';
 import type { Value } from '../value';
 import { parseFlags } from '../../game/takeover';
+import { CLASS } from '../host';
 
 export function registerUi(r: CommandRegistry): void {
   r.register('msg', (ctx, args) => {
@@ -10,7 +11,6 @@ export function registerUi(r: CommandRegistry): void {
     if (font < 0 || font > 6) font = 0;
     ctx.host.message(args[0] ?? '', font, args.length >= 3 ? int(args[2]) : 3000);
   });
-  r.register('msg_extend', (ctx, args) => { ctx.host.message(args[0] ?? '', 0, 3000); });
   r.register('speech', (ctx, args) => { ctx.host.speech(args[0] ?? ''); });
   r.register('play', (ctx, args) => { ctx.host.playSound(args[0] ?? '', args.length >= 2 ? num(args[1]) : 100); });
   r.register(['stopsounds', 'ambientsfx'], () => { /* 无声音后端时忽略 */ });
@@ -76,6 +76,11 @@ export function registerUi(r: CommandRegistry): void {
     if (text === undefined) ctx.host.log('warn', `text source ${source}${section ? ` section ${section}` : ''} not found`);
     return text;
   };
+  /** 把文本接到当前消息框或对话正文后面；无参数时用缓冲区。 */
+  r.register('msg_extend', (ctx, args) => {
+    const text = sourceText(ctx, args[0], args[1]);
+    if (text) ctx.host.extendMessage(text);
+  });
   r.register('msgbox', (ctx, args) => {
     const text = sourceText(ctx, args[1], args[2]);
     if (text !== undefined) ctx.host.msgbox(args[0] ?? '', text);
@@ -95,6 +100,25 @@ export function registerUi(r: CommandRegistry): void {
     const font = int(args[2] ?? '0');
     if (args.length >= 5) ctx.host.uiText(id, args[1], font, num(args[3]), num(args[4]), args[5] === undefined ? 1 : int(args[5]));
     else ctx.host.uiText(id, args[1], font);
+  });
+  r.register('freetext', (ctx, args) => { ctx.host.uiText(int(args[0] ?? '0'), '', 0); });
+  /**
+   * button id,text[,icon[,source[,section]]]：对话里的第 id 个按钮。source 为数字取信息点文本，
+   * 带扩展名的取文件，否则本身就是目标（页名或 action:/script:/event:）；省略时取缓冲区。
+   */
+  r.register('button', (ctx, args) => {
+    const id = int(args[0] ?? '0');
+    const source = args[3];
+    let target: string | undefined;
+    if (source === undefined) target = ctx.host.buffer.take();
+    else if (int(source) !== 0 || source.includes('.')) target = sourceText(ctx, source, args[4]);
+    else target = source;
+    if (target) ctx.host.dialogueButton(id, args[1] ?? '', target);
+  });
+  r.register('freebutton', (ctx, args) => { ctx.host.freeDialogueButton(int(args[0] ?? '0')); });
+  /** cracklock title,mode,code：撬锁小游戏，结果以 cracklock_success / cracklock_failure 事件发给当前实体。 */
+  r.register('cracklock', (ctx, args) => {
+    ctx.host.crackLock(args[0] ?? '', int(args[1] ?? '1'), String(args[2] ?? '').toLowerCase(), ctx.env.cls, ctx.env.id);
   });
   r.register('image', (ctx, args) => {
     ctx.host.uiImage(int(args[0] ?? '0'), args[1] ?? '', num(args[2] ?? '0'), num(args[3] ?? '0'));
@@ -127,6 +151,24 @@ export function registerUi(r: CommandRegistry): void {
   });
   r.register('inview', (ctx, args) => { const { cls, id } = classId(ctx, args, 0); return bool(ctx.host.inView(cls, id)); });
   r.register('getweather', () => '0');
+  /** 外观指令的实体参数在前面的值之后：省略时为当前实体。 */
+  const look = (ctx: CommandContext, args: Value[], at: number, value: Parameters<CommandContext['host']['setLook']>[2], name: string) => {
+    const { cls, id } = classId(ctx, args, at);
+    if (!ctx.host.setLook(cls, id, value)) ctx.host.log('warn', `${name}: no model for ${cls}:${id}`);
+  };
+  /** 原版只允许给物体和物品换模型。 */
+  r.register('model', (ctx, args) => {
+    const { cls } = classId(ctx, args, 1);
+    if (cls === CLASS.object || cls === CLASS.item) look(ctx, args, 1, { model: String(args[0] ?? '') }, 'model');
+  });
+  r.register('scale', (ctx, args) => { look(ctx, args, 3, { scale: [num(args[0] ?? '1'), num(args[1] ?? '1'), num(args[2] ?? '1')] }, 'scale'); });
+  r.register('fx', (ctx, args) => { look(ctx, args, 1, { fx: int(args[0] ?? '0') }, 'fx'); });
+  r.register('color', (ctx, args) => { look(ctx, args, 3, { color: [int(args[0] ?? '255'), int(args[1] ?? '255'), int(args[2] ?? '255')] }, 'color'); });
+  /** skycolor mode[,r,g,b[,mix]]：mode 1 用覆盖色，0 恢复昼夜颜色。 */
+  r.register('skycolor', (ctx, args) => {
+    if (int(args[0] ?? '0') !== 1) { ctx.host.skyColor(null); return; }
+    ctx.host.skyColor({ color: [int(args[1] ?? '0'), int(args[2] ?? '0'), int(args[3] ?? '0')], mix: int(args[4] ?? '0') });
+  });
   r.register(['blend', 'vomit', 'showindicator', 'hidden', 'wateralpha', 'watertexture'], () => { /* 视觉效果不做 */ });
   r.register('seqstart', (ctx, args) => { ctx.host.seq()?.start(int(args[0] ?? '1'), int(args[1] ?? '0')); });
   r.register('seqtimemode', (ctx, args) => { ctx.host.seq()?.timeMode(num(args[0] ?? '1'), int(args[1] ?? '1')); });

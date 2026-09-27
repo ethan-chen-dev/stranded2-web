@@ -145,9 +145,35 @@ export function registerEntity(r: CommandRegistry): void {
   getter('getyaw', e => e.yaw);
   getter('getpitch', e => e.pitch);
   getter('getroll', e => e.roll);
+  /** setat 取第二个实体的位置；坐标为 "self" 时保留原值；存放在容器里的物品不移动。 */
+  const place = (ctx: CommandContext, cls: number, id: number, at: (e: { x: number; y: number; z: number }) => { x: number; y: number; z: number } | undefined) => {
+    const e = ctx.host.entity(cls, id);
+    if (!e) return;
+    if (cls === CLASS.item && e.parentClass !== 0 && e.parentMode === 1) return;
+    const p = at(e);
+    if (p) ctx.host.setPosition(cls, id, p.x, p.y, p.z);
+  };
   r.register('setpos', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
-    ctx.host.setPosition(cls, id, num(args[next] ?? '0'), num(args[next + 1] ?? '0'), num(args[next + 2] ?? '0'));
+    const coord = (v: Value | undefined, cur: number) => (v === undefined || v.trim() === 'self' ? cur : num(v));
+    place(ctx, cls, id, e => ({ x: coord(args[next], e.x), y: coord(args[next + 1], e.y), z: coord(args[next + 2], e.z) }));
+  });
+  r.register('setat', (ctx, args) => {
+    const { cls, id, next } = classId(ctx, args, 0);
+    const target = ctx.host.entity(requireClass(args[next] ?? '', ctx.line), int(args[next + 1] ?? '0'));
+    place(ctx, cls, id, () => target && { x: target.x, y: target.y, z: target.z });
+  });
+  /** freeze id,mode：mode 1 冻结、0 解冻、2 返回是否冻结；id 为 0 时作用于全部单位。 */
+  r.register('freeze', (ctx, args) => {
+    const id = unitArg(ctx, args[0]);
+    const mode = args[1] === undefined ? 1 : int(args[1]);
+    if (id === 0) {
+      for (const u of ctx.host.entities(CLASS.unit)) ctx.host.freezeUnit(u.id, mode === 1);
+      return '0';
+    }
+    if (mode >= 2) return bool(ctx.host.unitFrozen(id));
+    ctx.host.freezeUnit(id, mode === 1);
+    return '0';
   });
   r.register('setrot', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
@@ -170,14 +196,14 @@ export function registerEntity(r: CommandRegistry): void {
   r.register('count_inrange', (ctx, args) => {
     const cls = requireClass(args[0] ?? '', ctx.line);
     const typ = int(args[1] ?? '0');
-    const radius = num(args[2] ?? '100');
+    const radius = num(args[2] ?? '300');
     const c = centerOf(ctx, args, 3);
     return str(ctx.host.entities(cls, typ || undefined).filter(e => dist(e.x, e.y, e.z, c.x, c.y, c.z) <= radius).length);
   });
   r.register('count_behaviourinrange', (ctx, args) => {
     const cls = requireClass(args[0] ?? '', ctx.line);
     const beh = (args[1] ?? '').trim().toLowerCase();
-    const radius = num(args[2] ?? '100');
+    const radius = num(args[2] ?? '300');
     const c = centerOf(ctx, args, 3);
     return str(ctx.host.entities(cls).filter(e => (ctx.host.def(cls, e.typ)?.behaviour ?? '').toLowerCase() === beh && dist(e.x, e.y, e.z, c.x, c.y, c.z) <= radius).length);
   });
@@ -185,7 +211,7 @@ export function registerEntity(r: CommandRegistry): void {
     const { cls, id, next } = classId(ctx, args, 0);
     const e = ctx.host.entity(cls, id);
     if (!e) return '0';
-    const radius = num(args[next] ?? '100');
+    const radius = num(args[next] ?? '300');
     const c = centerOf(ctx, args, next + 1);
     return bool(dist(e.x, e.y, e.z, c.x, c.y, c.z) <= radius);
   });

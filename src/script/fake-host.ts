@@ -45,6 +45,24 @@ export class FakeHost implements ScriptHost {
   menu = 0;
   msgbox(title: string, text: string): void { this.boxes.push({ title, text }); this.menu = 21; }
   dialogue(page: string, source: string, section?: string): boolean { this.dialogues.push({ page, source, section }); this.menu = 26; return true; }
+  looks = new Map<string, object>();
+  setLook(cls: number, id: number, look: object): boolean { if (!this.entity(cls, id)) return false; this.looks.set(`${cls}:${id}`, { ...this.looks.get(`${cls}:${id}`), ...look }); return true; }
+  sky: { color: [number, number, number]; mix: number } | null = null;
+  skyColor(o: { color: [number, number, number]; mix: number } | null): void { this.sky = o; }
+  spotted = false;
+  autosaves = 0;
+  playerSpotted(): boolean { return this.spotted; }
+  autosave(): void { this.autosaves++; }
+  frozen = new Set<number>();
+  freezeUnit(id: number, on: boolean): void { if (on) this.frozen.add(id); else this.frozen.delete(id); }
+  unitFrozen(id: number): boolean { return this.frozen.has(id); }
+  extended: string[] = [];
+  buttons = new Map<number, { text: string; target: string }>();
+  cracks: { title: string; mode: number; code: string; cls: number; id: number }[] = [];
+  extendMessage(text: string): void { this.extended.push(text); }
+  dialogueButton(id: number, text: string, target: string): void { this.buttons.set(id, { text, target }); }
+  freeDialogueButton(id: number): void { this.buttons.delete(id); }
+  crackLock(title: string, mode: number, code: string, cls: number, id: number): void { this.cracks.push({ title, mode, code, cls, id }); this.menu = 25; }
   uiText(id: number, text: string): void { if (text) this.uiTexts.set(id, text); else this.uiTexts.delete(id); }
   uiImage(): void { /* 无界面 */ }
   menuId(): number { return this.menu; }

@@ -39,6 +39,8 @@ export interface World {
   visibleItems(): EntityRecord[];
   /** 按定义异步创建一个不登记实体的模型实例（投射物用）。 */
   spawnModel(cls: number, typ: number): Promise<THREE.Object3D | null>;
+  /** rec.look 改变后按新外观重建场景对象。 */
+  restyle(rec: EntityRecord): void;
 }
 
 const DEG = Math.PI / 180;
@@ -75,6 +77,25 @@ async function preloadModels(map: MapData, registry: EntityRegistry, res: Resour
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
 }
 
+/**
+ * 编辑器的自由摆放（FRAP，扩展 mode 6 键 f，值为 y,pitch,roll）：物体取指定高度与倾斜，
+ * 单位和物品只取高度。依据 e_load_map.bb。
+ */
+export function applyFreePlacement(map: MapData, registry: EntityRegistry, apply: (rec: EntityRecord) => void): void {
+  for (const x of map.extensions) {
+    if (x.mode !== 6 || x.key !== 'f') continue;
+    const [y, pitch, roll] = x.value.split(',').map(Number);
+    const rec = registry.get(x.parentClass, x.parentId);
+    if (!rec || !Number.isFinite(y)) continue;
+    rec.y = y;
+    if (rec.cls === CLS.object) {
+      rec.pitch = Number.isFinite(pitch) ? pitch : 0;
+      rec.roll = Number.isFinite(roll) ? roll : 0;
+    }
+    apply(rec);
+  }
+}
+
 export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: Log, onProgress?: (done: number, total: number) => void): Promise<World> {
   const group = new THREE.Group();
   group.name = 'world';
@@ -92,15 +113,19 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       }
       return null;
     }
-    if (!rec.def.model) return null;
-    return res.model(rec.def.model, { fx: rec.def.fx, color: rec.def.color, alpha: rec.def.alpha });
+    const model = rec.look?.model ?? rec.def.model;
+    if (!model) return null;
+    return res.model(model, { fx: rec.look?.fx ?? rec.def.fx, color: rec.look?.color ?? rec.def.color, alpha: rec.def.alpha });
   };
 
-  /** 原版 pitch 正值为俯（左手系），镜像 z 后对应 Three 的负 rotation.x；yaw 符号一致。 */
+  /**
+   * 原版 pitch 正值为俯（左手系），镜像 z 后对应 Three 的负 rotation.x；yaw 符号一致。
+   * Blitz 的 RotateEntity 先滚转、再俯仰、最后偏航，对应 Three 的 'YXZ' 顺序。
+   */
   const applyTransform = (rec: EntityRecord): void => {
     if (!rec.object) return;
     rec.object.position.set(rec.x, rec.y, -rec.z);
-    rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG);
+    rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG, 'YXZ');
   };
 
   const attach = (rec: EntityRecord, model: ThreeModel | null): void => {
@@ -128,13 +153,17 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         rec.playAnim = play;
         mixers.push(mixer);
         rec.mixer = mixer;
+        if (rec.frozen) mixer.timeScale = 0;
         play('idle1', true) || play('idle', true);
       }
     } else {
       obj = placeholder();
       stats.missing++;
     }
-    if (rec.def) obj.scale.set(rec.def.scale[0], rec.def.scale[1], rec.def.scale[2]);
+    if (rec.def) {
+      const k = rec.look?.scale ?? [1, 1, 1];
+      obj.scale.set(rec.def.scale[0] * k[0], rec.def.scale[1] * k[1], rec.def.scale[2] * k[2]);
+    }
     rec.object = obj;
     applyTransform(rec);
     group.add(obj);
@@ -151,10 +180,17 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.object = undefined;
   };
 
+  /** 正在异步加载模型的实体及其序号；序号被新的一次创建（重建或改外观）顶掉时丢弃旧结果，避免重复挂载。 */
+  const loading = new WeakMap<EntityRecord, number>();
+  let loadSeq = 0;
   const spawn = async (rec: EntityRecord): Promise<void> => {
     if (rec.cls === CLS.info) return;
+    const token = ++loadSeq;
+    loading.set(rec, token);
     const model = await modelFor(rec);
-    if (registry.get(rec.cls, rec.id) !== rec) return;
+    if (loading.get(rec) !== token) return;
+    loading.delete(rec);
+    if (rec.object || registry.get(rec.cls, rec.id) !== rec) return;
     if (rec.cls === CLS.item && rec.parentMode === STORED_INSIDE) return;
     attach(rec, model);
   };
@@ -197,6 +233,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.pitch = info.pitch;
     rec.yaw = info.yaw;
   }
+  applyFreePlacement(map, registry, applyTransform);
 
   return {
     group, registry, mixers, stats,
@@ -214,8 +251,12 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         detach(rec);
         return;
       }
-      if (!rec.object) void spawn(rec);
+      if (!rec.object) { if (!loading.has(rec)) void spawn(rec); }
       else applyTransform(rec);
+    },
+    restyle(rec) {
+      detach(rec);
+      void spawn(rec);
     },
     remove(rec) {
       detach(rec);

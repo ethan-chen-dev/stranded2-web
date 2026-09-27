@@ -58,6 +58,45 @@ describe('commands', () => {
     expect(host.entity(CLASS.item, 7)!.count).toBe(2);
     expect(host.entities(CLASS.item, 10).length).toBe(1);
   });
+  it('setpos keeps "self" coordinates and setat moves onto another entity', () => {
+    host.add(CLASS.info, 1, 17, { x: 300, y: 12, z: -40 });
+    run(`setpos "unit",1,"self",5,"self"; $x=getx("unit",1); $y=gety("unit",1); $z=getz("unit",1);`);
+    expect([g('x'), g('y'), g('z')]).toEqual(['10.0', '5.0', '20.0']);
+    run(`$p=create("unit",2); setat "unit",$p,"info",17; $px=getx("unit",$p); $pz=getz("unit",$p);`);
+    expect([g('px'), g('pz')]).toEqual(['300.0', '-40.0']);
+    run(`setat "item",7,"info",17;`);
+    expect(host.entity(CLASS.item, 7)!.x).toBe(0);
+  });
+  it('dialogue buttons, cracklock and msg_extend', () => {
+    run(`button 0,"How to fish",17,"teach_fishing"; button 9,"Back",17,"start"; freebutton 0; clear; add "x"; button 2,"Buf";`);
+    expect([...host.buttons.entries()]).toEqual([[9, { text: 'Back', target: 'start' }], [2, { text: 'Buf', target: 'x' }]]);
+    run(`cracklock "Cracking lock",2,"LRL";`, { cls: CLASS.object, id: 354, event: 'use', info: '' });
+    expect(host.cracks).toEqual([{ title: 'Cracking lock', mode: 2, code: 'lrl', cls: CLASS.object, id: 354 }]);
+    run(`clear; add "Hahaha"; msg_extend;`);
+    expect(host.extended).toEqual(['Hahaha']);
+  });
+  it('freeze, playerspotted and autosave', () => {
+    host.add(CLASS.unit, 2, 30);
+    run(`freeze 30; $a=freeze(30,2); freeze 30,0; $b=freeze(30,2); freeze 0,1; $c=freeze(1,2);`);
+    expect([g('a'), g('b'), g('c')]).toEqual(['1', '0', '1']);
+    host.spotted = true;
+    run(`if (playerspotted()==0) { autosave; } $s=playerspotted();`);
+    expect([g('s'), host.autosaves]).toEqual(['1', 0]);
+  });
+  it('model, scale, fx and color change the look of an entity', () => {
+    host.add(CLASS.object, 178, 40);
+    run(`model "gfx/yacht_01.b3d","object",40; fx 16,"object",40; scale 1.76,1.76,1.76,"object",40; model "x.b3d","unit",1;`);
+    expect(host.looks.get('1:40')).toEqual({ model: 'gfx/yacht_01.b3d', fx: 16, scale: [1.76, 1.76, 1.76] });
+    expect(host.looks.has('2:1')).toBe(false);
+    run(`color 255,200,200;`, { cls: CLASS.object, id: 40, event: 'load', info: '' });
+    expect(host.looks.get('1:40')).toMatchObject({ color: [255, 200, 200] });
+  });
+  it('skycolor sets and clears the sky override', () => {
+    run(`skycolor 1,255,50,50,20;`);
+    expect(host.sky).toEqual({ color: [255, 50, 50], mix: 20 });
+    run(`skycolor 0;`);
+    expect(host.sky).toBeNull();
+  });
   it('store and unstore', () => {
     run(`$id=create("item",24,0,0); $s=store($id,"unit",1); $c=count_stored("unit",1,24); unstore $id; $c2=count_stored("unit",1,24);`);
     expect([g('s'), g('c'), g('c2')]).toEqual(['1', '1', '0']);

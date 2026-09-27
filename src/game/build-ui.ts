@@ -56,7 +56,7 @@ export class BuildUi {
       name.addEventListener('click', () => this.actions.choose(b));
       const reqs = document.createElement('span');
       reqs.className = 'build-reqs';
-      reqs.textContent = b.reqs.map(r => `${this.actions.itemName(r.typ)} ${this.actions.have(r.typ)}/${r.count}`).join('，');
+      reqs.textContent = b.reqs.map(r => `${this.actions.itemName(r.typ)} ${this.actions.have(r.typ)}/${r.count}`).join(', ');
       row.append(name, reqs);
       this.list.append(row);
     }

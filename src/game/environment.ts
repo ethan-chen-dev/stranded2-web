@@ -5,6 +5,8 @@ import { lightColor, ambientColor, fogColor, FOG_NEAR, FOG_FAR, type RGB } from 
 export class Environment {
   private readonly skyMaterials: THREE.MeshBasicMaterial[] = [];
   private readonly fog: THREE.Fog;
+  /** skycolor 指令的覆盖色；mix 为 0 时直接替换，否则按 mix% 保留昼夜颜色（e_environment.bb）。 */
+  override: { color: RGB; mix: number } | null = null;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -23,7 +25,12 @@ export class Environment {
   }
 
   current(hour: number, minute: number): RGB {
-    return lightColor(this.cycle, hour, minute);
+    const c = lightColor(this.cycle, hour, minute);
+    const o = this.override;
+    if (!o) return c;
+    if (o.mix === 0) return o.color;
+    const keep = Math.min(1, Math.max(0, o.mix / 100));
+    return [0, 1, 2].map(i => o.color[i] * (1 - keep) + c[i] * keep) as RGB;
   }
 
   apply(hour: number, minute: number): void {

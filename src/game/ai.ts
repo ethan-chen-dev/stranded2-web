@@ -190,7 +190,7 @@ export class AiSystem {
       const code = this.code(rec);
       if (code === 0 || code > 500) continue;
       if (rec.dead) { this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
-      if (this.d.controlled?.(rec)) continue;
+      if (rec.frozen || this.d.controlled?.(rec)) continue;
       const st = rec.ai ?? this.init(rec);
       this.runMode(rec, st, code, f, now);
       if (!st.freeze && st.mode !== AI.attack && now - st.timer > st.duration) this.next(rec, st, code, now);
@@ -296,6 +296,16 @@ export class AiSystem {
 
   private dist2(a: { x: number; z: number }, b: { x: number; z: number }): number {
     return Math.hypot(a.x - b.x, a.z - b.z);
+  }
+
+  /** playerspotted：有攻击性单位正在走向或攻击目标，且离玩家不到 300。 */
+  playerSpotted(): boolean {
+    const p = this.d.player();
+    return this.d.registry.all(CLS.unit).some(rec => {
+      if (rec.id === this.d.playerId || rec.dead || !isAggressive(this.code(rec))) return false;
+      const mode = rec.ai?.mode;
+      return (mode === AI.movetarget || mode === AI.attack) && this.dist3(rec, p) < 300;
+    });
   }
 
   private dist3(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number {

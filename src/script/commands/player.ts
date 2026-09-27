@@ -4,6 +4,8 @@ import { CLASS } from '../host';
 import { classId, int, num, str, bool, flt } from './util';
 
 export function registerPlayer(r: CommandRegistry): void {
+  r.register('playerspotted', ctx => bool(ctx.host.playerSpotted()));
+  r.register('autosave', ctx => { ctx.host.autosave(); });
   r.register(['eat', 'drink', 'consume'], (ctx, args) => {
     if (ctx.env.cls === CLASS.item) ctx.host.freeEntity(CLASS.item, ctx.env.id, 1);
     if (args.length === 0) return;

@@ -1,17 +1,36 @@
 /**
- * 界面面板：消息框、对话、日记（打开时游戏暂停）与界面文字、图片槽。
- * 界面编号沿用原版：3 日记、21 消息框、26 对话、0 无。
+ * 界面面板：消息框、对话、日记、撬锁（打开时游戏暂停）与界面文字、图片槽。
+ * 界面编号沿用原版：3 日记、21 消息框、25 撬锁、26 对话、0 无。
  */
-import { buttonAction, type DialoguePage } from '../formats/dialogue';
+import { buttonAction, MAX_BUTTONS, type DialoguePage } from '../formats/dialogue';
 import { splitColoredLines } from './textbuffer';
 import { assetUrl } from '../assets/paths';
 
 export const MENU_NONE = 0;
 export const MENU_DIARY = 3;
 export const MENU_MSGBOX = 21;
+export const MENU_CRACKLOCK = 25;
 export const MENU_DIALOGUE = 26;
 export const MAX_UI_TEXTS = 20;
 export const MAX_UI_IMAGES = 39;
+
+/** 撬锁方向键：原版按 mode 依次启用左、右、上、下。 */
+const CRACK_KEYS = [
+  { key: 'l', label: 'Left', code: 'ArrowLeft' },
+  { key: 'r', label: 'Right', code: 'ArrowRight' },
+  { key: 'u', label: 'Up', code: 'ArrowUp' },
+  { key: 'd', label: 'Down', code: 'ArrowDown' },
+] as const;
+
+export interface CrackLock {
+  title: string;
+  mode: number;
+  code: string;
+  /** 每按一次方向键播放对应音效（0 左 1 右 2 上 3 下）。 */
+  sound(dir: number): void;
+  fail(): void;
+  success(): void;
+}
 
 const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
 
@@ -40,6 +59,10 @@ export class Panels {
   private menu = MENU_NONE;
   private pages: Map<string, DialoguePage> | null = null;
   private dialogueTitle = 'Dialogue';
+  /** 对话按钮槽：页面的 button= 行按顺序占位，脚本的 button/freebutton 可改写。 */
+  private slots: ({ text: string; target: string } | null)[] = [];
+  private crack: (CrackLock & { pos: number }) | null = null;
+  private bodyText = '';
 
   constructor(parent: HTMLElement, private readonly actions: PanelActions) {
     this.root = document.createElement('div');
@@ -80,6 +103,7 @@ export class Panels {
   close(): void {
     this.menu = MENU_NONE;
     this.pages = null;
+    this.crack = null;
     this.box.hidden = true;
   }
 
@@ -107,11 +131,70 @@ export class Panels {
     }
     if (page.title) this.dialogueTitle = page.title;
     this.show(MENU_DIALOGUE, this.dialogueTitle, page.text, false);
-    this.buttonsEl.replaceChildren(...page.buttons.map(b => this.button(b.text, () => this.press(b.target))));
+    this.slots = page.buttons.slice(0, MAX_BUTTONS).map(b => ({ text: b.text, target: b.target }));
+    this.renderSlots();
     if (page.trades.length) this.actions.log(`dialogue page ${name} has ${page.trades.length} trade blocks; trading UI is not implemented`);
     if (page.script.trim()) {
       this.actions.runScript(page.script, `dialogue ${name}`);
     }
+  }
+
+  /** button 指令：在当前对话里设置第 id 个按钮，目标为页名或 action:/script:/event: 动作。 */
+  setButton(id: number, text: string, target: string): void {
+    if (id < 0 || id >= MAX_BUTTONS) return;
+    while (this.slots.length <= id) this.slots.push(null);
+    this.slots[id] = { text, target };
+    if (this.menu === MENU_DIALOGUE) this.renderSlots();
+  }
+
+  freeButton(id: number): void {
+    if (id < 0 || id >= MAX_BUTTONS || id >= this.slots.length) return;
+    this.slots[id] = null;
+    if (this.menu === MENU_DIALOGUE) this.renderSlots();
+  }
+
+  private renderSlots(): void {
+    this.buttonsEl.replaceChildren(...this.slots.flatMap(b => (b ? [this.button(b.text, () => this.press(b.target))] : [])));
+  }
+
+  /** 撬锁小游戏：按 code 的顺序按方向键，按错从头开始。 */
+  crackLock(o: CrackLock): void {
+    this.crack = { ...o, pos: 1 };
+    this.show(MENU_CRACKLOCK, o.title, '', false);
+    this.buttonsEl.replaceChildren(...CRACK_KEYS.map((k, i) => {
+      const b = this.button(k.label, () => this.crackInput(k.key));
+      b.disabled = o.mode <= i;
+      return b;
+    }));
+    this.renderCrack();
+  }
+
+  /** 撬锁界面打开时由会话把方向键转发进来。 */
+  crackKey(code: string): void {
+    const i = CRACK_KEYS.findIndex(k => k.code === code);
+    if (i >= 0 && this.crack && this.crack.mode > i) this.crackInput(CRACK_KEYS[i].key);
+  }
+
+  private crackInput(key: string): void {
+    const c = this.crack;
+    if (!c) return;
+    c.sound(CRACK_KEYS.findIndex(k => k.key === key));
+    if (c.code[c.pos - 1] === key) {
+      c.pos++;
+      if (c.pos > c.code.length) {
+        this.close();
+        c.success();
+        return;
+      }
+    } else {
+      c.pos = 1;
+      c.fail();
+    }
+    this.renderCrack();
+  }
+
+  private renderCrack(): void {
+    if (this.crack) this.renderText(`Position ${this.crack.pos}`);
   }
 
   private press(target: string): void {
@@ -193,7 +276,14 @@ export class Panels {
     this.box.hidden = false;
   }
 
+  /** msg_extend：接到消息框或对话正文后面。 */
+  extendText(text: string): void {
+    if (this.menu !== MENU_MSGBOX && this.menu !== MENU_DIALOGUE) return;
+    this.renderText(`${this.bodyText}\n${text}`);
+  }
+
   private renderText(text: string): void {
+    this.bodyText = text;
     this.bodyEl.replaceChildren(...splitColoredLines(text).map(l => {
       const el = document.createElement('div');
       el.textContent = l.text || ' ';
@@ -202,7 +292,7 @@ export class Panels {
     }));
   }
 
-  private button(text: string, onClick: () => void): HTMLElement {
+  private button(text: string, onClick: () => void): HTMLButtonElement {
     const b = document.createElement('button');
     b.textContent = text;
     b.addEventListener('click', onClick);

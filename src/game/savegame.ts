@@ -11,6 +11,7 @@ import type { SkillEntry } from './skills';
 
 export const SAVE_PREFIX = 'stranded2:save:';
 export const QUICKSAVE = 'QUICKSAVE';
+export const AUTOSAVE = 'AUTOSAVE';
 const CLASSES = [CLS.object, CLS.unit, CLS.item, CLS.info];
 
 export interface SnapEntity {
@@ -19,6 +20,9 @@ export interface SnapEntity {
   health: number; healthMax: number; count: number;
   parentClass: number; parentId: number; parentMode: number;
   dead: boolean;
+  /** 脚本改过的外观与冻结状态；旧存档没有这两项。 */
+  look?: EntityRecord['look'];
+  frozen?: boolean;
 }
 
 export interface Snapshot {
@@ -86,6 +90,7 @@ export function snapshot(s: SnapshotSource): Snapshot {
         cls, id: r.id, typ: r.typ, x: r.x, y: r.y, z: r.z, yaw: r.yaw, pitch: r.pitch, roll: r.roll,
         health: r.health, healthMax: r.healthMax, count: r.count,
         parentClass: r.parentClass, parentId: r.parentId, parentMode: r.parentMode, dead: !!r.dead,
+        ...(r.look ? { look: r.look } : {}), ...(r.frozen ? { frozen: true } : {}),
       });
     }
   }
@@ -132,6 +137,8 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
     rec.parentId = e.parentId;
     rec.parentMode = e.parentMode;
     if (e.dead) rec.dead = true;
+    if (e.look) rec.look = e.look;
+    if (e.frozen) rec.frozen = true;
     later.push(rec);
   }
   for (const rec of later) {

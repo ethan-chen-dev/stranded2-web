@@ -18,6 +18,9 @@ describe('savegame', () => {
     palm.health = 4;
     const raptor = a.registry.make(CLS.unit, 2, 50, 3, 60, 1, 30);
     raptor.dead = true;
+    palm.look = { model: 'gfx/yacht_01.b3d', scale: [1.76, 1.76, 1.76] };
+    const frozen = a.registry.make(CLS.unit, 2, 10, 0, 10, 1, 31);
+    frozen.frozen = true;
     const bag = a.registry.make(CLS.item, 7, 0, 0, 0, 2);
     a.registry.store(bag.id, CLS.unit, 1);
     const loose = a.world.create(CLS.item, 7, 5, 6, 1)!;
@@ -35,7 +38,7 @@ describe('savegame', () => {
       skills: [{ name: 'wood', value: 4, caption: 'Lumbering' }], triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }],
     });
     const json = JSON.parse(JSON.stringify(snap));
-    expect(json.entities.length).toBe(5);
+    expect(json.entities.length).toBe(6);
     expect(json.timers[0].remaining).toBe(4800);
 
     const b = world();
@@ -54,6 +57,8 @@ describe('savegame', () => {
     expect(restored).toEqual({ triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }] });
     expect(b.registry.all(CLS.object).map(r => [r.id, r.x, r.health])).toEqual([[palm.id, 100, 4]]);
     expect(b.registry.get(CLS.unit, 30)?.dead).toBe(true);
+    expect(b.registry.get(CLS.object, palm.id)?.look).toEqual({ model: 'gfx/yacht_01.b3d', scale: [1.76, 1.76, 1.76] });
+    expect([b.registry.get(CLS.unit, 31)?.frozen, b.registry.get(CLS.unit, 30)?.frozen]).toEqual([true, undefined]);
     expect(b.registry.get(CLS.unit, 1)?.health).toBe(77);
     expect(b.registry.countStored(CLS.unit, 1, 7)).toBe(2);
     expect(b.registry.all(CLS.item).filter(r => r.parentMode !== STORED_INSIDE).map(r => r.id)).toEqual([loose.id]);
@@ -69,7 +74,7 @@ describe('savegame', () => {
     expect(b.stats.thirst).toBe(20);
     expect(placed).toEqual({ x: 1, y: 2, z: 3, yaw: 45, pitch: -5 });
     expect(hands).toEqual([7]);
-    expect(b.registry.nextId(CLS.unit)).toBeGreaterThan(30);
+    expect(b.registry.nextId(CLS.unit)).toBeGreaterThan(31);
   });
 });
 

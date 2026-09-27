@@ -32,6 +32,10 @@ export interface EntityRecord {
   parentMode: number;
   /** 单位死亡后保留尸体，不再参与碰撞与拾取。 */
   dead?: boolean;
+  /** 脚本改过的外观（model/scale/fx/color 指令），覆盖定义里的值。 */
+  look?: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] };
+  /** freeze 指令冻结：AI 与动画停住，玩家不响应输入；死亡时解除。 */
+  frozen?: boolean;
   /** 播放定义里 ani_<name> 的动画片段；由 World 在创建场景对象时提供。loop 为 'pingpong' 时往返播放。 */
   playAnim?: (name: string, loop: boolean | 'pingpong') => boolean;
   /** 非玩家单位的 AI 状态，由 AiSystem 初始化。 */

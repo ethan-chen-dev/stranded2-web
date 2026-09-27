@@ -28,6 +28,13 @@ export function loadSaveUrl(name: string): string {
 
 export const MENU_URL = '?menu=1';
 
+/** 存档按钮文字：名称、地图与保存时间。 */
+function saveLabel(s: SaveInfo): string {
+  const when = new Date(s.savedAt);
+  const time = Number.isNaN(when.getTime()) ? s.savedAt : when.toLocaleString();
+  return `${s.name} (${s.mapPath.replace(/^maps\//, '')}, ${time})`;
+}
+
 function button(text: string, onClick: () => void): HTMLButtonElement {
   const b = document.createElement('button');
   b.className = 'menu-btn';
@@ -106,7 +113,7 @@ export class MainMenu {
       const row = document.createElement('div');
       row.className = 'menu-row';
       row.append(
-        button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))),
+        button(saveLabel(s), () => location.assign(loadSaveUrl(s.name))),
         button('Export', () => this.actions.exportSave(s.name)),
         button('Delete', () => { this.actions.deleteSave(s.name); this.saveList(); }),
       );
@@ -193,7 +200,7 @@ export class PauseMenu {
       const row = document.createElement('div');
       row.className = 'menu-row';
       row.append(
-        button(`${s.name}（${s.mapPath.replace(/^maps\//, '')}，${s.savedAt}）`, () => location.assign(loadSaveUrl(s.name))),
+        button(saveLabel(s), () => location.assign(loadSaveUrl(s.name))),
         button('Export', () => this.actions.exportSave(s.name)),
       );
       return row;

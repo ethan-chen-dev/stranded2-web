@@ -90,6 +90,15 @@ export interface ScriptHost {
   freeEntity(cls: number, id: number, count?: number): void;
   setPosition(cls: number, id: number, x: number, y: number, z: number): void;
   setRotation(cls: number, id: number, pitch: number, yaw: number, roll: number): void;
+  /** model/scale/fx/color 指令：改实体外观，未给的项保持不变。 */
+  setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
+  freezeUnit(id: number, on: boolean): void;
+  playerSpotted(): boolean;
+  /** skycolor：null 取消覆盖。 */
+  skyColor(o: { color: [number, number, number]; mix: number } | null): void;
+  /** 在当前脚本执行完后存到自动存档。 */
+  autosave(): void;
+  unitFrozen(id: number): boolean;
   /** 返回变化后的生命；kill 为真时降到 0 触发死亡。 */
   changeHealth(cls: number, id: number, delta: number, kill: boolean): number;
   def(cls: number, typ: number): HostDef | undefined;
@@ -118,6 +127,13 @@ export interface ScriptHost {
   msgbox(title: string, text: string): void;
   /** 打开对话文件的指定页；找不到返回 false。 */
   dialogue(page: string, source: string, section?: string): boolean;
+  /** 追加到当前消息框或对话的正文。 */
+  extendMessage(text: string): void;
+  /** 当前对话第 id 个按钮；target 为页名或 action:/script:/event: 动作。 */
+  dialogueButton(id: number, text: string, target: string): void;
+  freeDialogueButton(id: number): void;
+  /** 打开撬锁界面，结果以事件发给 (cls, id)。 */
+  crackLock(title: string, mode: number, code: string, cls: number, id: number): void;
   uiText(id: number, text: string, font: number, x?: number, y?: number, align?: number): void;
   uiImage(id: number, path: string, x: number, y: number): void;
   menuId(): number;

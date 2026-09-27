@@ -29,14 +29,14 @@ import { AiSystem } from './ai';
 import { Projectiles } from './projectiles';
 import { Sequence } from './sequence';
 import { SequenceUi } from './sequence-ui';
-import { Panels } from './panels';
+import { Panels, MENU_CRACKLOCK } from './panels';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
 import { parseDialogue } from '../formats/dialogue';
 import { collectTakeover, applyTakeover, stashTakeover, popTakeover } from './takeover';
 import { playUrl, MENU_URL, PauseMenu, loadSaveUrl } from './menu-ui';
-import { snapshot, restore, saveGame, loadGame, listSaves, downloadSave, pickAndImportSave, QUICKSAVE, type Snapshot } from './savegame';
+import { snapshot, restore, saveGame, loadGame, listSaves, downloadSave, pickAndImportSave, QUICKSAVE, AUTOSAVE, type Snapshot } from './savegame';
 import { Combine, type Candidate } from './combine';
 import { Build } from './build';
 import { Tools, type ToolKind } from './tools';
@@ -70,6 +70,8 @@ const TEXT_CONTAINER_INFO_TYP = 37;
 const PLACE_DISTANCE = 60;
 /** 按 E 对物体或单位触发 use 事件的距离。 */
 const USE_ENTITY_RANGE = 60;
+/** 撬锁左、右、上、下的音效，原版 load_media.bb 的 sfx_crack。 */
+const CRACK_SOUNDS = ['crack1.wav', 'crack2.wav', 'crack3.wav', 'crack4.wav'];
 
 interface ProcessState {
   title: string;
@@ -126,6 +128,8 @@ export class GameSession {
   readonly buildings: Building[];
   private focusAcc = 0;
   private focused: EntityRecord | null = null;
+  /** autosave 指令在脚本执行中调用，存档推迟到本帧结束。 */
+  private pendingAutosave = false;
   private readonly ground: { heightAt(x: number, z: number): number };
   private gameMs = 0;
   private process: ProcessState | null = null;
@@ -307,6 +311,16 @@ export class GameSession {
       else this.engine.states.free(CLS.unit, unitId, stick);
       this.ai.stay(rec, on);
     };
+    this.host.movePlayer = (x, y, z) => {
+      this.player.position.set(x, Math.max(y, this.ground.heightAt(x, -z) + PLAYER.halfHeight), -z);
+      this.player.fallStart = -1;
+      this.player.jumpUntil = -1;
+      this.playerRec.x = x; this.playerRec.y = this.player.position.y; this.playerRec.z = z;
+      this.player.applyTo(o.camera);
+    };
+    this.host.playerSpotted = () => this.ai.playerSpotted();
+    this.host.skyColor = o => { this.env.override = o; this.env.apply(this.clock.hour, this.clock.minute); };
+    this.host.autosave = () => { this.pendingAutosave = true; };
     this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
     this.host.lastEater = () => this.ai.lastEater;
     this.sequence = new Sequence({
@@ -353,6 +367,18 @@ export class GameSession {
       const ok = this.panels.dialogue(parseDialogue(text), page);
       if (ok) this.syncLock();
       return ok;
+    };
+    this.host.extendMessage = text => this.panels.extendText(text);
+    this.host.dialogueButton = (id, text, target) => this.panels.setButton(id, text, target);
+    this.host.freeDialogueButton = id => this.panels.freeButton(id);
+    this.host.crackLock = (title, mode, code, cls, id) => {
+      this.panels.crackLock({
+        title, mode, code,
+        sound: dir => this.sounds.play(CRACK_SOUNDS[dir] ?? 'fail.wav'),
+        fail: () => { this.sounds.play('fail.wav'); this.engine.entityEvent(cls, id, 'cracklock_failure'); this.engine.update(0); },
+        success: () => { this.engine.entityEvent(cls, id, 'cracklock_success'); this.engine.update(0); this.syncLock(); },
+      });
+      this.syncLock();
     };
     this.host.uiText = (id, text, font, x, y, align) => this.panels.uiText(id, text, font, x, y, align);
     this.host.uiImage = (id, path, x, y) => this.panels.uiImage(id, path, x, y);
@@ -495,6 +521,7 @@ export class GameSession {
   update(dtMs: number): void {
     const input = this.input;
     if (this.panels.paused || this.pauseMenu.open || this.exchangeUi.open) {
+      if (this.panels.menuId() === MENU_CRACKLOCK) for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) if (input.hit(k)) this.panels.crackKey(k);
       if (input.hit('Escape')) {
         if (this.pauseMenu.open) this.pauseMenu.close();
         else if (this.exchangeUi.open) this.exchangeUi.close();
@@ -525,7 +552,7 @@ export class GameSession {
       }
       if (input.hit('F5') && !inSeq) this.save(QUICKSAVE);
       if (input.hit('F9') && !inSeq && loadGame(QUICKSAVE)) location.assign(loadSaveUrl(QUICKSAVE));
-      const canAct = !this.overlayOpen() && input.locked && !frozen && !inSeq;
+      const canAct = !this.overlayOpen() && input.locked && !frozen && !inSeq && !this.playerRec.frozen;
       if (canAct) {
         const look = input.consumeLook();
         this.player.update(dtMs, now, {
@@ -615,6 +642,10 @@ export class GameSession {
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
     this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active);
+    if (this.pendingAutosave) {
+      this.pendingAutosave = false;
+      if (!saveGame(AUTOSAVE, this.snapshot())) this.hud.message('Saving failed', 2);
+    }
     input.endFrame();
   }
 
@@ -830,6 +861,7 @@ export class GameSession {
   }
 
   private unitDied(rec: EntityRecord): void {
+    this.host.freezeUnit(rec.id, false);
     rec.playAnim?.('die', false);
     this.hud.message(`${rec.def?.name ?? 'The animal'} died`, 0);
   }
