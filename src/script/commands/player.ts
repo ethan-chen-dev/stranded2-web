@@ -6,6 +6,8 @@ import { classId, int, num, str, bool, flt } from './util';
 export function registerPlayer(r: CommandRegistry): void {
   r.register('playerspotted', ctx => bool(ctx.host.playerSpotted()));
   r.register('autosave', ctx => { ctx.host.autosave(); });
+  r.register('sleep', ctx => { ctx.host.sleep(); });
+  r.register('air', (ctx, args) => { ctx.host.addAir(num(args[0] ?? '0')); });
   r.register(['eat', 'drink', 'consume'], (ctx, args) => {
     if (ctx.env.cls === CLASS.item) ctx.host.freeEntity(CLASS.item, ctx.env.id, 1);
     if (args.length === 0) return;
@@ -19,11 +21,13 @@ export function registerPlayer(r: CommandRegistry): void {
   r.register('getplayervalue', (ctx, args) => {
     const p = ctx.host.player();
     switch (int(args[0] ?? '0')) {
-      case 0: return str(p.health);
-      case 1: return str(p.hunger);
-      case 2: return str(p.thirst);
-      case 3: return str(p.exhaustion);
-      default: return '0';
+      case 1: return str(p.health);
+      case 2: return str(p.hunger);
+      case 3: return str(p.thirst);
+      case 4: return str(p.exhaustion);
+      default:
+        ctx.host.log('warn', "getplayervalue expects 1, 2, 3 or 4");
+        return '0';
     }
   });
   r.register(['player_speed', 'player_damage', 'player_attackrange', 'player_maxweight', 'player_mat', 'player_ammo'], (ctx, args) => {

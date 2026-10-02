@@ -30,6 +30,7 @@ import { Projectiles } from './projectiles';
 import { Sequence } from './sequence';
 import { SequenceUi } from './sequence-ui';
 import { Panels, MENU_CRACKLOCK } from './panels';
+import { renderTerrainMap, buildMapView } from './map-ui';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
@@ -70,6 +71,8 @@ const TEXT_CONTAINER_INFO_TYP = 37;
 const PLACE_DISTANCE = 60;
 /** 按 E 对物体或单位触发 use 事件的距离。 */
 const USE_ENTITY_RANGE = 60;
+/** 没有 use 脚本也能使用的物品行为（handle_items.bb use_item）。 */
+const ITEM_ACTIONS = new Set(['map', 'watch']);
 /** 撬锁左、右、上、下的音效，原版 load_media.bb 的 sfx_crack。 */
 const CRACK_SOUNDS = ['crack1.wav', 'crack2.wav', 'crack3.wav', 'crack4.wav'];
 /** 爆炸音效，原版 load_media.bb 的 sfx_explode。 */
@@ -86,14 +89,21 @@ interface ProcessState {
 interface GameSettings {
   digTime: number;
   fishTime: number;
+  /** 水下能憋气的毫秒数，-1 为不限（game.inf dive_time）。 */
+  diveTime: number;
+  /** 憋不住后每秒扣的生命（game.inf dive_damage）。 */
+  diveDamage: number;
 }
 
 function readGameSettings(gameInf: string): GameSettings {
   const num = (key: string, d: number) => {
-    const m = new RegExp(`^${key}\\s*=\\s*(\\d+)`, 'm').exec(gameInf);
-    return m ? parseInt(m[1], 10) : d;
+    const m = new RegExp(`^${key}\\s*=\\s*(-?[\\d.]+)`, 'm').exec(gameInf);
+    return m ? parseFloat(m[1]) : d;
   };
-  return { digTime: num('dig_time', 2500), fishTime: num('fish_time', 2500) };
+  return {
+    digTime: num('dig_time', 2500), fishTime: num('fish_time', 2500),
+    diveTime: num('dive_time', 8000), diveDamage: num('dive_damage', 1),
+  };
 }
 
 export class GameSession {
@@ -132,6 +142,16 @@ export class GameSession {
   private focused: EntityRecord | null = null;
   /** autosave 指令在脚本执行中调用，存档推迟到本帧结束。 */
   private pendingAutosave = false;
+  private lastCatch = -Infinity;
+  /** 读档时会先移除地图自带实体再按存档重建，此时不做 free_childs 清理。 */
+  private restoring = false;
+  private mapTerrain: HTMLCanvasElement | undefined;
+  private mapArrows: HTMLCanvasElement | null = null;
+  private readonly settings: GameSettings;
+  /** 憋气：眼睛低于水面为潜水；airSince 为上次在水面以上的游戏时间（原版 g_airtimer）。 */
+  private diving = false;
+  private airSince = 0;
+  private lastDrown = 0;
   private readonly ground: { heightAt(x: number, z: number): number };
   private gameMs = 0;
   private process: ProcessState | null = null;
@@ -210,6 +230,7 @@ export class GameSession {
     });
     this.host.catalog = { combis: combinations.map(c => c.key), buildings: buildings.map(b => b.id) };
     this.engine = new ScriptEngine(this.host, createRegistry());
+    this.host.states = this.engine.states;
     this.mountScripts(gameInf, statesInf);
 
     const message = (text: string, font = 0) => this.hud.message(text, font);
@@ -238,6 +259,14 @@ export class GameSession {
       random: (a, b) => this.host.random(a, b),
       controlled: rec => this.unitPaths.controlled(rec.id),
     });
+    o.world.onRemove = rec => {
+      if (this.restoring) return;
+      this.engine.removeInstanceScript(rec.cls, rec.id);
+      this.engine.states.free(rec.cls, rec.id);
+      this.engine.timers.free(rec.cls, rec.id);
+      if (rec.cls === CLS.unit) this.unitPaths.free(rec.id);
+      if (rec.cls !== CLS.item) for (const child of registry.storedIn(rec.cls, rec.id)) o.world.remove(child);
+    };
     this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
     this.triggers = new Triggers({
       registry, engine: this.engine, playerId: PLAYER_ID,
@@ -321,6 +350,9 @@ export class GameSession {
       this.player.applyTo(o.camera);
     };
     this.host.playerSpotted = () => this.ai.playerSpotted();
+    this.host.sleep = () => this.sleep();
+    this.host.openMap = () => this.openMap();
+    this.host.addAir = ms => { if (this.diving) this.airSince = Math.min(this.airSince + ms, this.gameMs); };
     this.host.skyColor = o => { this.env.override = o; this.env.apply(this.clock.hour, this.clock.minute); };
     this.host.autosave = () => { this.pendingAutosave = true; };
     this.host.explosion = (x, y, z, range, damage, style) => {
@@ -366,6 +398,8 @@ export class GameSession {
       globalEvent: name => { this.engine.globalEvent(name); this.engine.update(0); },
       log: msg => o.log.warn(msg),
     });
+    this.panels.onSleep = () => { this.syncLock(); this.sleep(); };
+    void o.res.maskedImage('/sys/gfx/arrows.bmp').then(img => { this.mapArrows = img; });
     this.pauseMenu = new PauseMenu(o.root, {
       resume: () => { this.pauseMenu.close(); this.syncLock(); },
       save: name => { this.save(name); },
@@ -419,8 +453,9 @@ export class GameSession {
     this.host.builtAt = id => this.build.builtAt(id);
     this.host.lastBuildingSite = () => this.build.lastSite;
     const settings = readGameSettings(gameInf);
+    this.settings = settings;
     this.tools = new Tools({
-      registry, engine: this.engine, playerId: PLAYER_ID, infoRadius: id => this.host.infoRadius(id),
+      registry, engine: this.engine, playerId: PLAYER_ID, infoRadius: id => this.host.infoRadius(id), terrainY,
       random: (a, b) => this.host.random(a, b), message, sound, digTimeMs: settings.digTime, fishTimeMs: settings.fishTime,
     });
 
@@ -428,7 +463,7 @@ export class GameSession {
       items: () => registry.storedIn(CLS.unit, PLAYER_ID),
       usedWeight: () => registry.usedWeight(CLS.unit, PLAYER_ID),
       maxWeight: () => playerDef?.maxweight ?? 25000,
-      hasEvent: (rec, event) => this.engine.scriptsFor(CLS.item, rec.id, event).length > 0,
+      hasEvent: (rec, event) => this.engine.scriptsFor(CLS.item, rec.id, event).length > 0 || (event === 'use' && ITEM_ACTIONS.has(rec.def?.behaviour ?? '')),
       weaponTyp: () => this.weapons.weaponTyp,
       use: rec => this.useItem(rec, 'use'),
       eat: rec => this.useItem(rec, 'eat'),
@@ -455,6 +490,7 @@ export class GameSession {
       this.tookOver = true;
     }
     if (o.restore) {
+      this.restoring = true;
       restore({
         registry, engine: this.engine, world: o.world, playerId: PLAYER_ID, now: this.gameMs, clock: this.clock, stats: this.stats,
         setPlayer: p => { this.player.position.set(p.x, p.y, -p.z); this.player.yaw = p.yaw * DEG; this.player.pitch = -p.pitch * DEG; },
@@ -463,7 +499,9 @@ export class GameSession {
         setSkills: entries => this.host.skills.load(entries),
         setTriggers: states => this.triggers.restore(states),
         setPaths: paths => { for (const p of paths) this.unitPaths.set(p.unitId, p.nodes); },
+        setIndicators: ids => { this.host.indicators.clear(); for (const id of ids) this.host.indicators.add(id); },
       }, o.restore);
+      this.restoring = false;
       this.env.apply(this.clock.hour, this.clock.minute);
       this.player.applyTo(o.camera);
       o.log.info(`loaded save from ${o.restore.savedAt}, ${o.restore.entities.length} entities`);
@@ -561,6 +599,7 @@ export class GameSession {
         this.syncLock();
       }
       if (input.hit('KeyB') && !inSeq) this.toggleBuildMenu();
+      if (input.hit('KeyY') && !inSeq && !this.overlayOpen() && !this.stats.dead) this.sleep();
       if (input.hit('Escape')) {
         if (this.placing) this.stopPlacing();
         else if (!inSeq && !this.overlayOpen()) { this.pauseMenu.show(); this.syncLock(); }
@@ -594,6 +633,7 @@ export class GameSession {
       }
       const damage = this.stats.update(dtMs, this.player.movedThisFrame, this.player.swimming);
       if (damage > 0) this.hud.message(`Starving and thirsty, you lose ${damage} health`, 2);
+      this.updateAir();
       if (this.stats.dead) {
         this.hud.showDead();
         input.release();
@@ -761,15 +801,34 @@ export class GameSession {
       }
       case 'spade': this.startTool('dig'); break;
       case 'fishingrod': this.startTool('fish'); break;
+      case 'net': this.catchWithNet(item); break;
       default: break;
     }
     this.engine.update(0);
   }
 
+  /**
+   * 持网右键（game_functions.bb game_catch）：按物品 rate 冷却，作用距离取物品 speed（原版 range 也写进 speed），
+   * 对准星命中的物体、单位或物品触发 catch 事件；没有响应者时触发全局 catch_failure。
+   */
+  private catchWithNet(item: EntityRecord): void {
+    const def = item.def;
+    if (!def || this.gameMs - this.lastCatch < def.rate) return;
+    this.lastCatch = this.gameMs;
+    this.sounds.play('swing_slow.wav');
+    const hit = this.weapons.pick(def.speed > 0 ? def.speed : def.range);
+    if (hit && !hit.ground && this.engine.scriptsFor(hit.cls, hit.id, 'catch').length > 0) {
+      this.engine.runNow(hit.cls, hit.id, 'catch');
+      return;
+    }
+    this.engine.globalEvent('catch_failure');
+  }
+
   private startTool(kind: ToolKind): void {
     const { title, ms } = this.tools.start(kind);
     this.startProcess(title, ms, '', () => {
-      this.tools.finish(kind, this.playerRec.x, this.playerRec.z);
+      const eye = this.player.eye();
+      this.tools.finish(kind, { x: eye.x, y: eye.y, z: -eye.z, dirX: -Math.sin(this.player.yaw), dirZ: Math.cos(this.player.yaw) });
       this.engine.update(0);
     });
   }
@@ -847,8 +906,14 @@ export class GameSession {
   }
 
   private useItem(rec: EntityRecord, event: 'use' | 'eat'): void {
-    this.engine.runNow(CLS.item, rec.id, event);
+    const r = this.engine.runNow(CLS.item, rec.id, event);
     this.engine.update(0);
+    // handle_items.bb use_item：脚本没有 skipevent 时按物品行为执行默认动作。
+    if (event === 'use' && !r.skipevent) {
+      const beh = rec.def?.behaviour ?? '';
+      if (beh === 'map') this.openMap();
+      else if (beh === 'watch') this.hud.message(`${this.clock.hour}:${String(this.clock.minute).padStart(2, '0')} o'clock`, 0);
+    }
     if (!this.weapons.weaponItem()) {
       this.weapons.unequip();
       this.refreshWeaponHud();
@@ -896,14 +961,16 @@ export class GameSession {
       title: () => holder.def?.name ?? 'Container',
       playerItems: () => registry.storedIn(CLS.unit, PLAYER_ID),
       containerItems: () => registry.storedIn(cls, id),
-      move: (item, toContainer) => {
+      move: (item, toContainer, count) => {
         const [fromCls, fromId, toCls, toId] = toContainer ? [CLS.unit, PLAYER_ID, cls, id] : [cls, id, CLS.unit, PLAYER_ID];
-        const loose = registry.unstore(item.id, 1, p.x, p.y, -p.z);
+        const loose = registry.unstore(item.id, count, p.x, p.y, -p.z);
         if (!loose) return false;
-        if (registry.store(loose.id, toCls, toId) > 0) return true;
-        registry.store(loose.id, fromCls, fromId);
-        this.hud.message('No space left', 2);
-        return false;
+        const moved = registry.store(loose.id, toCls, toId);
+        if (moved < count) {
+          if (registry.get(CLS.item, loose.id)?.parentMode !== STORED_INSIDE) registry.store(loose.id, fromCls, fromId);
+          this.hud.message('No space left', 2);
+        }
+        return moved > 0;
       },
       name: typ => this.o.defs.items.get(typ)?.name ?? `#${typ}`,
       icon: typ => { const icon = this.o.defs.items.get(typ)?.icon; return icon ? encodeURI(assetUrl(icon)) : undefined; },
@@ -925,12 +992,88 @@ export class GameSession {
       player: { x: p.x, y: p.y, z: -p.z, yaw: this.player.yaw / DEG, pitch: -this.player.pitch / DEG },
       stats: this.stats, weapon: this.weapons.weaponTyp, diary: this.host.diary, locks: this.host.locks, buffer: this.host.buffer.value,
       skills: this.host.skills.entries(), triggers: this.triggers.states(), paths: this.unitPaths.entries(),
+      indicators: [...this.host.indicators],
     });
   }
 
   save(name: string): void {
     const ok = saveGame(name, this.snapshot());
     this.hud.message(ok ? `Saved to ${name}` : 'Saving failed', ok ? 1 : 2);
+  }
+
+  /** 打开地图界面；底图在第一次打开时生成。 */
+  private openMap(): void {
+    if (this.invUi.open) this.invUi.toggle();
+    const registry = this.o.world.registry;
+    this.mapTerrain ??= renderTerrainMap((x, z) => worldHeight(this.o.map, x, z), this.o.map.terrainSize);
+    const infos = new Map(this.o.map.infos.map(i => [i.id, i]));
+    const markers = registry.all(CLS.info, 36).filter(r => this.host.indicators.has(r.id)).map(r => {
+      const info = infos.get(r.id);
+      return { x: r.x, z: r.z, frame: info?.ints[0] ?? 0, label: info?.strings[0] ?? '' };
+    });
+    this.panels.showMap(buildMapView({
+      terrain: this.mapTerrain, terrainSize: this.o.map.terrainSize, markers,
+      player: { x: this.playerRec.x, z: this.playerRec.z, yaw: this.player.yaw / DEG }, arrows: this.mapArrows,
+    }));
+    this.syncLock();
+  }
+
+  /**
+   * 憋气（game_input.bb 与 e_environment.bb）：眼睛低于水面开始潜水，超过 dive_time 后每秒扣 dive_damage；
+   * 回到水面恢复，潜水超过 1.5 秒浮出时喘气。
+   */
+  private updateAir(): void {
+    const under = this.player.eye().y < 0;
+    if (!under) {
+      if (this.diving) {
+        this.sounds.play('splash2.wav');
+        if (this.gameMs - this.airSince > 1500) this.sounds.play('gasp.wav');
+        this.diving = false;
+      }
+      this.airSince = this.gameMs;
+      this.hud.setAir(null);
+      return;
+    }
+    if (!this.diving) {
+      this.diving = true;
+      this.sounds.play('startdive.wav');
+    }
+    const { diveTime, diveDamage } = this.settings;
+    if (diveTime < 0) return;
+    const used = this.gameMs - this.airSince;
+    this.hud.setAir(Math.max(0, diveTime - used) / diveTime);
+    if (used >= diveTime && this.gameMs - this.lastDrown >= 1000) {
+      this.lastDrown = this.gameMs;
+      this.sounds.play('drown.wav');
+      this.playerHurt(diveDamage);
+    }
+  }
+
+  /**
+   * 睡觉（game_functions.bb game_sleep）：先让所有脚本处理 sleep 事件（game.inf 检查疲劳、危险与水中，
+   * 可 skipevent 拒绝）；时间未冻结时下午及以后睡到次日 7:00 并触发 changeday，上午睡 6 小时；
+   * 时间冻结时只加一天。
+   */
+  sleep(): void {
+    if (this.engine.globalEventNow('sleep')) {
+      this.engine.update(0);
+      return;
+    }
+    const c = this.clock;
+    if (c.frozen) {
+      c.day++;
+    } else if (c.hour >= 12) {
+      c.set(7, 0);
+      this.engine.globalEvent('changeday');
+      c.day++;
+    } else {
+      c.set(c.hour + 6, c.minute);
+    }
+    this.hud.fadeFromBlack();
+    this.sounds.play('sleep.wav');
+    this.env.apply(c.hour, c.minute);
+    this.hud.setClock(c.day, c.hour, c.minute);
+    this.engine.update(0);
   }
 
   /** 调试：把时钟拨到指定时间并立即应用光照。 */

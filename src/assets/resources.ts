@@ -58,6 +58,14 @@ export class Resources {
     });
   }
 
+  /** 界面图片，原版 load_functions.bb 以品红 (255,0,255) 为透明色；加载失败返回 null。 */
+  maskedImage(url: string): Promise<HTMLCanvasElement | null> {
+    return this.cached(`img:${url}`, async () => {
+      const image = await loadImage(assetBundle()?.blobUrl(url) ?? encodeURI(assetUrl(url)));
+      return image ? maskColor(image, [255, 0, 255]) : null;
+    });
+  }
+
   /** 依次尝试候选 URL，全部失败返回 null。 */
   async textureFrom(candidates: string[], flags = 0): Promise<THREE.Texture | null> {
     for (const url of candidates) {
@@ -130,6 +138,11 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 
 /** Blitz3D 遮罩贴图：纯黑像素透明。 */
 function maskBlack(image: HTMLImageElement): HTMLCanvasElement {
+  return maskColor(image, [0, 0, 0]);
+}
+
+/** 指定颜色的像素变透明。 */
+function maskColor(image: HTMLImageElement, [r, g, b]: [number, number, number]): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
@@ -138,7 +151,7 @@ function maskBlack(image: HTMLImageElement): HTMLCanvasElement {
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const px = data.data;
   for (let i = 0; i < px.length; i += 4) {
-    if (px[i] === 0 && px[i + 1] === 0 && px[i + 2] === 0) px[i + 3] = 0;
+    if (px[i] === r && px[i + 1] === g && px[i + 2] === b) px[i + 3] = 0;
   }
   ctx.putImageData(data, 0, 0);
   return canvas;

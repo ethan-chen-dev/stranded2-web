@@ -7,7 +7,7 @@ import { createRegistry } from '../script/commands';
 import { FakeHost } from '../script/fake-host';
 
 describe('queries', () => {
-  it('storage reports used weight, remaining and capacity', () => {
+  it('storage reports free space, free minus capacity, and capacity', () => {
     const tw = makeTestWorld({
       objects: new Map([[5, testDef({ id: 5, name: 'Chest', maxweight: 1000 })]]),
       units: new Map([[1, testDef({ id: 1, name: 'Player', maxweight: 25000 })]]),
@@ -16,8 +16,8 @@ describe('queries', () => {
     const chest = tw.world.create(CLS.object, 5, 0, 0)!;
     const log = tw.registry.make(CLS.item, 7, 0, 0, 0, 3);
     tw.registry.store(log.id, CLS.object, chest.id);
-    expect(storageValue(tw.registry, CLS.object, chest.id, 0)).toBe(300);
-    expect(storageValue(tw.registry, CLS.object, chest.id, 1)).toBe(-700);
+    expect(storageValue(tw.registry, CLS.object, chest.id, 0)).toBe(700);
+    expect(storageValue(tw.registry, CLS.object, chest.id, 1)).toBe(-300);
     expect(storageValue(tw.registry, CLS.object, chest.id, 2)).toBe(1000);
     expect(storageValue(tw.registry, CLS.item, log.id, 0)).toBe(100);
     expect(freeSpace(tw.registry, 0, 0, 0, 20, { objects: true, units: false, items: false, infos: false })).toBe(false);
@@ -40,5 +40,21 @@ describe('queries', () => {
     expect([engine.vars.globals.get('a'), engine.vars.globals.get('b')]).toEqual([undefined, '1']);
     engine.runText('def_free "item",9;', { cls: 0, id: 0, event: 'test', info: '' }, 'test');
     expect(engine.typeScript(CLS.item, 9)).toBeUndefined();
+  });
+});
+
+describe('states in range', () => {
+  it('counts states by the position of their parent entity', () => {
+    const tw = makeTestWorld({
+      objects: new Map([[50, testDef({ id: 50, name: 'Campfire' })]]),
+      units: new Map([[1, testDef({ id: 1, name: 'Player', maxweight: 25000 })]]),
+      items: new Map(),
+    });
+    tw.registry.make(CLS.unit, 1, 0, 0, 0, 1, 1);
+    const near = tw.world.create(CLS.object, 50, 30, 0)!;
+    const far = tw.world.create(CLS.object, 50, 400, 0)!;
+    tw.engine.runText(`addstate "object",${near.id},"fire"; addstate "object",${far.id},"fire";`, { cls: 0, id: 0, event: 't', info: '' }, 't');
+    tw.engine.runText('$n=count_inrange("state",4,50); $all=count_inrange("state",4,1000); $none=count_inrange("state",5,1000);', { cls: 0, id: 0, event: 't', info: '' }, 't');
+    expect(['n', 'all', 'none'].map(k => tw.engine.vars.globals.get(k))).toEqual(['1', '2', '0']);
   });
 });

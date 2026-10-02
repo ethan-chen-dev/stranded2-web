@@ -94,6 +94,14 @@ export interface ScriptHost {
   setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
   freezeUnit(id: number, on: boolean): void;
   playerSpotted(): boolean;
+  /** sleep 指令：与按睡觉键相同。 */
+  sleep(): void;
+  /** map 指令：打开地图界面。 */
+  openMap(): void;
+  /** showindicator/hideindicator：地图标记（信息点 36）显示与否；不是地图标记返回 false。 */
+  setIndicator(id: number, on: boolean): boolean;
+  /** air 指令：潜水时补充憋气时间（毫秒）。 */
+  addAir(ms: number): void;
   /** savevars/loadvars 的变量缓存；读不到返回 null。 */
   saveVarCache(file: string, entries: [string, string][]): boolean;
   loadVarCache(file: string): [string, string][] | null;
@@ -159,7 +167,7 @@ export interface ScriptHost {
   stopTriggers(): void;
   /** 打开与容器 (cls, id) 的交换界面。 */
   exchange(cls: number, id: number, allowStore: boolean, only: number[]): void;
-  /** storage 指令：mode 0 已用重量，1 已用减上限，2 上限。 */
+  /** storage 指令（原版 capacity）：mode 0 剩余容量，1 剩余减上限，2 上限。 */
   storage(cls: number, id: number, mode: number): number;
   freeSpace(x: number, y: number, z: number, range: number, flags: { objects: boolean; units: boolean; items: boolean; infos: boolean }): boolean;
   /** 打开日记并定位到条目。 */

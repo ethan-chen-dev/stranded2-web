@@ -6,7 +6,7 @@ const BAR_KEYS = ['health', 'hunger', 'thirst', 'exhaustion'] as const;
 const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
 const MAX_MESSAGES = 6;
 
-const HINT_PLAY = 'Click to play. Esc menu, Tab inventory, B build, T diary, F5/F9 quick save and load';
+const HINT_PLAY = 'Click to play. Esc menu, Tab inventory, B build, T diary, Y sleep, F5/F9 quick save and load';
 const HINT_REFUSED = 'The browser did not capture the mouse. Click again; if it keeps failing, open the game in its own browser tab.';
 
 export class Hud {
@@ -24,6 +24,8 @@ export class Hud {
   private readonly weaponIcon: HTMLImageElement;
   private readonly weaponName: HTMLElement;
   private readonly modeEl: HTMLElement;
+  private readonly airEl: HTMLElement;
+  private readonly airFill: HTMLElement;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -39,6 +41,12 @@ export class Hud {
       bars.append(back);
       this.bars.set(k, fill);
     }
+    this.airEl = document.createElement('div');
+    this.airEl.className = 'bar-back bar-air';
+    this.airEl.hidden = true;
+    this.airFill = document.createElement('div');
+    this.airFill.className = 'bar-fill';
+    this.airEl.append(this.airFill);
     const cross = document.createElement('div');
     cross.className = 'crosshair';
     this.focusEl = document.createElement('div');
@@ -73,7 +81,7 @@ export class Hud {
     this.modeEl = document.createElement('div');
     this.modeEl.className = 'mode';
     this.modeEl.hidden = true;
-    this.root.append(bars, cross, this.focusEl, this.msgEl, this.processEl, this.clockEl, this.hintEl, this.deadEl, this.weaponEl, this.modeEl);
+    this.root.append(bars, this.airEl, cross, this.focusEl, this.msgEl, this.processEl, this.clockEl, this.hintEl, this.deadEl, this.weaponEl, this.modeEl);
     this.setWeapon(null);
     parent.append(this.root);
   }
@@ -139,6 +147,24 @@ export class Hud {
 
   setVisible(on: boolean): void {
     this.root.hidden = !on;
+  }
+
+  /** 潜水时屏幕上方的氧气条；null 隐藏。 */
+  setAir(fraction: number | null): void {
+    this.airEl.hidden = fraction === null;
+    if (fraction !== null) this.airFill.style.width = `${Math.round(fraction * 100)}%`;
+  }
+
+  /** 睡觉时整屏变黑再淡出（原版 Cp_flash 黑色粒子）。 */
+  fadeFromBlack(ms = 1500): void {
+    const el = document.createElement('div');
+    el.className = 'fade-black';
+    this.root.parentElement?.append(el);
+    requestAnimationFrame(() => {
+      el.style.transition = `opacity ${ms}ms linear`;
+      el.style.opacity = '0';
+    });
+    setTimeout(() => el.remove(), ms + 100);
   }
 
   showDead(): void {

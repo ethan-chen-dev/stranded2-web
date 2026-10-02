@@ -56,6 +56,14 @@ export class FakeHost implements ScriptHost {
   loadVarCache(file: string): [string, string][] | null { return this.varCaches.get(file) ?? null; }
   replacements: [string, string][] = [];
   replaceMessage(from: string, to: string): void { this.replacements.push([from, to]); }
+  air = 0;
+  addAir(ms: number): void { this.air += ms; }
+  maps = 0;
+  openMap(): void { this.maps++; }
+  indicators = new Set<number>();
+  setIndicator(id: number, on: boolean): boolean { const e = this.entity(4, id); if (!e || e.typ !== 36) return false; if (on) this.indicators.add(id); else this.indicators.delete(id); return true; }
+  sleeps = 0;
+  sleep(): void { this.sleeps++; }
   spotted = false;
   autosaves = 0;
   playerSpotted(): boolean { return this.spotted; }

@@ -1,18 +1,18 @@
 /** 脚本查询类的纯函数：容器承重（storage）与空地判断（freespace）。 */
 import { CLS, STORED_INSIDE, type EntityRegistry } from './entities';
 
-/** storage 指令：mode 0 已用重量，1 已用减上限，2 上限；物品类返回单件重量。 */
+/** storage 指令（原版 capacity）：mode 0 剩余容量，1 剩余减上限，2 上限；物品类返回单件重量。 */
 export function storageValue(registry: EntityRegistry, cls: number, id: number, mode: number): number {
   if (cls === CLS.item) return registry.get(CLS.item, id)?.def?.weight ?? 0;
   if (cls !== CLS.object && cls !== CLS.unit) return 0;
   const holder = registry.get(cls, id);
   if (!holder) return 0;
   const max = holder.def?.maxweight ?? 0;
-  const used = registry.usedWeight(cls, id);
+  const free = max - registry.usedWeight(cls, id);
   switch (Math.trunc(mode)) {
-    case 1: return used - max;
+    case 1: return free - max;
     case 2: return max;
-    default: return used;
+    default: return free;
   }
 }
 

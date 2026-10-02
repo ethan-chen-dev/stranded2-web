@@ -1,6 +1,6 @@
 /**
  * 界面面板：消息框、对话、日记、撬锁（打开时游戏暂停）与界面文字、图片槽。
- * 界面编号沿用原版：3 日记、21 消息框、25 撬锁、26 对话、0 无。
+ * 界面编号沿用原版：3 日记、21 消息框、24 地图、25 撬锁、26 对话、0 无。
  */
 import { buttonAction, MAX_BUTTONS, type DialoguePage } from '../formats/dialogue';
 import { splitColoredLines } from './textbuffer';
@@ -9,6 +9,7 @@ import { assetUrl } from '../assets/paths';
 export const MENU_NONE = 0;
 export const MENU_DIARY = 3;
 export const MENU_MSGBOX = 21;
+export const MENU_MAP = 24;
 export const MENU_CRACKLOCK = 25;
 export const MENU_DIALOGUE = 26;
 export const MAX_UI_TEXTS = 20;
@@ -157,6 +158,13 @@ export class Panels {
     this.buttonsEl.replaceChildren(...this.slots.flatMap(b => (b ? [this.button(b.text, () => this.press(b.target))] : [])));
   }
 
+  /** 地图界面：内容由 map-ui 生成。 */
+  showMap(view: HTMLElement): void {
+    this.show(MENU_MAP, 'Map', '', false);
+    this.bodyEl.replaceChildren(view);
+    this.buttonsEl.replaceChildren(this.button('Close', () => this.close()));
+  }
+
   /** 撬锁小游戏：按 code 的顺序按方向键，按错从头开始。 */
   crackLock(o: CrackLock): void {
     this.crack = { ...o, pos: 1 };
@@ -222,8 +230,16 @@ export class Panels {
       b.addEventListener('click', () => this.renderText(e.text));
       return b;
     }).reverse());
-    this.buttonsEl.replaceChildren(this.button('Close', () => this.close()));
+    const buttons = [this.button('Close', () => this.close())];
+    if (this.onSleep) {
+      const sleep = this.onSleep;
+      buttons.unshift(this.button('Sleep', () => { this.close(); sleep(); }));
+    }
+    this.buttonsEl.replaceChildren(...buttons);
   }
+
+  /** 日记面板的睡觉按钮（原版在角色界面里）。 */
+  onSleep: (() => void) | null = null;
 
   uiText(id: number, text: string, font: number, x?: number, y?: number, align = 1): void {
     if (id < 0 || id >= MAX_UI_TEXTS) return;

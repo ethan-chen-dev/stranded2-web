@@ -89,6 +89,7 @@ export function makeTestWorld(defs: Defs, map = flatMap()): TestWorld {
   });
   host.random = (min: number, max: number) => (tw.random!.length ? tw.random!.shift()! : min);
   engine = new ScriptEngine(host, createRegistry());
+  host.states = engine.states;
   for (const [cls, table] of [[CLS.object, defs.objects], [CLS.unit, defs.units], [CLS.item, defs.items], [CLS.info, defs.infos]] as const) {
     if (!table) continue;
     for (const [typ, def] of table) if (def.script) engine.setTypeScript(cls, typ, def.script, `def ${cls}:${typ}`);

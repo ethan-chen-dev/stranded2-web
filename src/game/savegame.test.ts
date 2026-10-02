@@ -31,6 +31,8 @@ describe('savegame', () => {
     a.host.diary.push({ title: 'D1', text: 'txt' });
     a.host.locks.add('building:9');
     a.host.buffer.set('buf');
+    a.engine.addInstanceScript(CLS.unit, 30, 'on:use { $talked=1; }');
+    a.engine.setMapScript('on:load { $loaded=1; }');
     const snap = snapshot({
       mapPath: 'maps/adventure/map02.s2', registry: a.registry, engine: a.engine, now: 1000,
       clock: { day: 3, hour: 14, minute: 30 }, player: { x: 1, y: 2, z: 3, yaw: 45, pitch: -5 },
@@ -52,6 +54,7 @@ describe('savegame', () => {
       setPlayer: p => { placed = p; }, takeInHand: t => { hands.push(t); },
       diary: b.host.diary, locks: b.host.locks, setBuffer: t => b.host.buffer.set(t),
       setSkills: e => b.host.skills.load(e), setTriggers: st => { restored.triggers = st; }, setPaths: p => { restored.paths = p; },
+      setIndicators: () => undefined,
     }, json);
     expect(b.host.skills.value('wood')).toBe(4);
     expect(restored).toEqual({ triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }] });
@@ -69,6 +72,8 @@ describe('savegame', () => {
     expect(b.host.diary).toEqual([{ title: 'D1', text: 'txt' }]);
     expect(b.host.locks.has('building:9')).toBe(true);
     expect(b.host.buffer.value).toBe('buf');
+    expect(b.engine.instanceScript(CLS.unit, 30)?.text).toBe('on:use { $talked=1; }');
+    expect(b.engine.mapScriptText()).toBe('on:load { $loaded=1; }');
     expect(b.clock.day).toBe(3);
     expect(b.clock.minute).toBe(30);
     expect(b.stats.thirst).toBe(20);

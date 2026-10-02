@@ -175,7 +175,13 @@ export function registerUi(r: CommandRegistry): void {
     if (int(args[0] ?? '0') !== 1) { ctx.host.skyColor(null); return; }
     ctx.host.skyColor({ color: [int(args[1] ?? '0'), int(args[2] ?? '0'), int(args[3] ?? '0')], mix: int(args[4] ?? '0') });
   });
-  r.register(['blend', 'vomit', 'showindicator', 'hidden', 'wateralpha', 'watertexture'], () => { /* 视觉效果不做 */ });
+  r.register(['blend', 'vomit', 'hidden', 'wateralpha', 'watertexture'], () => { /* 视觉效果不做 */ });
+  r.register('map', ctx => { ctx.host.openMap(); });
+  for (const [name, on] of [['showindicator', true], ['hideindicator', false]] as const) {
+    r.register(name, (ctx, args) => {
+      if (!ctx.host.setIndicator(int(args[0] ?? '0'), on)) ctx.host.log('warn', `${name}: info ${args[0]} is not a map indicator`);
+    });
+  }
   r.register('seqstart', (ctx, args) => { ctx.host.seq()?.start(int(args[0] ?? '1'), int(args[1] ?? '0')); });
   r.register('seqtimemode', (ctx, args) => { ctx.host.seq()?.timeMode(num(args[0] ?? '1'), int(args[1] ?? '1')); });
   const SEQ_EVENTS: [string | string[], string][] = [

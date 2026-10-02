@@ -60,4 +60,19 @@ describe('Player', () => {
     expect(p.yaw).toBeCloseTo(-0.2, 6);
     expect(p.pitch).toBeCloseTo(-PLAYER.maxPitch, 6);
   });
+  it('dives along the view direction, hovers when idle and stays between seabed and surface', () => {
+    const sea = { heightAt: () => -300 };
+    const p = new Player(new THREE.Vector3(0, PLAYER.seaSwimY, 0), 0, -Math.PI / 4);
+    run(p, { ...idle, forward: true }, 1000, sea);
+    const depth = p.position.y;
+    expect(depth).toBeLessThan(PLAYER.seaSwimY - 40);
+    run(p, idle, 1000, sea);
+    expect(p.position.y).toBeCloseTo(depth, 3);
+    p.pitch = Math.PI / 3;
+    run(p, { ...idle, forward: true }, 5000, sea);
+    expect(p.position.y).toBeCloseTo(PLAYER.seaSwimY, 3);
+    p.pitch = -1.5;
+    run(p, { ...idle, forward: true }, 20000, sea);
+    expect(p.position.y).toBeCloseTo(-300 + PLAYER.halfHeight, 3);
+  });
 });

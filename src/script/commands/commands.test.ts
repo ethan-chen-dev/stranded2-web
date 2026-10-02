@@ -110,6 +110,31 @@ describe('commands', () => {
     run(`msg_replace "a","b";`);
     expect(host.replacements).toEqual([['a', 'b']]);
   });
+  it('globalEventNow runs every script at once and reports skipevent', () => {
+    host.add(CLASS.unit, 37, 30);
+    engine.addInstanceScript(CLASS.unit, 30, 'on:sleep { $pirate=1; }');
+    engine.setMapScript('on:sleep { $map=1; }', 'map');
+    expect(engine.globalEventNow('sleep')).toBe(false);
+    expect([g('pirate'), g('map')]).toEqual(['1', '1']);
+    engine.setGameScript('on:sleep { if ($tired==0) { skipevent; } }', 'game');
+    expect(engine.globalEventNow('sleep')).toBe(true);
+    run('sleep;');
+    expect(host.sleeps).toBe(1);
+  });
+  it('map opens the map screen and indicators toggle only on map markers', () => {
+    host.add(CLASS.info, 36, 43);
+    host.add(CLASS.info, 40, 37);
+    run('map; showindicator 43; showindicator 37;');
+    expect([host.maps, [...host.indicators]]).toEqual([1, [43]]);
+    run('hideindicator 43;');
+    expect(host.indicators.size).toBe(0);
+    expect(host.logs.some(l => l.includes('not a map indicator'))).toBe(true);
+  });
+  it('getplayervalue uses the original 1-based indexes', () => {
+    Object.assign(host.playerState, { health: 90, hunger: 20, thirst: 30, exhaustion: 40 });
+    run('$a=getplayervalue(1); $b=getplayervalue(2); $c=getplayervalue(3); $d=getplayervalue(4);');
+    expect([g('a'), g('b'), g('c'), g('d')]).toEqual(['90', '20', '30', '40']);
+  });
   it('store and unstore', () => {
     run(`$id=create("item",24,0,0); $s=store($id,"unit",1); $c=count_stored("unit",1,24); unstore $id; $c2=count_stored("unit",1,24);`);
     expect([g('s'), g('c'), g('c2')]).toEqual(['1', '1', '0']);

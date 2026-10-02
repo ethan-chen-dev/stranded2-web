@@ -44,6 +44,11 @@ export interface Snapshot {
   skills: SkillEntry[];
   triggers: [number, number][];
   paths: { unitId: number; nodes: number[] }[];
+  /** 已在地图上显示的标记信息点；旧存档没有这项。 */
+  indicators?: number[];
+  /** 实例脚本与地图全局脚本（addscript 会改动它们）；旧存档没有，读档时保留地图自带的脚本。 */
+  scripts?: { cls: number; id: number; text: string }[];
+  mapScript?: string;
 }
 
 export interface SnapshotSource {
@@ -62,6 +67,8 @@ export interface SnapshotSource {
   skills: SkillEntry[];
   triggers: [number, number][];
   paths: { unitId: number; nodes: number[] }[];
+  /** 已在地图上显示的标记信息点；旧存档没有这项。 */
+  indicators?: number[];
 }
 
 export interface RestoreTarget {
@@ -80,6 +87,7 @@ export interface RestoreTarget {
   setSkills(entries: SkillEntry[]): void;
   setTriggers(states: [number, number][]): void;
   setPaths(paths: { unitId: number; nodes: number[] }[]): void;
+  setIndicators(ids: number[]): void;
 }
 
 export function snapshot(s: SnapshotSource): Snapshot {
@@ -113,6 +121,9 @@ export function snapshot(s: SnapshotSource): Snapshot {
     skills: s.skills,
     triggers: s.triggers,
     paths: s.paths,
+    indicators: s.indicators,
+    scripts: s.engine.instanceScriptEntries(),
+    mapScript: s.engine.mapScriptText(),
   };
 }
 
@@ -163,6 +174,9 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
   t.setSkills(snap.skills ?? []);
   t.setTriggers(snap.triggers ?? []);
   t.setPaths(snap.paths ?? []);
+  if (snap.indicators) t.setIndicators(snap.indicators);
+  if (snap.scripts) t.engine.loadInstanceScripts(snap.scripts);
+  if (snap.mapScript !== undefined) t.engine.setMapScript(snap.mapScript);
   t.clock.day = snap.clock.day;
   t.clock.hour = snap.clock.hour;
   t.clock.minute = snap.clock.minute;

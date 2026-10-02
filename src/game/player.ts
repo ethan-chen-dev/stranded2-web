@@ -78,19 +78,25 @@ export class Player {
       speed *= PLAYER.swimFactor;
     }
 
-    const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const inWater = !this.onLand;
+    // 水中前后沿视线方向（含俯仰）游动，即朝下看前进就会下潜；左右平移保持水平（game_input.bb 的 MoveEntity）。
+    const pitchCos = inWater ? Math.cos(this.pitch) : 1;
+    const forward = new THREE.Vector3(-Math.sin(this.yaw) * pitchCos, inWater ? Math.sin(this.pitch) : 0, -Math.cos(this.yaw) * pitchCos);
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const move = forward.multiplyScalar(fb).add(right.multiplyScalar(lr));
     if (move.lengthSq() > 0) {
       move.multiplyScalar(speed * dt);
+      const vertical = move.y;
+      move.y = 0;
       const resolved = collider ? collider.resolveMove(this.position, move, PLAYER.radius, PLAYER.halfHeight) : move;
       this.position.add(resolved);
-      this.movedThisFrame = resolved.lengthSq() > 1e-8;
+      this.position.y += vertical;
+      this.movedThisFrame = resolved.lengthSq() + vertical * vertical > 1e-8;
     }
     if (collider) this.position.add(collider.pushOut(this.position, PLAYER.radius));
 
     const groundY = ground.heightAt(this.position.x, this.position.z) + PLAYER.halfHeight;
-    if (this.onLand) {
+    if (!inWater) {
       if (jumping) {
         const perc = (this.jumpUntil - nowMs) / PLAYER.jumpTimeMs;
         this.position.y += PLAYER.jumpRise * perc * dt;
@@ -118,7 +124,8 @@ export class Player {
         this.jumpUntil = -1;
       }
     } else {
-      this.position.y = groundY > PLAYER.seaSwimY ? groundY : PLAYER.seaSwimY;
+      // 水中没有重力（ai_units.bb 玩家分支），停下就悬停；不能高出水面，也不能低于海底。
+      this.position.y = Math.max(Math.min(this.position.y, PLAYER.seaSwimY), groundY);
       this.fallStart = nowMs;
       this.jumpUntil = -1;
     }

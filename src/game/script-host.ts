@@ -1,5 +1,6 @@
 /** 游戏会话对脚本引擎的 ScriptHost 实现。 */
 import type { ScriptHost, HostEntity, HostDef, HostPlayer, ImpactInfo } from '../script/host';
+import type { StateStore } from '../script/engine';
 import type { World } from '../render/world';
 import { worldHeight } from '../render/terrain';
 import type { MapData } from '../formats/s2map';
@@ -33,6 +34,8 @@ export interface HostDeps {
   onTimeSet(): void;
   onEntityDied(rec: EntityRecord): void;
 }
+
+const MAP_INDICATOR_TYP = 36;
 
 export class GameScriptHost implements ScriptHost {
   readonly locks = new Set<string>();
@@ -75,6 +78,18 @@ export class GameScriptHost implements ScriptHost {
   /** 玩家位置由控制器持有，每帧写回注册表，所以脚本移动玩家要改控制器。 */
   movePlayer: (x: number, y: number, z: number) => void = () => undefined;
   playerSpotted: () => boolean = () => false;
+  sleep: () => void = () => undefined;
+  openMap: () => void = () => undefined;
+  /** 已显示的地图标记；初值为地图里 ints[1]=1 的信息点 36。 */
+  readonly indicators = new Set<number>();
+
+  setIndicator(id: number, on: boolean): boolean {
+    if (this.registry.get(CLS.info, id)?.typ !== MAP_INDICATOR_TYP) return false;
+    if (on) this.indicators.add(id);
+    else this.indicators.delete(id);
+    return true;
+  }
+  addAir: (ms: number) => void = () => undefined;
   replaceMessage: (from: string, to: string) => void = () => undefined;
 
   saveVarCache(file: string, entries: [string, string][]): boolean { return saveVarCache(file, entries); }
@@ -101,7 +116,9 @@ export class GameScriptHost implements ScriptHost {
   setPlayerWeapon: (typ: number) => boolean = () => false;
   random: (min: number, max: number) => number = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
-  constructor(private readonly d: HostDeps) {}
+  constructor(private readonly d: HostDeps) {
+    for (const info of d.map.infos) if (info.typ === MAP_INDICATOR_TYP && info.ints[1] === 1) this.indicators.add(info.id);
+  }
 
   private get registry() {
     return this.d.world.registry;
@@ -130,7 +147,24 @@ export class GameScriptHost implements ScriptHost {
   }
 
   entities(cls: number, typ?: number): HostEntity[] {
+    if (cls === CLS.state) return this.stateEntities(typ);
     return this.registry.all(cls, typ);
+  }
+
+  /** 引擎创建后接上，供按位置查询状态。 */
+  states: StateStore | null = null;
+
+  /** 状态没有自己的场景对象，位置取所属实体的位置（原版状态句柄跟随父实体），供 count_inrange 等查询。 */
+  private stateEntities(typ?: number): HostEntity[] {
+    return (this.states?.records ?? []).flatMap((st, i) => {
+      if (typ !== undefined && st.typ !== typ) return [];
+      const parent = this.registry.get(st.cls, st.id);
+      if (!parent) return [];
+      return [{
+        cls: CLS.state, id: i + 1, typ: st.typ, x: parent.x, y: parent.y, z: parent.z, yaw: 0, pitch: 0, roll: 0,
+        health: 0, healthMax: 0, count: 1, parentClass: st.cls, parentId: st.id, parentMode: 0,
+      }];
+    });
   }
 
   createEntity(cls: number, typ: number, x: number, z: number, count: number): number {

@@ -232,6 +232,21 @@ export class ScriptEngine {
     this.instanceScripts.delete(`${cls}:${id}`);
   }
 
+  /** 存档用：全部实例脚本原文（原版存档里的扩展 mode 0）。 */
+  instanceScriptEntries(): { cls: number; id: number; text: string }[] {
+    return [...this.instanceScripts.values()].map(s => ({ cls: s.cls, id: s.id, text: s.text }));
+  }
+
+  /** 读档：以存档里的实例脚本替换当前全部实例脚本。 */
+  loadInstanceScripts(entries: { cls: number; id: number; text: string }[]): void {
+    this.instanceScripts.clear();
+    for (const e of entries) this.addInstanceScript(e.cls, e.id, e.text, false, `instance ${e.cls}:${e.id}`);
+  }
+
+  mapScriptText(): string {
+    return this.mapScript?.text ?? '';
+  }
+
   /** 实体上挂着的脚本：类型脚本在前，实例脚本在后。 */
   scriptsFor(cls: number, id: number, event?: string): ScriptSource[] {
     const out: ScriptSource[] = [];
@@ -264,6 +279,28 @@ export class ScriptEngine {
       const [cls, typ] = key.split(':').map(Number);
       for (const e of this.host.entities(cls, typ)) this.queue(src, cls, e.id, event, info);
     }
+  }
+
+  /**
+   * 立即对所有脚本执行全局事件（原版 parse_globalevent 加 parse_sel_event），
+   * 返回是否有脚本 skipevent，例如 game.inf 的 on:sleep 拒绝睡觉。
+   */
+  globalEventNow(event: string, info = ''): boolean {
+    const jobs: [ScriptSource, number, number][] = [];
+    if (this.gameScript) jobs.push([this.gameScript, GAME_SCRIPT_CLASS, 0]);
+    if (this.mapScript) jobs.push([this.mapScript, CLASS.global, 0]);
+    for (const src of this.instanceScripts.values()) jobs.push([src, src.cls, src.id]);
+    for (const [key, src] of this.typeScripts) {
+      if (!src.script || !src.events.has(event)) continue;
+      const [cls, typ] = key.split(':').map(Number);
+      for (const e of this.host.entities(cls, typ)) jobs.push([src, cls, e.id]);
+    }
+    let skipevent = false;
+    for (const [src, cls, id] of jobs) {
+      if (!src.script || !src.events.has(event)) continue;
+      if (this.execute(src, { cls, id, event, info }) === 'skipevent') skipevent = true;
+    }
+    return skipevent;
   }
 
   entityEvent(cls: number, id: number, event: string, info = ''): void {

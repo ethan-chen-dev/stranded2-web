@@ -33,6 +33,8 @@ export interface World {
   /** 让场景对象与记录一致：存放中的物品移出场景，其余按需创建并更新位姿。 */
   sync(rec: EntityRecord): void;
   remove(rec: EntityRecord): void;
+  /** 实体被移除前调用（原版 free_childs 清理子物品、状态、脚本、计时器），由游戏会话设置。 */
+  onRemove?: (rec: EntityRecord) => void;
   /** 登记新实体（x, z 为 Blitz 坐标；物体与物品落到地面）并异步创建场景对象。 */
   create(cls: number, typ: number, x: number, z: number, count?: number): EntityRecord | undefined;
   /** 场景内可见的物品记录。 */
@@ -235,7 +237,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
   }
   applyFreePlacement(map, registry, applyTransform);
 
-  return {
+  const world: World = {
     group, registry, mixers, stats,
     async spawnModel(cls, typ) {
       const def = registry.defFor(cls, typ);
@@ -259,6 +261,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       void spawn(rec);
     },
     remove(rec) {
+      world.onRemove?.(rec);
       detach(rec);
       registry.remove(rec.cls, rec.id);
       if (rec.cls === CLS.item) stats.items--;
@@ -278,4 +281,5 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       return registry.all(CLS.item).filter(r => r.parentMode !== STORED_INSIDE);
     },
   };
+  return world;
 }
