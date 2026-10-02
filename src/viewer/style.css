@@ -90,6 +90,7 @@ body.debug .log { display: flex; }
 .panel-side { width: 160px; max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
 .panel-side[hidden] { display: none; }
 .panel-entry { text-align: left; font-size: 12px; }
+.panel-image { display: block; margin: 4px 0; }
 .map-view { position: relative; margin: 0 auto; width: min(384px, 48vh); }
 .map-view canvas { display: block; width: 100%; image-rendering: pixelated; border: 1px solid #000; }
 .map-label { position: absolute; transform: translate(-50%, -150%); padding: 1px 4px; font-size: 11px; white-space: nowrap; background: rgba(0,0,0,.7); pointer-events: none; }

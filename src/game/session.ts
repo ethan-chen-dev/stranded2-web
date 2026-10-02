@@ -31,6 +31,7 @@ import { Sequence } from './sequence';
 import { SequenceUi } from './sequence-ui';
 import { Panels, MENU_CRACKLOCK } from './panels';
 import { renderTerrainMap, buildMapView } from './map-ui';
+import { expandText } from './textvars';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
@@ -395,6 +396,7 @@ export class GameSession {
     this.host.seq = () => this.sequence;
     this.seqUi = new SequenceUi(o.root);
     this.panels = new Panels(o.root, {
+      expand: text => expandText(text, name => String(this.engine.vars.globals.get(name) ?? '0')),
       runScript: (text, origin) => { this.engine.runText(text, { cls: 0, id: 0, event: 'dialogue', info: origin }, origin); this.engine.update(0); },
       globalEvent: name => { this.engine.globalEvent(name); this.engine.update(0); },
       log: msg => o.log.warn(msg),

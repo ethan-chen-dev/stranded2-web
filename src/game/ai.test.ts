@@ -227,3 +227,15 @@ describe('AiSystem combat', () => {
     expect(tw.engine.vars.globals.get('e')).toBe('7');
   });
 });
+
+describe('path-controlled units', () => {
+  it('skip their behaviour but stay on the ground', () => {
+    setup();
+    const pirate = spawn(2, 0, -50, 0);
+    (ai as unknown as { d: { controlled: (r: EntityRecord) => boolean } }).d.controlled = r => r.id === pirate.id;
+    terrain = 80;
+    run(200);
+    expect(pirate.y).toBe(85);
+    expect(pirate.ai?.mode ?? AI.idle).toBe(AI.idle);
+  });
+});

@@ -146,6 +146,8 @@ type Signal = 'normal' | 'exit' | 'stop';
 class Runner {
   private statements = 0;
   private stop: ExecResult = 'done';
+  /** skipevent 只取消引擎的默认动作，脚本照常执行到底（parser_commands.bb 只置 p_skipevent）。 */
+  private skipEvent = false;
   private loopIds: Value[] = [];
 
   constructor(private readonly env: ExecEnv, private readonly o: RunOptions) {}
@@ -158,11 +160,11 @@ class Runner {
           if (this.execBlock(on.body) === 'stop') break;
         }
       }
-      return this.stop;
+      return this.skipEvent ? 'skipevent' : this.stop;
     } catch (e) {
       if (e instanceof ScriptRuntimeError) {
         this.o.host.log('error', `script error in ${this.o.origin}${e.line ? ` line ${e.line}` : ''} (event ${this.env.event}): ${e.message}`);
-        return 'error';
+        return this.skipEvent ? 'skipevent' : 'error';
       }
       throw e;
     }
@@ -211,8 +213,8 @@ class Runner {
         this.stop = 'skip';
         return 'stop';
       case 'skipevent':
-        this.stop = 'skipevent';
-        return 'stop';
+        this.skipEvent = true;
+        return 'normal';
     }
   }
 

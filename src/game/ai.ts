@@ -190,8 +190,10 @@ export class AiSystem {
       const code = this.code(rec);
       if (code === 0 || code > 500) continue;
       if (rec.dead) { this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
-      if (rec.frozen || this.d.controlled?.(rec)) continue;
+      if (rec.frozen) continue;
       const st = rec.ai ?? this.init(rec);
+      // 沿 unitpath 移动的单位不跑行为，但和原版一样仍受重力并贴合地形。
+      if (this.d.controlled?.(rec)) { this.physics(rec, st, code, f); this.d.world.sync(rec); continue; }
       this.runMode(rec, st, code, f, now);
       if (!st.freeze && st.mode !== AI.attack && now - st.timer > st.duration) this.next(rec, st, code, now);
       if (now - st.lastCheck >= CHECK_INTERVAL_MS) { st.lastCheck = now; this.check(rec, now); }

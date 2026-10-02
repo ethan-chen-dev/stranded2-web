@@ -4,6 +4,7 @@
  */
 import { buttonAction, MAX_BUTTONS, type DialoguePage } from '../formats/dialogue';
 import { splitColoredLines } from './textbuffer';
+import { IMAGE_PREFIX } from './textvars';
 import { assetUrl } from '../assets/paths';
 
 export const MENU_NONE = 0;
@@ -41,6 +42,8 @@ export interface DiaryEntry {
 }
 
 export interface PanelActions {
+  /** 显示前展开 $key_xxx 与 $变量（textvars）。 */
+  expand?(text: string): string;
   runScript(text: string, origin: string): void;
   globalEvent(name: string): void;
   log(msg: string): void;
@@ -306,7 +309,14 @@ export class Panels {
 
   private renderText(text: string): void {
     this.bodyText = text;
-    this.bodyEl.replaceChildren(...splitColoredLines(text).map(l => {
+    this.bodyEl.replaceChildren(...splitColoredLines(this.actions.expand?.(text) ?? text).map(l => {
+      if (l.text.startsWith(IMAGE_PREFIX)) {
+        const img = document.createElement('img');
+        img.className = 'panel-image';
+        img.alt = '';
+        img.src = encodeURI(assetUrl(l.text.slice(IMAGE_PREFIX.length).trim().replace(/\\/g, '/')));
+        return img;
+      }
       const el = document.createElement('div');
       el.textContent = l.text || ' ';
       if (l.color >= 0) el.style.color = FONT_COLORS[l.color];

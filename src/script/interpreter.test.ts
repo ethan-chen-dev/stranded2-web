@@ -48,9 +48,9 @@ describe('interpreter', () => {
     run(`$s=""; loop("items",24){ $s=$s+loop_id()+","; }`);
     expect(g('s')).toBe('7,3,9,');
   });
-  it('skip stops and skipevent reports', () => {
+  it('skip stops, skipevent only reports and the script goes on', () => {
     expect(run(`skipevent; $a=1;`)).toBe('skipevent');
-    expect(g('a')).toBe('0');
+    expect(g('a')).toBe('1');
     expect(run(`$b=1; skip; $b=2;`)).toBe('skip');
     expect(g('b')).toBe('1');
   });
