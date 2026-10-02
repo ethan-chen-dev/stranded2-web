@@ -28,15 +28,24 @@ export class ObjectCollider {
   private readonly ray = new THREE.Raycaster();
 
   constructor(entries: { object: THREE.Object3D; col: number }[]) {
-    for (const e of entries) {
-      if (!collides(e.col)) continue;
-      e.object.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(e.object);
-      if (box.isEmpty()) continue;
-      const center = box.getCenter(new THREE.Vector3());
-      const radius = box.getSize(new THREE.Vector3()).length() / 2;
-      this.items.push({ object: e.object, center, radius });
-    }
+    for (const e of entries) this.add(e.object, e.col);
+  }
+
+  /** 物体进入场景（建造、脚本创建、换模型）时加入；col 不碰撞的忽略。 */
+  add(object: THREE.Object3D, col: number): void {
+    if (!collides(col) || this.items.some(c => c.object === object)) return;
+    object.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    const radius = box.getSize(new THREE.Vector3()).length() / 2;
+    this.items.push({ object, center, radius });
+  }
+
+  /** 物体离开场景（砍倒、摧毁、移除）时去掉，否则会留下看不见的墙。 */
+  remove(object: THREE.Object3D): void {
+    const i = this.items.findIndex(c => c.object === object);
+    if (i >= 0) this.items.splice(i, 1);
   }
 
   nearby(pos: THREE.Vector3, range: number): Collidable[] {

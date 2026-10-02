@@ -103,8 +103,8 @@ export interface AiDeps {
   playerId: number;
   player(): AiPlayer;
   terrainY(x: number, z: number): number;
-  /** 沿 (dx, dz) 移动会撞上物体。 */
-  blocked(rec: EntityRecord, dx: number, dz: number): boolean;
+  /** 沿 (dx, dz) 移动时与物体碰撞后实际可走的位移（沿障碍滑动并推出重叠，像原版 Blitz 碰撞）。 */
+  collide(rec: EntityRecord, dx: number, dz: number): { dx: number; dz: number };
   damagePlayer(amount: number, by: EntityRecord): void;
   damageEntity(cls: number, id: number, amount: number): void;
   random(min: number, max: number): number;
@@ -347,9 +347,15 @@ export class AiSystem {
       dx = -Math.sin(yaw) * dist;
       dz = Math.cos(yaw) * dist;
     }
-    if ((pm === 1 || pm === 6) && this.d.blocked(rec, dx, dz)) {
-      this.setMode(rec, this.d.random(1, 2) === 1 ? AI.turnl : AI.turnr, 500);
-      return;
+    if (pm === 1 || pm === 6) {
+      const r = this.d.collide(rec, dx, dz);
+      // 被挡住大半时原地转向，换个方向走
+      if (Math.hypot(r.dx, r.dz) < Math.hypot(dx, dz) * 0.5) {
+        this.setMode(rec, this.d.random(1, 2) === 1 ? AI.turnl : AI.turnr, 500);
+        return;
+      }
+      dx = r.dx;
+      dz = r.dz;
     }
     rec.x += dx;
     rec.y += dy;

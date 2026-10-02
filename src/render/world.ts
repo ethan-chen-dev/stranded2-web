@@ -35,6 +35,9 @@ export interface World {
   remove(rec: EntityRecord): void;
   /** 实体被移除前调用（原版 free_childs 清理子物品、状态、脚本、计时器），由游戏会话设置。 */
   onRemove?: (rec: EntityRecord) => void;
+  /** 场景对象挂上或摘下时调用，供碰撞器同步。 */
+  onAttach?: (rec: EntityRecord) => void;
+  onDetach?: (rec: EntityRecord) => void;
   /** 登记新实体（x, z 为 Blitz 坐标；物体与物品落到地面）并异步创建场景对象。 */
   create(cls: number, typ: number, x: number, z: number, count?: number): EntityRecord | undefined;
   /** 场景内可见的物品记录。 */
@@ -130,6 +133,9 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG, 'YXZ');
   };
 
+  /** 下面的函数在 world 对象创建前就会被调用（初始实体），所以先声明。 */
+  let world: World | undefined;
+
   const attach = (rec: EntityRecord, model: ThreeModel | null): void => {
     let obj: THREE.Object3D;
     if (model) {
@@ -169,10 +175,12 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.object = obj;
     applyTransform(rec);
     group.add(obj);
+    world?.onAttach?.(rec);
   };
 
   const detach = (rec: EntityRecord): void => {
     if (!rec.object) return;
+    world?.onDetach?.(rec);
     group.remove(rec.object);
     if (rec.mixer) {
       const m = mixers.indexOf(rec.mixer);
@@ -237,7 +245,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
   }
   applyFreePlacement(map, registry, applyTransform);
 
-  const world: World = {
+  world = {
     group, registry, mixers, stats,
     async spawnModel(cls, typ) {
       const def = registry.defFor(cls, typ);
@@ -261,7 +269,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       void spawn(rec);
     },
     remove(rec) {
-      world.onRemove?.(rec);
+      world?.onRemove?.(rec);
       detach(rec);
       registry.remove(rec.cls, rec.id);
       if (rec.cls === CLS.item) stats.items--;

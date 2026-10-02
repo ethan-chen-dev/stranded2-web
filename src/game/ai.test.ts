@@ -39,7 +39,7 @@ function setup(): void {
     registry: tw.registry, engine: tw.engine, world: tw.world, playerId: 1,
     player: () => ({ x: player().x, y: player().y, z: player().z, alive: playerAlive, underwater }),
     terrainY: () => terrain,
-    blocked: () => false,
+    collide: (_rec, dx, dz) => ({ dx, dz }),
     damagePlayer: amount => { playerHits.push(amount); },
     damageEntity: (cls, id, amount) => {
       const rec = tw.registry.get(cls, id);

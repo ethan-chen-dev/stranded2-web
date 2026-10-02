@@ -255,12 +255,16 @@ export class GameSession {
       registry, engine: this.engine, world: o.world, playerId: PLAYER_ID,
       player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z, alive: !this.stats.dead, underwater: this.player.eye().y < SEA_LEVEL }),
       terrainY,
-      blocked: (rec, dx, dz) => this.unitBlocked(rec, dx, dz),
+      collide: (rec, dx, dz) => this.unitCollide(rec, dx, dz),
       damagePlayer: (amount, by) => this.playerHurt(amount, by),
       damageEntity: (cls, id, amount) => { this.weapons.damage(cls, id, amount, 'other'); },
       random: (a, b) => this.host.random(a, b),
       controlled: rec => this.unitPaths.controlled(rec.id),
     });
+    o.world.onAttach = rec => {
+      if (rec.cls === CLS.object && rec.object && rec !== this.placing?.preview) this.collider.add(rec.object, rec.def?.col ?? 1);
+    };
+    o.world.onDetach = rec => { if (rec.object) this.collider.remove(rec.object); };
     o.world.onRemove = rec => {
       if (this.restoring) return;
       this.engine.removeInstanceScript(rec.cls, rec.id);
@@ -967,12 +971,14 @@ export class GameSession {
     }
   }
 
-  /** 单位沿 (dx, dz)（Blitz 坐标）移动时被物体挡住超过一半距离。 */
-  private unitBlocked(rec: EntityRecord, dx: number, dz: number): boolean {
+  /** 单位沿 (dx, dz)（Blitz 坐标）移动：与玩家一样沿物体滑动，再用八方向推出已有的重叠。 */
+  private unitCollide(rec: EntityRecord, dx: number, dz: number): { dx: number; dz: number } {
     const def = rec.def;
-    const delta = new THREE.Vector3(dx, 0, -dz);
-    const resolved = this.collider.resolveMove(new THREE.Vector3(rec.x, rec.y, -rec.z), delta, def?.colxr ?? 10, def?.colyr ?? 10);
-    return resolved.length() < delta.length() * 0.5;
+    const radius = def?.colxr ?? 10;
+    const pos = new THREE.Vector3(rec.x, rec.y, -rec.z);
+    const resolved = this.collider.resolveMove(pos, new THREE.Vector3(dx, 0, -dz), radius, def?.colyr ?? 10);
+    const out = this.collider.pushOut(pos.clone().add(resolved), radius);
+    return { dx: resolved.x + out.x, dz: -(resolved.z + out.z) };
   }
 
   /** 单位攻击玩家：扣生命、提示与音效；生命归零时进入死亡画面。 */
