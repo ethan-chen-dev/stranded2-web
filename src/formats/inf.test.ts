@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { readRefText, MOD_ROOT } from '../test/reference';
-import { parseInf, toEntityDef, buildDefTable } from './inf';
+import { parseInf, toEntityDef, buildDefTable, blitzFloat } from './inf';
 
 describe('parseInf', () => {
   it('parses palms', () => {
@@ -71,5 +71,22 @@ describe('parseInf', () => {
     const table = buildDefTable(files.map(f => readRefText(`sys/${f}`)));
     expect(table.get(1)!.name).toBe('Palm');
     expect(table.get(10)!.name).toBe('Tree');
+  });
+});
+
+describe('Blitz number parsing', () => {
+  it('reads only the leading number like Float() and maps junk to 0', () => {
+    expect(blitzFloat('1.7,3.5,1.7')).toBe(1.7);
+    expect(blitzFloat(' 2 ')).toBe(2);
+    expect(blitzFloat('abc')).toBe(0);
+  });
+  it('every original definition has finite numbers', () => {
+    for (const f of readdirSync(`${MOD_ROOT}/sys`).filter(n => /^(objects|units|items).*\.inf$/.test(n))) {
+      for (const def of buildDefTable([readRefText(`sys/${f}`)]).values()) {
+        for (const v of [...def.scale, def.weight, def.health, def.speed, def.damage, def.rate, def.range, def.colxr, def.colyr]) {
+          expect(Number.isFinite(v), `${f} ${def.id} ${def.name}`).toBe(true);
+        }
+      }
+    }
   });
 });

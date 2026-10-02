@@ -156,7 +156,8 @@ export class GameSession {
   private gameMs = 0;
   private process: ProcessState | null = null;
   private useTargetPos = { x: 0, y: 0, z: 0 };
-  private placing: { building: Building; preview?: EntityRecord } | null = null;
+  /** footprint 为建筑本体模型，放置时与周围物体做相交检查（game_build.bb 的 MeshesIntersect）。 */
+  private placing: { building: Building; preview?: EntityRecord; footprint?: THREE.Object3D | null } | null = null;
 
   static async create(o: SessionOptions): Promise<GameSession> {
     const text = (p: string) => o.res.text(p).catch(() => '');
@@ -723,8 +724,30 @@ export class GameSession {
     this.buildUi.close();
     this.syncLock();
     this.placing = { building: b };
+    if (b.objectId > 0) {
+      void this.o.world.spawnModel(CLS.object, b.objectId).then(obj => { if (this.placing?.building === b) this.placing.footprint = obj; });
+    }
     this.hud.setMode(`Placing ${b.name}: B or left click to confirm, Esc to cancel`);
     this.updatePlacing();
+  }
+
+  /** 建筑模型放在 (x, z) 时是否与有碰撞的物体相交；按包围盒近似原版的网格相交。 */
+  private placementBlocked(x: number, z: number, yaw: number): boolean {
+    const p = this.placing;
+    if (!p?.footprint || p.building.space === 'atobject') return false;
+    const fp = p.footprint;
+    fp.position.set(x, worldHeight(this.o.map, x, z), -z);
+    fp.rotation.set(0, yaw * DEG, 0, 'YXZ');
+    fp.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(fp).expandByScalar(-2);
+    if (box.isEmpty()) return false;
+    const reach = box.getSize(new THREE.Vector3()).length() / 2 + 200;
+    for (const rec of this.o.world.registry.all(CLS.object)) {
+      if (rec === p.preview || !rec.object || (rec.def?.col ?? 1) === 0) continue;
+      if (Math.hypot(rec.x - x, rec.z - z) > reach) continue;
+      if (box.intersectsBox(new THREE.Box3().setFromObject(rec.object))) return true;
+    }
+    return false;
   }
 
   private placeTarget(): { x: number; z: number } {
@@ -753,7 +776,7 @@ export class GameSession {
       preview.yaw = this.player.yaw / DEG;
       this.o.world.sync(preview);
     }
-    const fail = this.build.checkSpace(b, t.x, t.z);
+    const fail = this.build.checkSpace(b, t.x, t.z) ?? (this.placementBlocked(t.x, t.z, this.player.yaw / DEG) ? 'not enough space here' : null);
     this.hud.setMode(fail ? `Placing ${b.name}: ${fail}` : `Placing ${b.name}: B or left click to confirm, Esc to cancel`);
   }
 
@@ -761,6 +784,11 @@ export class GameSession {
     if (!this.placing) return;
     const { building, preview } = this.placing;
     const t = this.placeTarget();
+    if (this.placementBlocked(t.x, t.z, this.player.yaw / DEG)) {
+      this.hud.message('There is not enough space here', 2);
+      this.sounds.play('fail.wav');
+      return;
+    }
     if (preview) this.o.world.remove(preview);
     this.placing = null;
     this.hud.setMode(null);

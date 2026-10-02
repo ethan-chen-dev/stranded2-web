@@ -131,11 +131,17 @@ export function parseInf(text: string): InfEntry[] {
   return entries;
 }
 
+/** Blitz 的 Float()：取开头的数字，后面的内容忽略，不是数字时为 0（如 scale=1.7,3.5,1.7 取 1.7）。 */
+export function blitzFloat(v: string): number {
+  const f = parseFloat(v);
+  return Number.isNaN(f) ? 0 : f;
+}
+
 export function toEntityDef(e: InfEntry): EntityDef {
   const first = (k: string) => e.fields.get(k)?.[0];
   const num = (k: string, d: number) => {
     const v = first(k);
-    return v === undefined || v === '' ? d : Number(v);
+    return v === undefined || v === '' ? d : blitzFloat(v);
   };
 
   const s = num('scale', 1);
