@@ -57,6 +57,27 @@ export interface ImpactInfo {
   weapon: number;
 }
 
+/** projectile 指令的瞄准方式（parser_commands.bb 的 mode 1 到 4）。 */
+export type ProjectileAim =
+  | { kind: 'entity'; cls: number; id: number }
+  | { kind: 'point'; x: number; y: number; z: number }
+  | { kind: 'direction'; pitch: number; yaw: number }
+  | { kind: 'player' };
+
+export interface ProjectileOrder {
+  typ: number;
+  x: number;
+  y: number;
+  z: number;
+  aim: ProjectileAim;
+  /** 起点沿发射方向前移的距离。 */
+  offset: number;
+  weaponTyp: number;
+  speed: number;
+  damage: number;
+  drag: number;
+}
+
 export interface ScriptHost {
   /** 最近一次命中的信息；没有命中过为 null。 */
   impact(): ImpactInfo | null;
@@ -175,7 +196,7 @@ export interface ScriptHost {
   alterObject(id: number, typ: number): boolean;
   revive(unitId: number): boolean;
   /** 从 (x, y, z) 朝目标实体发射投射物。 */
-  fireProjectile(o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }): boolean;
+  fireProjectile(o: ProjectileOrder): boolean;
   inView(cls: number, id: number): boolean;
   music(file: string, volume: number): void;
   stopMusic(): void;

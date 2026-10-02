@@ -310,15 +310,32 @@ export class GameSession {
       return true;
     };
     this.host.fireProjectile = p => {
-      const target = p.targetCls === CLS.unit && p.targetId === PLAYER_ID ? this.playerRec : registry.get(p.targetCls, p.targetId);
-      if (!target) return false;
-      const ty = target.y - (p.targetCls === CLS.unit ? (target.def?.colyr ?? 0) / 2 : 0);
-      const dx = target.x - p.x;
-      const dy = ty - p.y;
-      const dz = target.z - p.z;
+      let yaw: number;
+      let pitch: number;
+      if (p.aim.kind === 'direction') {
+        ({ yaw, pitch } = p.aim);
+      } else {
+        let t: { x: number; y: number; z: number } | undefined;
+        if (p.aim.kind === 'point') t = p.aim;
+        else if (p.aim.kind === 'player') t = this.playerRec;
+        else {
+          const { cls, id } = p.aim;
+          const target = cls === CLS.unit && id === PLAYER_ID ? this.playerRec : registry.get(cls, id);
+          // 原版朝单位时瞄准碰撞体中部
+          if (target) t = { x: target.x, y: target.y - (cls === CLS.unit ? (target.def?.colyr ?? 0) / 2 : 0), z: target.z };
+        }
+        if (!t) return false;
+        const dx = t.x - p.x, dy = t.y - p.y, dz = t.z - p.z;
+        yaw = Math.atan2(-dx, dz) / DEG;
+        pitch = -Math.atan2(dy, Math.hypot(dx, dz)) / DEG;
+      }
+      const cp = Math.cos(pitch * DEG);
+      const x = p.x - Math.sin(yaw * DEG) * cp * p.offset;
+      const y = p.y - Math.sin(pitch * DEG) * p.offset;
+      const z = p.z + Math.cos(yaw * DEG) * cp * p.offset;
       this.projectiles.fire({
-        typ: p.typ, weaponTyp: p.weaponTyp || p.typ, ammoTyp: p.typ, spawner: 0, x: p.x, y: p.y, z: p.z,
-        yaw: Math.atan2(-dx, dz) / DEG, pitch: -Math.atan2(dy, Math.hypot(dx, dz)) / DEG, speed: p.speed, drag: p.drag, damage: p.damage,
+        typ: p.typ, weaponTyp: p.weaponTyp || p.typ, ammoTyp: p.typ, spawner: 0, x, y, z,
+        yaw, pitch, speed: p.speed, drag: p.drag, damage: p.damage,
       });
       return true;
     };

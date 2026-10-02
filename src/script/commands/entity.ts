@@ -2,7 +2,7 @@
 import type { CommandRegistry, CommandContext } from '../registry';
 import { behaviourCode } from '../../game/ai';
 import { ScriptRuntimeError, toFloat, type Value } from '../value';
-import { CLASS } from '../host';
+import { CLASS, type ProjectileAim } from '../host';
 import { classId, classOf, requireClass, int, num, str, flt, bool } from './util';
 
 function dist(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
@@ -111,14 +111,30 @@ export function registerEntity(r: CommandRegistry): void {
   });
   r.register('alterobject', (ctx, args) => { if (!ctx.host.alterObject(unitArg(ctx, args[0]), int(args[1] ?? '0'))) ctx.host.log('warn', `alterobject: object ${args[0]} does not exist`); });
   r.register('revive', (ctx, args) => { ctx.host.revive(unitArg(ctx, args[0])); });
+  /**
+   * projectile typ,x,y,z,mode,...：mode 1 朝实体（class,id[,offset]），2 朝坐标（x,y,z[,offset]），
+   * 3 按方向（pitch,yaw[,offset]），4 朝玩家（[offset]）；之后依次是 weapon、speed、damage、drag。
+   */
   r.register('projectile', (ctx, args) => {
     const mode = int(args[4] ?? '0');
-    if (mode !== 1) { ctx.host.log('warn', `projectile mode ${mode} is not implemented`); return; }
-    const { cls, id, next } = classId(ctx, args, 5);
-    const rest = args.slice(next + 1);
+    let aim: ProjectileAim;
+    let i: number;
+    switch (mode) {
+      case 1: {
+        const { cls, id, next } = classId(ctx, args, 5);
+        aim = { kind: 'entity', cls, id };
+        i = next;
+        break;
+      }
+      case 2: aim = { kind: 'point', x: num(args[5] ?? '0'), y: num(args[6] ?? '0'), z: num(args[7] ?? '0') }; i = 8; break;
+      case 3: aim = { kind: 'direction', pitch: num(args[5] ?? '0'), yaw: num(args[6] ?? '0') }; i = 7; break;
+      case 4: aim = { kind: 'player' }; i = 5; break;
+      default: ctx.host.log('warn', `projectile mode ${mode} does not exist`); return;
+    }
+    const opt = (k: number, d: number) => (args[i + k] === undefined ? d : num(args[i + k]));
     ctx.host.fireProjectile({
-      typ: int(args[0] ?? '0'), x: num(args[1] ?? '0'), y: num(args[2] ?? '0'), z: num(args[3] ?? '0'), targetCls: cls, targetId: id,
-      weaponTyp: int(rest[0] ?? '0'), speed: rest[1] === undefined ? 1 : num(rest[1]), damage: rest[2] === undefined ? 1 : num(rest[2]), drag: rest[3] === undefined ? 0 : num(rest[3]),
+      typ: int(args[0] ?? '0'), x: num(args[1] ?? '0'), y: num(args[2] ?? '0'), z: num(args[3] ?? '0'), aim,
+      offset: opt(0, 0), weaponTyp: Math.trunc(opt(1, 0)), speed: opt(2, 1), damage: opt(3, 1), drag: opt(4, 0),
     });
   });
   r.register('compare_behaviour', (ctx, args) => {

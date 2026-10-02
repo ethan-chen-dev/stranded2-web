@@ -8,8 +8,14 @@ function soundUrl(file: string): string {
   const path = name.startsWith('sfx/') ? name : `sfx/${name}`;
   return assetBundle()?.blobUrl(path) ?? encodeURI(assetUrl(path));
 }
+/** 同时播放的音效上限；浏览器的媒体播放器数量有限，超出时丢弃新音效。 */
+const MAX_VOICES = 24;
+
 export class Sounds {
   private readonly failed = new Set<string>();
+  /** 正在播放的音效数，以及按 URL 缓存的空闲播放器（播完后复用）。 */
+  private voices = 0;
+  private readonly idle = new Map<string, HTMLAudioElement[]>();
   enabled = true;
   private track: HTMLAudioElement | null = null;
   private trackVolume = 1;
@@ -59,16 +65,31 @@ export class Sounds {
   }
 
   play(file: string, volume = 100): void {
-    if (!this.enabled || typeof Audio === 'undefined') return;
+    if (!this.enabled || typeof Audio === 'undefined' || this.voices >= MAX_VOICES) return;
     const url = soundUrl(file);
     if (this.failed.has(url)) return;
     try {
-      const a = new Audio(url);
+      const a = this.idle.get(url)?.pop() ?? this.create(url);
       a.volume = Math.max(0, Math.min(1, volume / 100));
-      a.addEventListener('error', () => this.failed.add(url));
-      void a.play().catch(() => this.failed.add(url));
+      a.currentTime = 0;
+      this.voices++;
+      void a.play().catch(() => { this.failed.add(url); this.release(url, a); });
     } catch {
       this.failed.add(url);
     }
+  }
+
+  private create(url: string): HTMLAudioElement {
+    const a = new Audio(url);
+    a.addEventListener('error', () => { this.failed.add(url); this.release(url, a); });
+    a.addEventListener('ended', () => this.release(url, a));
+    return a;
+  }
+
+  private release(url: string, a: HTMLAudioElement): void {
+    this.voices = Math.max(0, this.voices - 1);
+    const list = this.idle.get(url) ?? [];
+    if (!list.includes(a)) list.push(a);
+    this.idle.set(url, list);
   }
 }

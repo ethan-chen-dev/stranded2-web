@@ -1,5 +1,5 @@
 /** 游戏会话对脚本引擎的 ScriptHost 实现。 */
-import type { ScriptHost, HostEntity, HostDef, HostPlayer, ImpactInfo } from '../script/host';
+import type { ScriptHost, HostEntity, HostDef, HostPlayer, ImpactInfo, ProjectileOrder } from '../script/host';
 import type { StateStore } from '../script/engine';
 import type { World } from '../render/world';
 import { worldHeight } from '../render/terrain';
@@ -73,7 +73,7 @@ export class GameScriptHost implements ScriptHost {
   showEntry: (title: string) => void = () => undefined;
   alterObject: (id: number, typ: number) => boolean = () => false;
   revive: (unitId: number) => boolean = () => false;
-  fireProjectile: (o: { typ: number; x: number; y: number; z: number; targetCls: number; targetId: number; weaponTyp: number; speed: number; damage: number; drag: number }) => boolean = () => false;
+  fireProjectile: (o: ProjectileOrder) => boolean = () => false;
   inView: (cls: number, id: number) => boolean = () => false;
   /** 玩家位置由控制器持有，每帧写回注册表，所以脚本移动玩家要改控制器。 */
   movePlayer: (x: number, y: number, z: number) => void = () => undefined;

@@ -135,6 +135,15 @@ describe('commands', () => {
     run('$a=getplayervalue(1); $b=getplayervalue(2); $c=getplayervalue(3); $d=getplayervalue(4);');
     expect([g('a'), g('b'), g('c'), g('d')]).toEqual(['90', '20', '30', '40']);
   });
+  it('projectile supports all four aiming modes with offset, weapon, speed, damage and drag', () => {
+    run('projectile 54,1,2,3,4,55,59; projectile 54,1,2,3,1,"unit",1,10,59,2,3,0.5; projectile 54,1,2,3,2,9,9,9; projectile 54,1,2,3,3,10,90,5;');
+    expect(host.projectiles).toEqual([
+      { typ: 54, x: 1, y: 2, z: 3, aim: { kind: 'player' }, offset: 55, weaponTyp: 59, speed: 1, damage: 1, drag: 0 },
+      { typ: 54, x: 1, y: 2, z: 3, aim: { kind: 'entity', cls: 2, id: 1 }, offset: 10, weaponTyp: 59, speed: 2, damage: 3, drag: 0.5 },
+      { typ: 54, x: 1, y: 2, z: 3, aim: { kind: 'point', x: 9, y: 9, z: 9 }, offset: 0, weaponTyp: 0, speed: 1, damage: 1, drag: 0 },
+      { typ: 54, x: 1, y: 2, z: 3, aim: { kind: 'direction', pitch: 10, yaw: 90 }, offset: 5, weaponTyp: 0, speed: 1, damage: 1, drag: 0 },
+    ]);
+  });
   it('store and unstore', () => {
     run(`$id=create("item",24,0,0); $s=store($id,"unit",1); $c=count_stored("unit",1,24); unstore $id; $c2=count_stored("unit",1,24);`);
     expect([g('s'), g('c'), g('c2')]).toEqual(['1', '1', '0']);
