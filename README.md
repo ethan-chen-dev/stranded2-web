@@ -11,7 +11,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 ## Features
 
 - The full adventure campaign, map01 to map07, including the intro sequence, dialogues, diary and map transitions.
-- The original survival loop: hunger, thirst and exhaustion, day and night cycle driven by the original light table.
+- The original survival loop: hunger, thirst and exhaustion, sleeping, diving with limited air, day and night cycle driven by the original light table.
 - Items, crafting, building, digging and fishing driven by the original definition files and the S2 scripting language (about 260 script commands implemented).
 - Animal AI ported from the original state machine: wandering, fleeing, hunting, attacking, taming and feeding.
 - Melee, ranged, firearm and thrown weapons with projectiles.
@@ -29,6 +29,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 | Tab | Inventory: select several items to combine; hold, use or drop items |
 | B | Building menu |
 | T | Diary and skills |
+| Y | Sleep (only when tired; sleeping in the open costs health) |
 | Esc | Pause menu with save and load; skips a cutscene |
 | F5 / F9 | Quick save, quick load |
 
@@ -36,7 +37,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 
 This is an alpha. Desktop browsers only (Chrome, Edge, Firefox); pointer lock is required, so phones and tablets are not supported.
 
-Not implemented yet: driving vehicles, the underwater air supply, the trade tab in dialogues, particle effects, the random island generator and the map editor.
+Not implemented yet: driving vehicles, the trade tab in dialogues, particle effects, the random island generator and the map editor.
 
 Found something that behaves unlike the original? That counts as a bug: see the pinned [bug reports and feedback](https://github.com/ethan-chen-dev/stranded2-web/issues/1) issue. For impressions and open questions there is [Discussions](https://github.com/ethan-chen-dev/stranded2-web/discussions).
 
