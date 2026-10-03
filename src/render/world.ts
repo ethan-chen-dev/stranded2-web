@@ -126,11 +126,15 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
   /**
    * 原版 pitch 正值为俯（左手系），镜像 z 后对应 Three 的负 rotation.x；yaw 符号一致。
    * Blitz 的 RotateEntity 先滚转、再俯仰、最后偏航，对应 Three 的 'YXZ' 顺序。
+   * 单位的 rec.y 是碰撞中心，离地 colyr；模型是碰撞中心的子实体，挂在其局部坐标下方 colyr 处（handle_units.bb set_unit）。
    */
+  const unitDrop = new THREE.Vector3();
   const applyTransform = (rec: EntityRecord): void => {
     if (!rec.object) return;
     rec.object.position.set(rec.x, rec.y, -rec.z);
     rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG, 'YXZ');
+    const colyr = rec.cls === CLS.unit ? rec.def?.colyr ?? 0 : 0;
+    if (colyr) rec.object.position.add(unitDrop.set(0, -colyr, 0).applyEuler(rec.object.rotation));
   };
 
   /** 截好的动画片段，按模型与帧区间缓存，所有实例共用。 */
