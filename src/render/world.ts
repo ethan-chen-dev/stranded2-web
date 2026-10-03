@@ -82,6 +82,24 @@ async function preloadModels(map: MapData, registry: EntityRegistry, res: Resour
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
 }
 
+/** set_object 的高度：地面；align 为 1 的物体（码头、鱼栅、水上工地）不低于水面。 */
+export function objectHeight(map: MapData, def: EntityDef | undefined, x: number, z: number): number {
+  const y = worldHeight(map, x, z);
+  return def?.align === 1 && y < SEA_LEVEL ? SEA_LEVEL : y;
+}
+
+const GROUND_PITCH_DIST = 60;
+
+/**
+ * groundpitch（functions.bb）：从身后 60 处的地面指向身前 60 处的俯仰角，正值为俯。
+ * 原版身前那一点没有贴地，仍在物体自身高度，这里照原版计算。
+ */
+export function groundPitch(map: MapData, rec: EntityRecord): number {
+  const yaw = rec.yaw * Math.PI / 180;
+  const backY = worldHeight(map, rec.x + Math.sin(yaw) * GROUND_PITCH_DIST, rec.z - Math.cos(yaw) * GROUND_PITCH_DIST);
+  return -Math.atan2(rec.y - backY, GROUND_PITCH_DIST * 2) * 180 / Math.PI;
+}
+
 /**
  * 编辑器的自由摆放（FRAP，扩展 mode 6 键 f，值为 y,pitch,roll）：物体取指定高度与倾斜，
  * 单位和物品只取高度。依据 e_load_map.bb。
@@ -221,11 +239,10 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
   await preloadModels(map, registry, res, onProgress);
 
   for (const o of map.objects) {
-    let y = worldHeight(map, o.x, o.z);
-    const rec = registry.make(CLS.object, o.typ, o.x, y, o.z, 1, o.id);
-    if (rec.def?.aligntowater && y < SEA_LEVEL) y = SEA_LEVEL;
-    rec.y = y;
+    const rec = registry.make(CLS.object, o.typ, o.x, 0, o.z, 1, o.id);
+    rec.y = objectHeight(map, rec.def, o.x, o.z);
     rec.yaw = o.yaw;
+    if (rec.def?.align === 2) rec.pitch = groundPitch(map, rec);
     rec.health = o.health;
     rec.healthMax = o.healthMax;
     rec.daytimer = o.dayTimer;
@@ -242,7 +259,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
   }
   for (const it of map.items) {
     const stored = it.parentMode === STORED_INSIDE;
-    const rec = registry.make(CLS.item, it.typ, it.x, stored ? it.y : worldHeight(map, it.x, it.z), it.z, it.count, it.id);
+    const rec = registry.make(CLS.item, it.typ, it.x, it.y, it.z, it.count, it.id);
     rec.yaw = it.yaw;
     rec.parentClass = it.parentClass;
     rec.parentId = it.parentId;
@@ -275,6 +292,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         detach(rec);
         return;
       }
+      if (rec.cls === CLS.object && rec.def?.align === 2) rec.pitch = groundPitch(map, rec);
       if (!rec.object) { if (!loading.has(rec)) void spawn(rec); }
       else applyTransform(rec);
     },
@@ -290,7 +308,8 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     },
     create(cls, typ, x, z, count = 1) {
       if (!registry.defFor(cls, typ) && cls !== CLS.info) return undefined;
-      const y = cls === CLS.unit ? worldHeight(map, x, z) + (registry.defFor(cls, typ)?.colyr ?? 0) : worldHeight(map, x, z);
+      const def = registry.defFor(cls, typ);
+      const y = cls === CLS.unit ? worldHeight(map, x, z) + (def?.colyr ?? 0) : cls === CLS.object ? objectHeight(map, def, x, z) : worldHeight(map, x, z);
       const rec = registry.make(cls, typ, x, y, z, count);
       if (cls === CLS.object || cls === CLS.item) rec.yaw = Math.random() * 360;
       void spawn(rec);

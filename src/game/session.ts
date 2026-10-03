@@ -4,7 +4,7 @@ import type { MapData } from '../formats/s2map';
 import { parseInf } from '../formats/inf';
 import { parseCombinations, assignGroups, type Combination } from '../formats/combinations';
 import { parseBuildings, type Building } from '../formats/buildings';
-import type { Defs, World } from '../render/world';
+import { objectHeight, type Defs, type World } from '../render/world';
 import { worldHeight, SEA_LEVEL } from '../render/terrain';
 import type { Resources } from '../assets/resources';
 import type { Log } from '../viewer/log';
@@ -33,6 +33,7 @@ import { Panels, MENU_CRACKLOCK } from './panels';
 import { renderTerrainMap, buildMapView } from './map-ui';
 import { expandText } from './textvars';
 import { DayUpdate, applyGrowth } from './dayupdate';
+import { ItemPhysics } from './itemphysics';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
@@ -132,6 +133,7 @@ export class GameSession {
   readonly pauseMenu: PauseMenu;
   readonly unitPaths: UnitPaths;
   readonly dayUpdate: DayUpdate;
+  readonly itemPhysics: ItemPhysics;
   readonly triggers: Triggers;
   readonly exchangeUi: ExchangeUi;
   /** 本地图由 loadmap 带数据载入。 */
@@ -266,7 +268,10 @@ export class GameSession {
     o.world.onAttach = rec => {
       if (rec.cls === CLS.object && rec.object && rec !== this.placing?.preview) this.collider.add(rec.object, rec.def?.col ?? 1);
     };
-    o.world.onDetach = rec => { if (rec.object) this.collider.remove(rec.object); };
+    o.world.onDetach = rec => {
+      if (rec.object) this.collider.remove(rec.object);
+      if (rec.cls === CLS.object) this.itemPhysics?.reset();
+    };
     o.world.onRemove = rec => {
       if (this.restoring) return;
       this.engine.removeInstanceScript(rec.cls, rec.id);
@@ -282,6 +287,10 @@ export class GameSession {
       killObject: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
     }, o.map.infos);
     for (const rec of registry.all(CLS.object)) if ((rec.daytimer ?? 0) < 0) applyGrowth(rec, o.world);
+    this.itemPhysics = new ItemPhysics({
+      registry, terrainY, sync: rec => o.world.sync(rec),
+      floorBelow: (x, top, bottom, z) => this.collider.floorBelow(x, top, bottom, -z),
+    });
     this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
     this.triggers = new Triggers({
       registry, engine: this.engine, playerId: PLAYER_ID,
@@ -703,6 +712,7 @@ export class GameSession {
     this.engine.update(dtMs);
     this.unitPaths.update(dtMs);
     this.ai.update(dtMs, this.gameMs);
+    this.itemPhysics.update(dtMs, this.gameMs, { x: p.x, y: p.y, z: -p.z });
     this.projectiles.update(dtMs);
     this.triggers.update(dtMs);
 
@@ -805,7 +815,7 @@ export class GameSession {
     if (preview) {
       preview.x = t.x;
       preview.z = t.z;
-      preview.y = worldHeight(this.o.map, t.x, t.z);
+      preview.y = objectHeight(this.o.map, preview.def, t.x, t.z);
       preview.yaw = this.player.yaw / DEG;
       this.o.world.sync(preview);
     }

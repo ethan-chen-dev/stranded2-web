@@ -23,6 +23,8 @@ const DIRS8: THREE.Vector3[] = Array.from({ length: 8 }, (_, i) => {
   return new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
 });
 
+const DOWN = new THREE.Vector3(0, -1, 0);
+
 export class ObjectCollider {
   readonly items: Collidable[] = [];
   private readonly ray = new THREE.Raycaster();
@@ -111,6 +113,15 @@ export class ObjectCollider {
     normal.y = 0;
     if (normal.lengthSq() === 0) return dir.multiplyScalar(Math.max(nearest.distance - radius, 0));
     return dir.multiplyScalar(clearance(nearest.distance, dir, normal.normalize(), radius));
+  }
+
+  /** 从 top 竖直向下到 bottom 之间第一个物体表面的高度（Three 坐标），用于下落的物品落在物体上。 */
+  floorBelow(x: number, top: number, bottom: number, z: number): number | null {
+    const origin = new THREE.Vector3(x, top + 0.5, z);
+    const objs = this.nearby(origin, top - bottom + 1).map(c => c.object);
+    if (objs.length === 0) return null;
+    const hit = this.hit(origin, DOWN, top - bottom + 0.5, objs);
+    return hit ? hit.point.y : null;
   }
 
   /** 腰高度八方向射线，距离小于半径时沿法线推出；返回推出向量。 */

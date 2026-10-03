@@ -49,7 +49,8 @@ export interface EntityDef {
   alpha: number;
   fx: number;
   autofade: number;
-  aligntowater: boolean;
+  /** 物体放置方式（load_objects.bb 按 behaviour 设定）：1 不低于水面，2 按地面坡度倾斜。 */
+  align: number;
   anims: Map<string, AnimRange>;
   script?: string;
   /** 物品重量；背包承重按 weight*count 计算。 */
@@ -93,6 +94,8 @@ export interface EntityDef {
   finds: FindEntry[];
   loots: LootEntry[];
 }
+
+const OBJECT_ALIGN: Record<string, number> = { aligntowater: 1, buildingsite_water: 1, waterpipe_empty: 2, waterpipe_full: 2 };
 
 /**
  * 行格式 key=value；`### 名称` 是下一条目的注释；`id=` 开启新条目；
@@ -199,7 +202,7 @@ export function toEntityDef(e: InfEntry): EntityDef {
     alpha: num('alpha', 1),
     fx: num('fx', 0),
     autofade: num('autofade', 0),
-    aligntowater: num('aligntowater', 0) !== 0,
+    align: OBJECT_ALIGN[first('behaviour') ?? ''] ?? 0,
     anims,
     script: e.script,
     weight: num('weight', 0),
