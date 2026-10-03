@@ -37,7 +37,7 @@ A faithful browser remake of *Stranded II*, the 2007 island survival game by Unr
 
 This is an alpha. Desktop browsers only (Chrome, Edge, Firefox); pointer lock is required, so phones and tablets are not supported.
 
-Not implemented yet: driving vehicles, the trade tab in dialogues, particle effects, the random island generator and the map editor.
+Not implemented yet: driving vehicles, the trade tab in dialogues, particle effects, weather (rain, snow, thunder), the random island generator and the map editor.
 
 Found something that behaves unlike the original? That counts as a bug: see the pinned [bug reports and feedback](https://github.com/ethan-chen-dev/stranded2-web/issues/1) issue. For impressions and open questions there is [Discussions](https://github.com/ethan-chen-dev/stranded2-web/discussions).
 

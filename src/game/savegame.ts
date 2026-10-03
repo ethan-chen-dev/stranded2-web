@@ -23,6 +23,7 @@ export interface SnapEntity {
   /** 脚本改过的外观与冻结状态；旧存档没有这两项。 */
   look?: EntityRecord['look'];
   frozen?: boolean;
+  daytimer?: number;
 }
 
 export interface Snapshot {
@@ -49,6 +50,8 @@ export interface Snapshot {
   /** 实例脚本与地图全局脚本（addscript 会改动它们）；旧存档没有，读档时保留地图自带的脚本。 */
   scripts?: { cls: number; id: number; text: string }[];
   mapScript?: string;
+  /** 刷新点距上次补充的天数。 */
+  spawnDays?: [number, number][];
 }
 
 export interface SnapshotSource {
@@ -69,6 +72,7 @@ export interface SnapshotSource {
   paths: { unitId: number; nodes: number[] }[];
   /** 已在地图上显示的标记信息点；旧存档没有这项。 */
   indicators?: number[];
+  spawnDays?: [number, number][];
 }
 
 export interface RestoreTarget {
@@ -88,6 +92,7 @@ export interface RestoreTarget {
   setTriggers(states: [number, number][]): void;
   setPaths(paths: { unitId: number; nodes: number[] }[]): void;
   setIndicators(ids: number[]): void;
+  setSpawnDays(days: [number, number][]): void;
 }
 
 export function snapshot(s: SnapshotSource): Snapshot {
@@ -98,7 +103,7 @@ export function snapshot(s: SnapshotSource): Snapshot {
         cls, id: r.id, typ: r.typ, x: r.x, y: r.y, z: r.z, yaw: r.yaw, pitch: r.pitch, roll: r.roll,
         health: r.health, healthMax: r.healthMax, count: r.count,
         parentClass: r.parentClass, parentId: r.parentId, parentMode: r.parentMode, dead: !!r.dead,
-        ...(r.look ? { look: r.look } : {}), ...(r.frozen ? { frozen: true } : {}),
+        ...(r.look ? { look: r.look } : {}), ...(r.frozen ? { frozen: true } : {}), ...(r.daytimer ? { daytimer: r.daytimer } : {}),
       });
     }
   }
@@ -123,6 +128,7 @@ export function snapshot(s: SnapshotSource): Snapshot {
     paths: s.paths,
     indicators: s.indicators,
     scripts: s.engine.instanceScriptEntries(),
+    spawnDays: s.spawnDays,
     mapScript: s.engine.mapScriptText(),
   };
 }
@@ -150,6 +156,7 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
     if (e.dead) rec.dead = true;
     if (e.look) rec.look = e.look;
     if (e.frozen) rec.frozen = true;
+    if (e.daytimer !== undefined) rec.daytimer = e.daytimer;
     later.push(rec);
   }
   for (const rec of later) {
@@ -175,6 +182,7 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
   t.setTriggers(snap.triggers ?? []);
   t.setPaths(snap.paths ?? []);
   if (snap.indicators) t.setIndicators(snap.indicators);
+  if (snap.spawnDays) t.setSpawnDays(snap.spawnDays);
   if (snap.scripts) t.engine.loadInstanceScripts(snap.scripts);
   if (snap.mapScript !== undefined) t.engine.setMapScript(snap.mapScript);
   t.clock.day = snap.clock.day;

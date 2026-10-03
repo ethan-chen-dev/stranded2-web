@@ -133,6 +133,8 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.object.rotation.set(-rec.pitch * DEG, rec.yaw * DEG, rec.roll * DEG, 'YXZ');
   };
 
+  /** 截好的动画片段，按模型与帧区间缓存，所有实例共用。 */
+  const clipCache = new WeakMap<ThreeModel, Map<string, THREE.AnimationClip>>();
   /** 下面的函数在 world 对象创建前就会被调用（初始实体），所以先声明。 */
   let world: World | undefined;
 
@@ -148,7 +150,12 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
         const play = (name: string, loop: boolean | 'pingpong'): boolean => {
           const range = def.anims.get(name) ?? (name === 'idle' ? [...def.anims.entries()].find(([k]) => k.startsWith('idle'))?.[1] : undefined);
           if (!range || model.clips.length === 0) return false;
-          const clip = subclip(model.clips[0], name, range.start, range.end, model.fps);
+          // 同一模型同一帧区间的片段只截一次；混合器按片段缓存动作，于是重复播放时复用同一个动作
+          const key = `${range.start}-${range.end}`;
+          let clips = clipCache.get(model);
+          if (!clips) { clips = new Map(); clipCache.set(model, clips); }
+          let clip = clips.get(key);
+          if (!clip) { clip = subclip(model.clips[0], name, range.start, range.end, model.fps); clips.set(key, clip); }
           const action = mixer.clipAction(clip);
           action.timeScale = (range.speed * BLITZ_FRAMES_PER_SECOND) / model.fps;
           action.setLoop(loop === 'pingpong' ? THREE.LoopPingPong : loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
@@ -183,6 +190,8 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     world?.onDetach?.(rec);
     group.remove(rec.object);
     if (rec.mixer) {
+      rec.mixer.stopAllAction();
+      rec.mixer.uncacheRoot(rec.mixer.getRoot());
       const m = mixers.indexOf(rec.mixer);
       if (m >= 0) mixers.splice(m, 1);
       rec.mixer = undefined;
@@ -215,6 +224,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     rec.yaw = o.yaw;
     rec.health = o.health;
     rec.healthMax = o.healthMax;
+    rec.daytimer = o.dayTimer;
     await spawn(rec);
     stats.objects++;
   }

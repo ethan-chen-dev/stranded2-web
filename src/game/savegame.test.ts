@@ -55,6 +55,7 @@ describe('savegame', () => {
       diary: b.host.diary, locks: b.host.locks, setBuffer: t => b.host.buffer.set(t),
       setSkills: e => b.host.skills.load(e), setTriggers: st => { restored.triggers = st; }, setPaths: p => { restored.paths = p; },
       setIndicators: () => undefined,
+      setSpawnDays: () => undefined,
     }, json);
     expect(b.host.skills.value('wood')).toBe(4);
     expect(restored).toEqual({ triggers: [[3, 0]], paths: [{ unitId: 30, nodes: [7] }] });

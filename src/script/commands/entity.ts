@@ -286,6 +286,13 @@ export function registerEntity(r: CommandRegistry): void {
   r.register('inarea_dig', inArea(42));
   r.register('inarea_fish', inArea(43));
   r.register('inarea', inArea(44));
-  r.register(['spawntimer', 'growtime', 'defparam'], () => '0');
+  /** spawntimer id|self[,value]：读取或设置物体天数计数。 */
+  r.register('spawntimer', (ctx, args) => {
+    const id = unitArg(ctx, args[0]);
+    return str(args[1] === undefined ? ctx.host.spawnTimer(id) : ctx.host.spawnTimer(id, int(args[1])));
+  });
+  /** growtime typ：物体类型的生长天数。 */
+  r.register('growtime', (ctx, args) => str(ctx.host.def(CLASS.object, int(args[0] ?? '0'))?.growtime ?? 0));
+  r.register('defparam', () => '0');
   void classOf; void ScriptRuntimeError;
 }

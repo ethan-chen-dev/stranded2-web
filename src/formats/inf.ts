@@ -26,6 +26,19 @@ export interface LootEntry {
   max: number;
 }
 
+export interface SpawnRule {
+  item: number;
+  rate: number;
+  /** 水平距离上限，生成在 xzr/2.5 到 xzr 之间。 */
+  xzr: number;
+  /** 高度随机幅度与偏移。 */
+  yr: number;
+  yo: number;
+  /** 身边同类物品达到 limit 时不再生成。 */
+  limit: number;
+  count: number;
+}
+
 export interface EntityDef {
   id: number;
   name: string;
@@ -71,6 +84,12 @@ export interface EntityDef {
   weaponstate: string;
   /** 命中物体时掉落的百分比概率。 */
   findratio: number;
+  /** 物体从种下到长成的天数（growtime）；0 表示不生长。 */
+  growtime: number;
+  /** 每日变化的生命值（healthchange）。 */
+  healthchange: number;
+  /** 物体每隔 rate 天在身边生成物品（spawn=item,rate,xzr,yr,yo,limit,count）。 */
+  spawn: SpawnRule | null;
   finds: FindEntry[];
   loots: LootEntry[];
 }
@@ -129,6 +148,12 @@ export function parseInf(text: string): InfEntry[] {
     else current.fields.set(key, [value]);
   }
   return entries;
+}
+
+function parseSpawn(v: string | undefined): SpawnRule | null {
+  if (!v) return null;
+  const p = v.split(',').map(blitzFloat);
+  return { item: Math.trunc(p[0] ?? 0), rate: Math.trunc(p[1] ?? 0), xzr: p[2] ?? 0, yr: p[3] ?? 0, yo: p[4] ?? 0, limit: Math.trunc(p[5] ?? 0), count: Math.trunc(p[6] ?? 1) || 1 };
 }
 
 /** Blitz 的 Float()：取开头的数字，后面的内容忽略，不是数字时为 0（如 scale=1.7,3.5,1.7 取 1.7）。 */
@@ -202,6 +227,9 @@ export function toEntityDef(e: InfEntry): EntityDef {
     drag: num('drag', 0),
     weaponstate: first('weaponstate') ?? '',
     findratio: num('findratio', 30),
+    growtime: num('growtime', 0),
+    healthchange: num('healthchange', 0),
+    spawn: parseSpawn(first('spawn')),
     finds: (e.fields.get('find') ?? []).map(v => {
       const p = v.split(',').map(x => Number(x.trim()));
       return { typ: p[0] || 0, ratio: p[1] || 0, max: p[2] || 1, min: p[3] || 1, reqTyp: p[4] || 0 };

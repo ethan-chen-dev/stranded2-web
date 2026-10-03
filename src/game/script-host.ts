@@ -17,6 +17,7 @@ import type { TakeoverFlags } from './takeover';
 import { Skills } from './skills';
 import { storageValue, freeSpace } from './queries';
 import { saveVarCache, loadVarCache } from './savegame';
+import { applyGrowth } from './dayupdate';
 
 export interface HostDeps {
   world: World;
@@ -204,6 +205,16 @@ export class GameScriptHost implements ScriptHost {
     return true;
   }
 
+  spawnTimer(id: number, value?: number): number {
+    const rec = this.registry.get(CLS.object, id);
+    if (!rec) return 0;
+    if (value !== undefined) {
+      rec.daytimer = value;
+      applyGrowth(rec, this.d.world);
+    }
+    return rec.daytimer ?? 0;
+  }
+
   /** 冻结或解冻单位；动画随之停住。 */
   freezeUnit(id: number, on: boolean): void {
     const rec = this.registry.get(CLS.unit, id);
@@ -242,7 +253,7 @@ export class GameScriptHost implements ScriptHost {
   def(cls: number, typ: number): HostDef | undefined {
     const d = this.registry.defFor(cls, typ);
     if (!d) return undefined;
-    return { name: d.name, behaviour: d.behaviour, mat: d.mat, group: d.group, weight: d.weight, health: d.health };
+    return { name: d.name, behaviour: d.behaviour, mat: d.mat, group: d.group, weight: d.weight, health: d.health, growtime: d.growtime };
   }
 
   terrainY(x: number, z: number): number {

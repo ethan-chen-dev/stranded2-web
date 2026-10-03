@@ -7,11 +7,13 @@
 import type { EntityRegistry, EntityRecord } from './entities';
 import { CLS, STORED_INSIDE } from './entities';
 import type { ScriptEngine } from '../script/engine';
+import type { World } from '../render/world';
 
 export type ToolKind = 'dig' | 'fish';
 
 export interface ToolDeps {
   registry: EntityRegistry;
+  world: World;
   engine: ScriptEngine;
   playerId: number;
   infoRadius(id: number): number;
@@ -28,6 +30,8 @@ const AREA_TYP: Record<ToolKind, number> = { dig: 42, fish: 43 };
 const RANGE: Record<ToolKind, number> = { dig: 100, fish: 150 };
 /** 钓鱼时检查面前的水面：沿视线水平方向每 25 单位采样一次，共 4 次（game_fish 的 CameraPick）。 */
 const WATER_STEP = 25;
+/** 收获放在玩家面前的距离。 */
+const FRONT = 50;
 const WATER_STEPS = 4;
 
 /** Blitz 坐标的眼睛位置与水平朝向（单位向量）。 */
@@ -85,19 +89,25 @@ export class Tools {
     return false;
   }
 
+  /** 从区域池取一件，先放到玩家面前 50 处的地上，再收进背包；背包放不下时留在地上（game_dig 的 unstore_item）。 */
   private takeFromPool(info: EntityRecord, v: ToolView): void {
-    const pool = this.d.registry.storedIn(CLS.info, info.id);
+    const { registry, world } = this.d;
+    const pool = registry.storedIn(CLS.info, info.id);
     if (pool.length === 0) return;
     const pick: EntityRecord = pool[this.d.random(0, pool.length - 1)];
-    const item = this.d.registry.make(CLS.item, pick.typ, v.x, 0, v.z, 1);
-    this.d.registry.consume(pick.id, 1);
-    const name = this.d.registry.defFor(CLS.item, pick.typ)?.name ?? `#${pick.typ}`;
-    if (this.d.registry.store(item.id, CLS.unit, this.d.playerId) > 0) {
+    const typ = pick.typ;
+    const item = world.create(CLS.item, typ, v.x + v.dirX * FRONT, v.z + v.dirZ * FRONT, 1);
+    if (!item) return;
+    registry.consume(pick.id, 1);
+    const name = registry.defFor(CLS.item, typ)?.name ?? `#${typ}`;
+    if (registry.store(item.id, CLS.unit, this.d.playerId) > 0) {
+      const still = registry.get(CLS.item, item.id);
+      if (still) world.sync(still);
+      else world.remove(item);
       this.d.message(`Collected ${name} (1)`, 1);
       this.d.sound('collect.wav');
       return;
     }
-    this.d.registry.remove(CLS.item, item.id);
     this.d.message('No space left', 2);
     this.d.sound('fail.wav');
   }

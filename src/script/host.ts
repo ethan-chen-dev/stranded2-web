@@ -33,6 +33,8 @@ export interface HostDef {
   group: string;
   weight: number;
   health: number;
+  /** 物体生长天数；不生长或不是物体时为 0 或省略。 */
+  growtime?: number;
 }
 
 export interface HostPlayer {
@@ -114,6 +116,8 @@ export interface ScriptHost {
   /** model/scale/fx/color 指令：改实体外观，未给的项保持不变。 */
   setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
   freezeUnit(id: number, on: boolean): void;
+  /** spawntimer：读取或设置物体天数计数（设置后按生长进度刷新外观）；物体不存在返回 0。 */
+  spawnTimer(id: number, value?: number): number;
   playerSpotted(): boolean;
   /** sleep 指令：与按睡觉键相同。 */
   sleep(): void;

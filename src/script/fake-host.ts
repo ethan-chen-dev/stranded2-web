@@ -68,6 +68,8 @@ export class FakeHost implements ScriptHost {
   autosaves = 0;
   playerSpotted(): boolean { return this.spotted; }
   autosave(): void { this.autosaves++; }
+  timers = new Map<number, number>();
+  spawnTimer(id: number, value?: number): number { if (!this.entity(1, id)) return 0; if (value !== undefined) this.timers.set(id, value); return this.timers.get(id) ?? 0; }
   frozen = new Set<number>();
   freezeUnit(id: number, on: boolean): void { if (on) this.frozen.add(id); else this.frozen.delete(id); }
   unitFrozen(id: number): boolean { return this.frozen.has(id); }

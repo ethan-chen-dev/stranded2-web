@@ -15,7 +15,7 @@ beforeEach(() => {
     const pool = tw.registry.make(CLS.item, typ, 0, 0, 0, 3);
     pool.parentClass = CLS.info; pool.parentId = area.id; pool.parentMode = STORED_INSIDE;
   }
-  t = new Tools({ registry: tw.registry, engine: tw.engine, playerId: 1, infoRadius: id => (id === 5 ? 50 : 0), terrainY, random: (min) => (tw.random.length ? tw.random.shift()! : min), message: m => { tw.messages.push(m); }, sound: () => undefined, digTimeMs: 2500, fishTimeMs: 5500 });
+  t = new Tools({ registry: tw.registry, world: tw.world, engine: tw.engine, playerId: 1, infoRadius: id => (id === 5 ? 50 : 0), terrainY, random: (min) => (tw.random.length ? tw.random.shift()! : min), message: m => { tw.messages.push(m); }, sound: () => undefined, digTimeMs: 2500, fishTimeMs: 5500 });
   tw.engine.setMapScript('on:dig_failure { $digfail=1; } on:fish_success { $fishok=1; } on:fish_failure { $fishfail=1; }', 'test');
 });
 const g = (n: string) => tw.engine.vars.globals.get(n) ?? '0';
@@ -32,6 +32,17 @@ describe('Tools', () => {
     expect(tw.registry.countStored(CLS.info, 5, 24)).toBe(2);
     tw.engine.update(0);
     expect(g('digfail')).toBe('0');
+  });
+  it('keeps the catch on the ground when the inventory is full', () => {
+    tw.random = [0];
+    tw.registry.make(CLS.item, 23, 0, 0, 0, 50);
+    const full = tw.registry.all(CLS.item, 23).find(r => r.parentClass === 0)!;
+    tw.registry.store(full.id, CLS.unit, 1);
+    expect(t.finish('dig', at(120, 110))).toBe(true);
+    const loose = tw.registry.all(CLS.item, 23).filter(r => r.parentClass === 0 && r.parentMode !== STORED_INSIDE);
+    expect(loose.length).toBe(1);
+    expect(tw.registry.countStored(CLS.info, 5, 23)).toBe(2);
+    expect(tw.messages.at(-1)).toContain('No space');
   });
   it('only the first responder gets the dig event, and nothing else raises dig_failure', () => {
     tw.registry.make(CLS.info, 36, 1000, 10, 1000, 1, 7);

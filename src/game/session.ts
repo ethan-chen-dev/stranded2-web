@@ -32,6 +32,7 @@ import { SequenceUi } from './sequence-ui';
 import { Panels, MENU_CRACKLOCK } from './panels';
 import { renderTerrainMap, buildMapView } from './map-ui';
 import { expandText } from './textvars';
+import { DayUpdate, applyGrowth } from './dayupdate';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
@@ -130,6 +131,7 @@ export class GameSession {
   readonly panels: Panels;
   readonly pauseMenu: PauseMenu;
   readonly unitPaths: UnitPaths;
+  readonly dayUpdate: DayUpdate;
   readonly triggers: Triggers;
   readonly exchangeUi: ExchangeUi;
   /** 本地图由 loadmap 带数据载入。 */
@@ -271,8 +273,15 @@ export class GameSession {
       this.engine.states.free(rec.cls, rec.id);
       this.engine.timers.free(rec.cls, rec.id);
       if (rec.cls === CLS.unit) this.unitPaths.free(rec.id);
-      if (rec.cls !== CLS.item) for (const child of registry.storedIn(rec.cls, rec.id)) o.world.remove(child);
+      // free_childs：里面收着的和挂在外面的子物品都随父实体删除
+      if (rec.cls !== CLS.item) for (const child of registry.all(CLS.item).filter(i => i.parentClass === rec.cls && i.parentId === rec.id)) o.world.remove(child);
     };
+    this.dayUpdate = new DayUpdate({
+      registry, engine: this.engine, world: o.world, terrainY,
+      random: (a, b) => this.host.random(a, b),
+      killObject: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
+    }, o.map.infos);
+    for (const rec of registry.all(CLS.object)) if ((rec.daytimer ?? 0) < 0) applyGrowth(rec, o.world);
     this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
     this.triggers = new Triggers({
       registry, engine: this.engine, playerId: PLAYER_ID,
@@ -479,7 +488,7 @@ export class GameSession {
     const settings = readGameSettings(gameInf);
     this.settings = settings;
     this.tools = new Tools({
-      registry, engine: this.engine, playerId: PLAYER_ID, infoRadius: id => this.host.infoRadius(id), terrainY,
+      registry, world: o.world, engine: this.engine, playerId: PLAYER_ID, infoRadius: id => this.host.infoRadius(id), terrainY,
       random: (a, b) => this.host.random(a, b), message, sound, digTimeMs: settings.digTime, fishTimeMs: settings.fishTime,
     });
 
@@ -524,6 +533,7 @@ export class GameSession {
         setTriggers: states => this.triggers.restore(states),
         setPaths: paths => { for (const p of paths) this.unitPaths.set(p.unitId, p.nodes); },
         setIndicators: ids => { this.host.indicators.clear(); for (const id of ids) this.host.indicators.add(id); },
+        setSpawnDays: days => this.dayUpdate.restoreSpawnDays(days),
       }, o.restore);
       this.restoring = false;
       this.env.apply(this.clock.hour, this.clock.minute);
@@ -674,7 +684,7 @@ export class GameSession {
     const dayBefore = this.clock.day;
     if (this.clock.advance(dtMs) > 0) {
       this.env.apply(this.clock.hour, this.clock.minute);
-      if (this.clock.day !== dayBefore) this.engine.globalEvent('changeday');
+      if (this.clock.day !== dayBefore) this.dayUpdate.changeDay();
     }
 
     if (this.process) {
@@ -1046,6 +1056,7 @@ export class GameSession {
       stats: this.stats, weapon: this.weapons.weaponTyp, diary: this.host.diary, locks: this.host.locks, buffer: this.host.buffer.value,
       skills: this.host.skills.entries(), triggers: this.triggers.states(), paths: this.unitPaths.entries(),
       indicators: [...this.host.indicators],
+      spawnDays: this.dayUpdate.spawnDays(),
     });
   }
 
@@ -1117,7 +1128,7 @@ export class GameSession {
       c.day++;
     } else if (c.hour >= 12) {
       c.set(7, 0);
-      this.engine.globalEvent('changeday');
+      this.dayUpdate.changeDay();
       c.day++;
     } else {
       c.set(c.hour + 6, c.minute);
