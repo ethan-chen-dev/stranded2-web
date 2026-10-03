@@ -18,6 +18,8 @@ export const CHECK_INTERVAL_MS = 50;
 /** 没有攻击动画时攻击模式的持续时间。 */
 const ATTACK_FALLBACK_MS = 800;
 const GRAVITY_PER_F = 9.81 * 0.6;
+/** 水中单位能到的最高位置（水面以下 10）。 */
+const WATER_TOP = -10;
 const DEG = Math.PI / 180;
 
 const CODES: Record<string, number> = {
@@ -347,6 +349,15 @@ export class AiSystem {
       dx = -Math.sin(yaw) * dist;
       dz = Math.cos(yaw) * dist;
     }
+    if (pm === 2) {
+      // ai/300_fish.bb：前方海底碰到身体下沿（或水浅得容不下身体）就转向，不游上岸
+      const colyr = rec.def?.colyr ?? 0;
+      const ground = this.d.terrainY(rec.x + dx, rec.z + dz);
+      if (ground + colyr > WATER_TOP || ground >= rec.y + dy - colyr) {
+        this.setMode(rec, this.d.random(1, 2) === 1 ? AI.movel : AI.mover, 1000);
+        return;
+      }
+    }
     if (pm === 1 || pm === 6) {
       const r = this.d.collide(rec, dx, dz);
       // 被挡住大半时原地转向，换个方向走
@@ -462,7 +473,7 @@ export class AiSystem {
     if (pm === 1 || (pm === 6 && st.mode !== AI.flee)) {
       rec.y = Math.max(rec.y - GRAVITY_PER_F * f, ground + def.colyr);
     } else if (pm === 2) {
-      rec.y = Math.min(Math.max(rec.y, ground + def.colyr), -10);
+      rec.y = Math.min(Math.max(rec.y, ground + def.colyr), WATER_TOP);
     } else if (pm === 3) {
       const base = Math.max(ground, 1) + (AIR_OFFSET[code] ?? 350);
       if (FREE_HEIGHT.has(code)) {

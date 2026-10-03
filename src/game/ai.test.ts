@@ -239,3 +239,35 @@ describe('path-controlled units', () => {
     expect(pirate.ai?.mode ?? AI.idle).toBe(AI.idle);
   });
 });
+
+describe('water units', () => {
+  it('turn away from the shore instead of swimming under the land', () => {
+    setup();
+    // deep sea for x < 0, beach and land for x >= 0
+    const shore = (x: number) => (x < 0 ? -200 : 30);
+    const fishAi = new AiSystem({
+      registry: tw.registry, engine: tw.engine, world: tw.world, playerId: 1,
+      player: () => ({ x: 5000, y: 0, z: 5000, alive: true, underwater: false }),
+      terrainY: x => shore(x),
+      collide: (_rec, dx, dz) => ({ dx, dz }),
+      damagePlayer: () => undefined,
+      damageEntity: () => undefined,
+      random: (min, max) => (tw.random.length ? Math.min(Math.max(tw.random.shift()!, min), max) : min),
+    });
+    const fish = spawn(5, -40, -50, 0);
+    fish.yaw = -90; // heading towards +x, the land
+    let worst = -Infinity;
+    let travelled = 0;
+    let last = { x: fish.x, z: fish.z };
+    for (let t = 0; t < 60000; t += 50) {
+      now += 50;
+      fishAi.update(50, now);
+      worst = Math.max(worst, shore(fish.x));
+      travelled += Math.hypot(fish.x - last.x, fish.z - last.z);
+      last = { x: fish.x, z: fish.z };
+    }
+    expect(travelled).toBeGreaterThan(100);
+    expect(worst).toBe(-200);
+    expect(fish.y).toBeLessThanOrEqual(-10);
+  });
+});
