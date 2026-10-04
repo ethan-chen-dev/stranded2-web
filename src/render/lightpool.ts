@@ -1,12 +1,13 @@
 /**
  * 状态光源（火焰、电击、光状态）的固定点光源池。Three.js 的点光源数量变化会让所有材质重新编译着色器，
  * 所以预先建好 SIZE 盏，每帧把离镜头最近的可见请求分配上去，其余熄灭。
+ * 原版基于 DirectX 7 固定管线，同时只启用 8 盏灯（太阳占一盏），同屏状态光源本就有上限；这里取离镜头最近的 7 盏。
  * Blitz 的 LightRange 是衰减距离，这里换算为线性衰减、照射距离为 4 倍 range 的点光源。
  */
 import * as THREE from 'three';
 import type { StateLight } from '../game/stateeffects';
 
-const SIZE = 6;
+const SIZE = 7;
 const RANGE_FACTOR = 4;
 const INTENSITY_PER_RANGE = 2;
 

@@ -410,6 +410,10 @@ export class GameSession {
     });
     this.particles = new Particles({
       scene: o.scene, camera: o.camera, textures: url => o.res.texture(url), terrainY, diving: () => this.diving,
+      collide: (a, b) => {
+        const hit = this.collider.segment(new THREE.Vector3(a.x, a.y, -a.z), new THREE.Vector3(b.x, b.y, -b.z), 2);
+        return hit ? { x: hit.x, y: hit.y, z: -hit.z } : null;
+      },
       sequenceMs: () => null,
     });
     void this.particles.load();
@@ -449,7 +453,7 @@ export class GameSession {
       player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z }),
       camera: () => this.cam(),
       particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
-      loop: (key, f) => this.sounds.loop(key, f),
+      channel: (key, f, at) => this.sounds.channel(key, f, at),
       kill: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
       trigger: rec => { this.engine.entityEvent(CLS.object, rec.id, 'trigger'); },
       windsway: () => this.prefs.windsway,
@@ -483,7 +487,7 @@ export class GameSession {
       camera: () => this.cam(),
       particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
       sound: f => this.sounds.play(f),
-      loop: (key, f) => this.sounds.loop(key, f),
+      channel: (key, f, at) => this.sounds.channel(key, f, at),
       damage: (cls, id, amount) => {
         if (cls === CLS.unit && id === PLAYER_ID) { this.playerHurt(amount); return this.stats.dead; }
         this.weapons.damage(cls, id, amount, 'other');
@@ -1375,11 +1379,17 @@ export class GameSession {
   }
 
   /** 单位攻击玩家：扣生命、提示与音效；生命归零时进入死亡画面。 */
+  /**
+   * 玩家受伤（handle_units.bb hurt_unit）：有无敌状态时不扣血也不出声，但仍然闪红；
+   * 扣血后还活着时有 4/5 机会播放受伤声。
+   */
   private playerHurt(amount: number, by?: EntityRecord): void {
     if (this.stats.dead) return;
-    this.stats.health = Math.max(0, this.stats.health - amount);
-    if (by) this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 3);
-    this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
+    if (!this.engine.states.has(CLS.unit, PLAYER_ID, ST.invulnerability)) {
+      this.stats.health = Math.max(0, this.stats.health - amount);
+      if (by) this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 3);
+      if (this.stats.health > 0 && this.host.random(1, 5) !== 2) this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
+    }
     this.particles.add(0, 0, 0, P.flash, 0.06, 0.75)?.color(255, 0, 0);
     if (this.stats.dead) {
       this.hud.showDead();

@@ -49,8 +49,8 @@ export interface StateDeps {
   camera(): { x: number; y: number; z: number };
   particle(x: number, y: number, z: number, typ: number, size?: number, a?: number): ParticleHandle | null;
   sound(file: string, at?: { x: number; y: number; z: number }): void;
-  /** 每个燃烧实体一条循环火声，null 停止。 */
-  loop(key: string, file: string | null): void;
+  /** 每个燃烧实体一条火声声道：上一声播完才重播，音量按位置衰减；file 为 null 时停止。 */
+  channel(key: string, file: string | null, at?: { x: number; y: number; z: number }): void;
   /** ha_damage：返回 true 表示实体因此死亡。 */
   damage(cls: number, id: number, amount: number): boolean;
   heal(cls: number, id: number, amount: number): void;
@@ -200,7 +200,7 @@ export class StateEffects {
     const ex = this.extra.get(r);
     ex?.light?.dispose();
     this.extra.delete(r);
-    if (r.typ === ST.fire || r.typ === ST.eternalfire) this.d.loop(fireKey(r), null);
+    if (r.typ === ST.fire || r.typ === ST.eternalfire) this.d.channel(fireKey(r), null);
     if (r.typ === ST.ghost && r.cls === CLS.object) this.d.restoreCollision(r.id);
   }
 
@@ -342,9 +342,9 @@ export class StateEffects {
       if (d.random(1, 5) === 1) d.particle(p.x, p.y, p.z, P.firespark, d.random(2, 6), 1);
       if (go.go5000) d.particle(p.x, p.y, p.z, P.spark, d.random(1, 2), 3);
     }
+    // 原版声道播完后，镜头在 100 以内才重新发声；离远时不打断正在播的那一声
     const owner = d.get(s.cls, s.id);
-    const near = owner ? Math.hypot(owner.x - cam.x, owner.y - cam.y, owner.z - cam.z) < FIRE_SOUND_RANGE : false;
-    d.loop(fireKey(s), near ? 'fire.wav' : null);
+    if (owner && Math.hypot(owner.x - cam.x, owner.y - cam.y, owner.z - cam.z) < FIRE_SOUND_RANGE) d.channel(fireKey(s), 'fire.wav', owner);
     const light = this.extra.get(s)?.light;
     if (go.go50 && light) {
       const b = d.fireLightBrightness;

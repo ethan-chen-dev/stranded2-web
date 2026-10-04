@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Particles, P } from './particles';
 
-function setup(opts: { random?: () => number; ground?: number; diving?: boolean; seq?: number | null; textures?: boolean } = {}) {
+function setup(opts: { random?: () => number; ground?: number; diving?: boolean; seq?: number | null; textures?: boolean; wallX?: number } = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(70, 1.5, 1, 10000);
   const ground = { y: opts.ground ?? -50 };
@@ -13,6 +13,7 @@ function setup(opts: { random?: () => number; ground?: number; diving?: boolean;
     diving: () => opts.diving ?? false,
     random: opts.random ?? (() => 0),
     sequenceMs: () => opts.seq ?? null,
+    collide: opts.wallX === undefined ? undefined : (a, b) => (b.x >= opts.wallX! ? { x: opts.wallX! - 2, y: b.y, z: b.z } : null),
   });
   return { scene, camera, particles, ground };
 }
@@ -172,5 +173,16 @@ describe('Particles', () => {
     particles.clear();
     expect(particles.count).toBe(0);
     expect(visuals(particles.group)).toBe(0);
+  });
+
+  it('stops a spark at a scene object instead of flying through it', async () => {
+    const { particles } = setup({ wallX: 5, random: () => 1 });
+    await particles.load();
+    const spark = particles.add(0, 20, 0, P.spark, 1, 3)!;
+    spark.fx = 2;
+    spark.fy = 0;
+    spark.fz = 0;
+    frames(particles, 10);
+    expect(spark.fx).toBe(0);
   });
 });

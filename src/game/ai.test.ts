@@ -271,3 +271,18 @@ describe('water units', () => {
     expect(fish.y).toBeLessThanOrEqual(-10);
   });
 });
+
+describe('ridden units', () => {
+  it('keep their AI idle while ridden and recentre after moving far', () => {
+    setup();
+    const lion = spawn(3, 0, 1, 0);
+    run(50);
+    ai = new AiSystem({ ...(ai as unknown as { d: ConstructorParameters<typeof AiSystem>[0] }).d, driven: r => r.id === lion.id });
+    lion.ai!.mode = AI.hunt;
+    lion.x += 500;
+    run(50);
+    expect(lion.ai!.mode).toBe(AI.idle);
+    expect(lion.ai!.duration).toBe(5000);
+    expect(lion.ai!.centerX).toBe(lion.x);
+  });
+});

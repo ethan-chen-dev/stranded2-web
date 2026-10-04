@@ -23,6 +23,8 @@ export interface ParticleDeps {
   terrainY(x: number, zBlitz: number): number;
   /** 镜头在水下（g_dive）。 */
   diving(): boolean;
+  /** 火星与木屑的场景碰撞（原版半径 2、Cworld_unitcol）：从起点到终点碰到物体时返回停止点，Blitz 坐标。 */
+  collide?(from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }): { x: number; y: number; z: number } | null;
   random?: () => number;
   /** 序列开始后的毫秒数（MilliSecs()-seq_start）；没有序列在播放时为 null，Cp_seqfade 随即移除。 */
   sequenceMs?: () => number | null;
@@ -771,14 +773,22 @@ export class Particles {
         p.rot += p.fadein * f;
         p.fx *= 0.96;
         p.fz *= 0.96;
+        const from = { x: p.px, y: p.py, z: p.pz };
         p.px += p.fx * 2.5 * f;
         p.py += p.fy * 2.5 * f;
         p.pz += p.fz * 2.5 * f;
         p.a -= 0.025 * f;
         p.shown = p.a;
-        // 原版带碰撞体，这里只停在地面上
+        const stop = p.fx || p.fy || p.fz ? this.d.collide?.(from, { x: p.px, y: p.py, z: p.pz }) ?? null : null;
         const ground = this.d.terrainY(p.px, p.pz);
-        if (ground > p.py) {
+        if (stop) {
+          // 碰到物体（CountCollisions>0）：停在碰撞处
+          p.px = stop.x;
+          p.py = stop.y;
+          p.pz = stop.z;
+          p.fx = p.fy = p.fz = 0;
+          p.fadein = 0;
+        } else if (ground > p.py) {
           p.py = ground;
           p.fx = p.fy = p.fz = 0;
           p.fadein = 0;

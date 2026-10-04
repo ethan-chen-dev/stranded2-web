@@ -45,7 +45,7 @@ export interface AttackDeps {
   message(text: string, font?: number): void;
   sound(file: string): void;
   onUnitDied?(rec: EntityRecord): void;
-  /** 单位被玩家打中且未死亡时的回调，用于 AI 受击反应。 */
+  /** 单位受伤且未死亡时的回调（任何来源），用于 AI 受伤反应。 */
   onUnitHurt?(rec: EntityRecord): void;
   /** material_fx：受击处按材质生成粒子并播放音效（Blitz 坐标）；未接入时只播放材质音效。 */
   materialFx?(x: number, y: number, z: number, mat: string): void;
@@ -375,7 +375,7 @@ export class Weapons {
   /** 触发 hit、扣生命、必要时击杀；返回是否命中了实体。 */
   damage(cls: number, id: number, amount: number, causer: 'player' | 'other', at?: { x: number; y: number; z: number }): boolean {
     if (cls === CLS.unit && id === this.d.playerId) {
-      this.d.stats.health = Math.max(0, this.d.stats.health - amount);
+      if (!this.d.engine.states.has(cls, id, STATE_INVULNERABILITY)) this.d.stats.health = Math.max(0, this.d.stats.health - amount);
       return true;
     }
     const rec = this.d.registry.get(cls, id);
@@ -391,7 +391,8 @@ export class Weapons {
     if (rec.health <= 0) {
       rec.health = 0;
       this.kill(rec);
-    } else if (cls === CLS.unit && causer === 'player') {
+    } else if (cls === CLS.unit) {
+      // hurt_unit 的受伤反应不区分伤害来源（状态、爆炸、玩家）；hit 事件只在玩家造成伤害时触发
       this.d.onUnitHurt?.(rec);
     }
     return true;

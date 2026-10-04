@@ -105,6 +105,18 @@ describe('Weapons', () => {
     expect(tw.registry.get(CLS.item, stored.id)).toBeDefined();
     expect(fallen.length).toBe(1);
   });
+  it('an invulnerable player loses no health and any non-lethal unit damage triggers the hurt reaction', () => {
+    tw.stats.health = 50;
+    tw.engine.states.add(CLS.unit, 1, 17);
+    w.damage(CLS.unit, 1, 20, 'other');
+    expect(tw.stats.health).toBe(50);
+    const hurt: number[] = [];
+    w = new Weapons({ ...(w as unknown as { d: ConstructorParameters<typeof Weapons>[0] }).d, onUnitHurt: rec => { hurt.push(rec.id); } });
+    const crab = tw.world.create(CLS.unit, 3, 0, 40)!;
+    crab.health = 40;
+    w.damage(CLS.unit, crab.id, 5, 'other');
+    expect(hurt).toEqual([crab.id]);
+  });
   it('drops finds into the inventory by weapon requirement and ratio', () => {
     placeAhead(CLS.object, 1);
     tw.random = [30, 20, 1];

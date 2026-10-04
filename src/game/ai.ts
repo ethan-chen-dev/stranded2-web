@@ -211,7 +211,14 @@ export class AiSystem {
       if (rec.dead) { this.d.moveSound?.(rec, false); this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
       if (rec.frozen) continue;
       const st = rec.ai ?? this.init(rec);
-      // 载具与正被骑乘的单位没有行为，只有物理（game.bb 骑乘时每帧把 AI 复位为 idle）。
+      // 载具与正被骑乘的单位没有行为，只有物理。骑乘时每帧把 AI 复位为 idle 5 秒、离中心 200 以上时重设中心
+      // （game_functions.bb game_setcam），下来后从待机开始。
+      if (this.d.driven?.(rec)) {
+        st.mode = AI.idle;
+        st.timer = now;
+        st.duration = 5000;
+        if (Math.hypot(rec.x - st.centerX, rec.z - st.centerZ) > 200) { st.centerX = rec.x; st.centerZ = rec.z; }
+      }
       if (code >= 500 || this.d.driven?.(rec)) { this.d.moveSound?.(rec, false); this.physics(rec, st, code, f); this.d.world.sync(rec); continue; }
       // 沿 unitpath 移动的单位不跑行为，但和原版一样仍受重力并贴合地形。
       if (this.d.controlled?.(rec)) { this.physics(rec, st, code, f); this.d.world.sync(rec); continue; }

@@ -1,6 +1,6 @@
 /**
  * 可见物体的逐帧行为，依据 cull.bb 与 handle_objects.bb 的 update_object_behaviour：
- * 随风摆动（横滚角 = sin(角度)×swaypower，角度每 f 增加 swayspeed）；泉水每 50 毫秒冒水花、200 以内循环水声；
+ * 随风摆动（横滚角 = sin(角度)×swaypower，角度每 f 增加 swayspeed）；泉水每 50 毫秒冒水花，镜头在 200 以内时水声播完即重播；
  * 炸弹蘑菇（closekill）玩家走到 50 以内即被摧毁；毒花（closetrigger）玩家在 50 以内时每 500 毫秒触发 trigger。
  * 只处理在视野内且没超出 autofade 距离的物体，与原版一致。
  */
@@ -19,7 +19,8 @@ export interface ObjectBehaviourDeps {
   player(): { x: number; y: number; z: number };
   camera(): { x: number; y: number; z: number };
   particle(x: number, y: number, z: number, typ: number, size?: number, a?: number): ParticleHandle | null;
-  loop(key: string, file: string | null): void;
+  /** 泉水声道：上一声播完才重播，音量按位置衰减。 */
+  channel(key: string, file: string, at: { x: number; y: number; z: number }): void;
   kill(rec: EntityRecord): void;
   trigger(rec: EntityRecord): void;
   /** 设置 set_windsway。 */
@@ -28,7 +29,6 @@ export interface ObjectBehaviourDeps {
 
 export class ObjectBehaviour {
   private readonly angle = new Map<number, number>();
-  private readonly sounding = new Set<number>();
 
   constructor(private readonly d: ObjectBehaviourDeps) {}
 
@@ -42,7 +42,6 @@ export class ObjectBehaviour {
     const player = this.d.player();
     const cam = this.d.camera();
     const near = (o: EntityRecord) => Math.hypot(o.x - player.x, o.y - player.y, o.z - player.z) < CLOSE_RANGE;
-    const heard = new Set<number>();
     for (const o of this.d.registry.all(CLS.object)) {
       const def = o.def;
       if (!def) continue;
@@ -59,15 +58,13 @@ export class ObjectBehaviour {
       }
       if (beh === 'fountain') {
         if (go50) this.d.particle(o.x + rnd(-3, 3), o.y + 5, o.z + rnd(-3, 3), P.splash, rnd(15, 18), 1)?.color(150, 190, 255);
-        if (Math.hypot(o.x - cam.x, o.y - cam.y, o.z - cam.z) < FOUNTAIN_SOUND_RANGE) heard.add(o.id);
+        if (Math.hypot(o.x - cam.x, o.y - cam.y, o.z - cam.z) < FOUNTAIN_SOUND_RANGE) this.d.channel(`fountain:${o.id}`, 'fountain.wav', o);
       } else if (beh === 'closekill') {
         if (go100 && near(o)) this.d.kill(o);
       } else if (beh === 'closetrigger') {
         if (go500 && near(o)) this.d.trigger(o);
       }
     }
-    for (const id of this.sounding) if (!heard.has(id)) { this.d.loop(`fountain:${id}`, null); this.sounding.delete(id); }
-    for (const id of heard) if (!this.sounding.has(id)) { this.d.loop(`fountain:${id}`, 'fountain.wav'); this.sounding.add(id); }
   }
 }
 

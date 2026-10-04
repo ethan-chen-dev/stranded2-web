@@ -124,6 +124,19 @@ export class ObjectCollider {
     return hit ? hit.point.y : null;
   }
 
+  /** 从 from 到 to 的线段碰到物体时，返回退回 radius 后的停止点（Three 坐标），否则 null。 */
+  segment(from: THREE.Vector3, to: THREE.Vector3, radius: number): THREE.Vector3 | null {
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    if (len < 1e-6) return null;
+    dir.divideScalar(len);
+    const objs = this.nearby(from, len + radius).map(c => c.object);
+    if (objs.length === 0) return null;
+    const hit = this.hit(from, dir, len + radius, objs);
+    if (!hit) return null;
+    return from.clone().add(dir.multiplyScalar(Math.max(0, hit.distance - radius)));
+  }
+
   /** 腰高度八方向射线，距离小于半径时沿法线推出；返回推出向量。 */
   pushOut(pos: THREE.Vector3, radius: number): THREE.Vector3 {
     const out = new THREE.Vector3();
