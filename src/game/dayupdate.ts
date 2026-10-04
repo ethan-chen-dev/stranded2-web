@@ -23,6 +23,8 @@ export interface DayDeps {
   terrainY(x: number, z: number): number;
   /** 以 0 伤害强制击杀物体（damage_object(0,1)）。 */
   killObject(rec: EntityRecord): void;
+  /** 单位生命归零时的死亡流程（kill_unit）：死亡状态、on:kill、掉落与死亡动画。 */
+  killUnit(rec: EntityRecord): void;
 }
 
 interface SpawnControl {
@@ -138,7 +140,9 @@ export class DayUpdate {
       return;
     }
     const change = u.def?.healthchange ?? 0;
-    if (change !== 0) u.health = Math.max(0, Math.min(u.health + change, u.healthMax));
+    if (change === 0) return;
+    u.health = Math.min(u.health + change, u.healthMax);
+    if (u.health <= 0) this.d.killUnit(u);
   }
 
   private item(it: EntityRecord): void {

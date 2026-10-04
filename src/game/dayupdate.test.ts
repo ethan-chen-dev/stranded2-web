@@ -5,19 +5,21 @@ import { CLS } from './entities';
 import type { MapInfo } from '../formats/s2map';
 
 function setup(infos: MapInfo[] = []) {
+  const killed: number[] = [];
   const tw = makeTestWorld({
     objects: new Map([
       [1, testDef({ id: 1, name: 'Grain', growtime: 3, health: 30 })],
       [2, testDef({ id: 2, name: 'Bush', spawn: { item: 7, rate: 2, xzr: 20, yr: 0, yo: 5, limit: 2, count: 1 } })],
     ]),
-    units: new Map([[1, testDef({ id: 1, name: 'Player' })], [5, testDef({ id: 5, name: 'Turtle' })]]),
+    units: new Map([[1, testDef({ id: 1, name: 'Player' })], [5, testDef({ id: 5, name: 'Turtle' })], [6, testDef({ id: 6, name: 'Sick', health: 100, healthchange: -60 })]]),
     items: new Map([[7, testDef({ id: 7, name: 'Berries' })], [9, testDef({ id: 9, name: 'Meat', health: 100, healthchange: -60 })]]),
   }, flatMap());
   const day = new DayUpdate({
     registry: tw.registry, engine: tw.engine, world: tw.world, terrainY: () => 0,
     random: min => min, killObject: rec => tw.world.remove(rec),
+    killUnit: rec => { rec.dead = true; killed.push(rec.id); },
   }, infos);
-  return { tw, day };
+  return { tw, day, killed };
 }
 
 describe('DayUpdate', () => {
@@ -60,6 +62,18 @@ describe('DayUpdate', () => {
     tw.engine.update(0);
     expect(tw.registry.get(CLS.item, meat.id)).toBeUndefined();
     expect(tw.engine.vars.globals.get('days')).toBe('2');
+  });
+  it('kills a unit the day its health change runs out and clears it the next day', () => {
+    const { tw, day, killed } = setup();
+    const sick = tw.registry.make(CLS.unit, 6, 0, 0, 0, 1, 130);
+    sick.health = 100;
+    sick.healthMax = 100;
+    day.changeDay();
+    expect(killed).toEqual([]);
+    day.changeDay();
+    expect(killed).toEqual([130]);
+    day.changeDay();
+    expect(tw.registry.get(CLS.unit, 130)).toBeUndefined();
   });
   it('spawn controls refill their area every few days, a part at a time', () => {
     const info: MapInfo = { id: 40, typ: 45, x: 0, y: 0, z: 0, pitch: 0, yaw: 0, vars: '', ints: [CLS.unit, 5, 3], floats: [500, 1, 0], strings: ['2', '1', ''] } as MapInfo;

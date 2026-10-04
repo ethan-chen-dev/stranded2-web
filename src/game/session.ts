@@ -285,6 +285,7 @@ export class GameSession {
       registry, engine: this.engine, world: o.world, terrainY,
       random: (a, b) => this.host.random(a, b),
       killObject: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
+      killUnit: rec => this.weapons.kill(rec),
     }, o.map.infos);
     for (const rec of registry.all(CLS.object)) if ((rec.daytimer ?? 0) < 0) applyGrowth(rec, o.world);
     this.itemPhysics = new ItemPhysics({
