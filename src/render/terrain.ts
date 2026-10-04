@@ -6,9 +6,6 @@ export const CELL = 64;
 export const HEIGHT = 3200;
 export const SEA_LEVEL = 1;
 
-/** 颜色贴图 v 方向是否翻转，按视觉核对结果设定。 */
-export const COLORMAP_FLIP_V = true;
-
 export function heightAt(map: MapData, gx: number, gz: number): number {
   const n1 = map.terrainSize + 1;
   return map.heights[gx * n1 + gz] * HEIGHT - HEIGHT / 2;
@@ -65,7 +62,7 @@ export function buildTerrain(map: MapData, detail: THREE.Texture | null): THREE.
       positions[i * 3 + 1] = heightAt(map, gx, gz);
       positions[i * 3 + 2] = -(-half + gz * CELL);
       uvs[i * 2] = gx / n;
-      uvs[i * 2 + 1] = COLORMAP_FLIP_V ? 1 - gz / n : gz / n;
+      uvs[i * 2 + 1] = gz / n;
     }
   }
   const index = new Uint32Array(n * n * 6);
