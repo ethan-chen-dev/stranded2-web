@@ -1,0 +1,15 @@
+Stranded II game assets
+=======================
+
+The files under gfx/, sfx/, skies/, sprites/, maps/ and sys/ on this site are
+the original assets of Stranded II (models, textures, sounds, music, maps and
+definition files), copyright Peter Schauß / Unreal Software.
+https://www.unrealsoftware.de
+
+They are hosted here with the permission of the author (granted by e-mail on
+2026-09-06) solely so that this non-commercial browser remake can run. They are
+not covered by the CC BY-NC-SA license of the remake's source code and may not
+be redistributed or reused outside this site without the author's permission.
+
+Remake source code: https://github.com/ethan-chen-dev/stranded2-web
+Original game:      https://www.unrealsoftware.de/game_stranded2.php
