@@ -74,4 +74,4 @@ For an itch.io upload:
 scripts/pack-itch.sh
 ```
 
-This builds with a relative base, because itch serves the game from an arbitrary path inside a sandboxed iframe, and writes `stranded2-web-itch.zip` with `index.html` at its root.
+This builds with a relative base, because itch serves the game from an arbitrary path inside a sandboxed iframe, and writes `stranded2-web-itch.zip` with `index.html` at its root. itch accepts at most 1000 files per zip, so the script drops the loose non-image game files; the game reads models, sounds, definitions and maps from `assets.zip`, and only images are referenced directly by the interface.
