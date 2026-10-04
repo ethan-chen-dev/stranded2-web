@@ -42,6 +42,14 @@ describe('parseInf', () => {
     expect(withVar).toBeDefined();
     expect(withVar!.vars[0].name.length).toBeGreaterThan(0);
   });
+  it('reads the state effect offset and the align behaviours', () => {
+    const buildings = parseInf(readRefText('sys/objects_buildings.inf')).map(toEntityDef);
+    const torches = buildings.filter(d => d.name === 'Torch');
+    expect(torches.map(t => t.state)).toEqual([[0, 39, 0], 'random']);
+    expect(buildings.find(d => d.name === 'Jetty')?.align).toBe(1);
+    expect(buildings.find(d => d.name === 'Waterpipe')?.align).toBe(2);
+    expect(toEntityDef(parseInf(readRefText('sys/objects_palms.inf'))[0]).state).toBeUndefined();
+  });
   it('reads weapon, find and loot fields', () => {
     const palm = toEntityDef(parseInf(readRefText('sys/objects_palms.inf')).find(e => e.id === 1)!);
     expect(palm.finds.length).toBe(1);

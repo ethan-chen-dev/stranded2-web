@@ -11,18 +11,12 @@ export function registerStates(r: CommandRegistry): void {
   };
   r.register('addstate', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
-    const typ = typOf(ctx, args[next]);
-    if (ctx.engine.states.has(cls, id, typ)) return '0';
-    ctx.engine.states.add(cls, id, typ);
-    ctx.engine.entityEvent(cls, id, 'addstate', String(typ));
-    return '1';
+    return bool(ctx.engine.stateRules.set(cls, id, typOf(ctx, args[next])));
   });
   r.register('freestate', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);
     const typ = args.length > next ? typOf(ctx, args[next]) : undefined;
-    const removed = ctx.engine.states.free(cls, id, typ);
-    for (const s of removed) ctx.engine.entityEvent(cls, id, 'freestate', String(s.typ));
-    return str(removed.length);
+    return str(ctx.engine.stateRules.free(cls, id, typ));
   });
   r.register('gotstate', (ctx, args) => {
     const { cls, id, next } = classId(ctx, args, 0);

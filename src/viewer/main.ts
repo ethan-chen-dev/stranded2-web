@@ -12,6 +12,7 @@ import { buildSky, SKY_FACES, type SkyFace } from '../render/sky';
 import { buildWorld, type Defs } from '../render/world';
 import { FlyControls } from './fly-controls';
 import { GameSession } from '../game/session';
+import { MotionBlur } from '../render/motionblur';
 import { Environment } from '../game/environment';
 import { parseLightcycle } from '../game/lightcycle';
 import { MainMenu } from '../game/menu-ui';
@@ -41,7 +42,11 @@ async function loadDefs(res: Resources): Promise<Defs> {
   const load = (prefix: string) =>
     Promise.all(files.filter(f => f.toLowerCase().startsWith(prefix) && f.toLowerCase().endsWith('.inf')).map(f => res.text(`/sys/${f}`)));
   const [objects, units, items, infos] = await Promise.all([load('objects'), load('units'), load('items'), load('infos')]);
-  return { objects: buildDefTable(objects), units: buildDefTable(units, { mat: 'flesh' }), items: buildDefTable(items), infos: buildDefTable(infos) };
+  // autofade 缺省值依据 load_objects / load_units / load_items.bb
+  return {
+    objects: buildDefTable(objects, { autofade: 500 }), units: buildDefTable(units, { mat: 'flesh', autofade: 500 }),
+    items: buildDefTable(items, { autofade: 225 }), infos: buildDefTable(infos),
+  };
 }
 
 function drawPreview(canvas: HTMLCanvasElement, map: MapData): void {
@@ -198,7 +203,7 @@ async function main(): Promise<void> {
   let session: GameSession | undefined;
   const enterPlay = async () => {
     if (session) return;
-    session = await GameSession.create({ scene, camera, canvas, root: app, map, mapPath, defs, world, res, log, sky, ambient, sun, listFiles, restore: restoreSnap ?? undefined });
+    session = await GameSession.create({ scene, camera, canvas, root: app, map, mapPath, defs, world, res, log, sky, sea, ambient, sun, listFiles, restore: restoreSnap ?? undefined });
     debug.session = session;
     document.body.classList.add('play');
     session.input.requestLock();
@@ -214,6 +219,7 @@ async function main(): Promise<void> {
   });
   if (params.get('menu') === '1' || !resolved || (saveName && !restoreSnap) || (!params.has('map') && !params.has('mode') && !params.has('save'))) menu.show();
 
+  const blur = new MotionBlur(renderer);
   const timer = new THREE.Timer();
   let frames = 0;
   let fpsTime = 0;
@@ -225,7 +231,7 @@ async function main(): Promise<void> {
     sea.update(dt);
     for (const m of world.mixers) m.update(dt);
     sky.position.copy(camera.position);
-    renderer.render(scene, camera);
+    blur.render(scene, camera, session?.blurAlpha() ?? 0);
     frames++;
     fpsTime += dt;
     if (fpsTime >= 0.5) {

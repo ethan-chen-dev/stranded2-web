@@ -67,10 +67,10 @@ export class Combine {
       const stored = this.d.registry.store(item.id, CLS.unit, this.d.playerId);
       const name = this.d.registry.defFor(CLS.item, gen.typ)?.name ?? `#${gen.typ}`;
       if (stored > 0) {
-        this.d.message(`${name} × ${stored}`, 1);
+        this.d.message(`${name} × ${stored}`, 4);
       } else {
         this.d.registry.remove(CLS.item, item.id);
-        this.d.message('No space left', 2);
+        this.d.message('No space left', 3);
         this.d.sound('fail.wav');
       }
       const left = this.d.registry.get(CLS.item, item.id);

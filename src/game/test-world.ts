@@ -15,7 +15,7 @@ import type { Log } from '../viewer/log';
 export function testDef(over: Partial<EntityDef>): EntityDef {
   return {
     id: 0, name: '', model: '', icon: '', scale: [1, 1, 1], color: [255, 255, 255], alpha: 1, fx: 0, autofade: 0,
-    align: 0, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
+    align: 0, blend: 1, swayspeed: 0, swaypower: 0, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
     maxweight: 0, group: '', behaviour: '', mat: '', health: 100, vars: [],
     damage: 0, rate: 500, attackrange: 45, turnspeed: 2, range: 300, loopmoveani: 0, drag: 0, weaponstate: '', findratio: 30, growtime: 0, healthchange: 0, spawn: null, finds: [], loots: [], ...over,
   };
@@ -71,6 +71,7 @@ export function makeTestWorld(defs: Defs, map = flatMap()): TestWorld {
     visibleItems: () => registry.all(CLS.item).filter(r => r.parentMode !== STORED_INSIDE),
     spawnModel: async () => null,
     restyle: () => undefined,
+    takeModel: rec => { const o = rec.object; rec.object = undefined; return o; },
   };
   const log = { info: (m: string) => logs.push(`info: ${m}`), warn: (m: string) => logs.push(`warn: ${m}`), error: (m: string) => logs.push(`error: ${m}`) } as unknown as Log;
   const sound = new Sounds();

@@ -11,6 +11,8 @@ export interface ModelOptions {
   fx?: number;
   color?: [number, number, number];
   alpha?: number;
+  /** EntityBlend：1 正常、2 相乘、3 相加。 */
+  blend?: number;
 }
 
 export class Resources {
@@ -86,7 +88,8 @@ export class Resources {
     const fx = opts.fx ?? 0;
     const color = opts.color ?? [255, 255, 255];
     const alpha = opts.alpha ?? 1;
-    const key = `model:${url}|${fx}|${color.join(',')}|${alpha}`;
+    const blend = opts.blend ?? 1;
+    const key = `model:${url}|${fx}|${color.join(',')}|${alpha}|${blend}`;
     return this.cached(key, async () => {
       let parsed: B3DModel;
       try {
@@ -99,14 +102,14 @@ export class Resources {
         parsed.textures.map(t => this.textureFrom(textureCandidates(url, t.file), t.flags)),
       );
       const tint = new THREE.Color(color[0] / 255, color[1] / 255, color[2] / 255);
-      return b3dToThree(parsed, (brush, texDefs) => makeMaterial(brush, texDefs, textures, fx, tint, alpha));
+      return b3dToThree(parsed, (brush, texDefs) => makeMaterial(brush, texDefs, textures, fx, tint, alpha, blend));
     });
   }
 }
 
 function makeMaterial(
   brush: B3DBrush, texDefs: B3DTexture[], textures: (THREE.Texture | null)[],
-  fx: number, tint: THREE.Color, alpha: number,
+  fx: number, tint: THREE.Color, alpha: number, blend = 1,
 ): THREE.Material {
   const effects = fx | brush.fx;
   const texId = brush.textureIds.find(id => id >= 0);
@@ -124,6 +127,12 @@ function makeMaterial(
     alphaTest: cutout ? 0.5 : 0,
   };
   if (map) params.map = map;
+  if (blend === 2 || blend === 3) {
+    params.blending = blend === 3 ? THREE.AdditiveBlending : THREE.MultiplyBlending;
+    params.transparent = true;
+    params.depthWrite = false;
+    params.alphaTest = 0;
+  }
   return effects & FX_FULLBRIGHT ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
 }
 

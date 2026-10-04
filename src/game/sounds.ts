@@ -21,6 +21,7 @@ export class Sounds {
   private trackVolume = 1;
   private musicVolume = 1;
   private fadeTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly loops = new Map<string, { url: string; audio: HTMLAudioElement }>();
 
   /** 循环播放一段音乐并替换当前曲目；volume 为 0..1。 */
   music(file: string, volume = 1): void {
@@ -40,6 +41,13 @@ export class Sounds {
     }
   }
 
+  /** 暂停或继续当前曲目（水下时环境音换成潜水声）。 */
+  pauseMusic(paused: boolean): void {
+    if (!this.track) return;
+    if (paused) this.track.pause();
+    else void this.track.play().catch(() => undefined);
+  }
+
   stopMusic(): void {
     if (this.fadeTimer) { clearInterval(this.fadeTimer); this.fadeTimer = null; }
     if (this.track) { this.track.pause(); this.track = null; }
@@ -57,6 +65,33 @@ export class Sounds {
       a.volume = from * (1 - t);
       if (t >= 1) this.stopMusic();
     }, 50);
+  }
+
+  /** 按 key 管理的循环音效（雨声、水下环境音等）：同 key 换文件会替换，file 为 null 停止。 */
+  loop(key: string, file: string | null, volume = 100): void {
+    const cur = this.loops.get(key);
+    const url = file ? soundUrl(file) : null;
+    if (cur && cur.url === url) {
+      cur.audio.volume = Math.max(0, Math.min(1, volume / 100));
+      return;
+    }
+    if (cur) { cur.audio.pause(); this.loops.delete(key); }
+    if (!url || !this.enabled || typeof Audio === 'undefined' || this.failed.has(url)) return;
+    try {
+      const a = new Audio(url);
+      a.loop = true;
+      a.volume = Math.max(0, Math.min(1, volume / 100));
+      a.addEventListener('error', () => { this.failed.add(url); });
+      void a.play().catch(() => undefined);
+      this.loops.set(key, { url, audio: a });
+    } catch {
+      this.failed.add(url);
+    }
+  }
+
+  stopLoops(): void {
+    for (const l of this.loops.values()) l.audio.pause();
+    this.loops.clear();
   }
 
   setMusicVolume(v: number): void {

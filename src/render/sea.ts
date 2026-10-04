@@ -5,6 +5,10 @@ import { SEA_LEVEL } from './terrain';
 export interface Sea {
   group: THREE.Group;
   update(dt: number): void;
+  /** watertexture：换水面贴图。 */
+  setTexture(tex: THREE.Texture): void;
+  /** wateralpha：水面贴图层的不透明度。 */
+  setAlpha(a: number): void;
 }
 
 export function buildSea(waterTex: THREE.Texture | null, extent: number): Sea {
@@ -19,26 +23,33 @@ export function buildSea(waterTex: THREE.Texture | null, extent: number): Sea {
   tint.position.y = SEA_LEVEL;
   group.add(tint);
 
-  let surface: THREE.Mesh | undefined;
-  if (waterTex) {
-    waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
-    waterTex.repeat.set(200, 200);
-    surface = new THREE.Mesh(
-      new THREE.PlaneGeometry(extent, extent),
-      new THREE.MeshBasicMaterial({ map: waterTex, transparent: true, opacity: 0.6, depthWrite: false }),
-    );
-    surface.rotation.x = -Math.PI / 2;
-    surface.position.y = SEA_LEVEL + 0.5;
-    group.add(surface);
-  }
+  const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.6, depthWrite: false });
+  const surface = new THREE.Mesh(new THREE.PlaneGeometry(extent, extent), material);
+  surface.rotation.x = -Math.PI / 2;
+  surface.position.y = SEA_LEVEL + 0.5;
+  surface.visible = false;
+  group.add(surface);
+  let tex: THREE.Texture | null = null;
+  const use = (t: THREE.Texture) => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(200, 200);
+    if (tex) t.offset.copy(tex.offset);
+    tex = t;
+    material.map = t;
+    material.needsUpdate = true;
+    surface.visible = true;
+  };
+  if (waterTex) use(waterTex);
 
   return {
     group,
     update(dt) {
-      if (waterTex) {
-        waterTex.offset.x = (waterTex.offset.x + 0.02 * dt) % 1;
-        waterTex.offset.y = (waterTex.offset.y + 0.01 * dt) % 1;
+      if (tex) {
+        tex.offset.x = (tex.offset.x + 0.02 * dt) % 1;
+        tex.offset.y = (tex.offset.y + 0.01 * dt) % 1;
       }
     },
+    setTexture: use,
+    setAlpha(a) { material.opacity = Math.max(0, Math.min(1, a)); },
   };
 }

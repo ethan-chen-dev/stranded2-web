@@ -52,6 +52,10 @@ export class GameScriptHost implements ScriptHost {
   readonly buffer = new TextBuffer();
   readonly diary: DiaryEntry[] = [];
   msgbox: (title: string, text: string) => void = () => undefined;
+  msgwin: (text: string, color: number) => void = () => undefined;
+  waterTexture: (path: string) => void = () => undefined;
+  waterAlpha: (alpha: number) => void = () => undefined;
+  inputwin: (text: string, color: number) => string = () => '';
   dialogue: (page: string, source: string, section?: string) => boolean = () => false;
   extendMessage: (text: string) => void = () => undefined;
   dialogueButton: (id: number, text: string, target: string) => void = () => undefined;
@@ -98,6 +102,17 @@ export class GameScriptHost implements ScriptHost {
   explosion: (x: number, y: number, z: number, range: number, damage: number, style: number) => void = () => undefined;
   skyColor: (o: { color: [number, number, number]; mix: number } | null) => void = () => undefined;
   autosave: () => void = () => undefined;
+  weather: () => number = () => 0;
+  setWeather: (value: string) => boolean = () => false;
+  setClimate: (value: string) => boolean = () => false;
+  setWeatherRatio: (kind: 'rain' | 'snow', percent: number) => void = () => undefined;
+  flash: (r: number, g: number, b: number, speed: number, alpha: number) => void = () => undefined;
+  thunder: () => void = () => undefined;
+  blur: (amount: number) => void = () => undefined;
+  particle: (x: number, y: number, z: number, typ: number, size: number, alpha: number) => void = () => undefined;
+  particleColor: (r: number, g: number, b: number) => void = () => undefined;
+  corona: (x: number, z: number, size: number, color: [number, number, number] | null, speed: number, unitId: number) => void = () => undefined;
+  vomit: (unitId: number) => void = () => undefined;
 
   music(file: string, volume: number): void { this.d.sounds.music(file, volume); }
   stopMusic(): void { this.d.sounds.stopMusic(); }

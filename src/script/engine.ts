@@ -35,10 +35,12 @@ export interface StateRecord {
 
 export class StateStore {
   readonly records: StateRecord[] = [];
+  /** 返回 true 时拒绝添加（set_state 里雨雪不能起火等规则）；被拒的记录不进表。 */
+  veto?: (cls: number, id: number, typ: number) => boolean;
 
   add(cls: number, id: number, typ: number): StateRecord {
     const rec: StateRecord = { typ, cls, id, value: '0' };
-    this.records.push(rec);
+    if (!this.veto?.(cls, id, typ)) this.records.push(rec);
     return rec;
   }
 
@@ -157,6 +159,23 @@ export const STATE_NAMES = new Map<string, number>([
 ]);
 
 export class ScriptEngine {
+  /**
+   * set_state / free_state 的规则。默认只做增删并触发 addstate / freestate；
+   * 游戏会话换成 StateEffects（叠加强度、雨雪与材质限制、光源与特效）。
+   */
+  stateRules: { set(cls: number, id: number, typ: number): boolean; free(cls: number, id: number, typ?: number): number } = {
+    set: (cls, id, typ) => {
+      if (this.states.has(cls, id, typ)) return false;
+      this.states.add(cls, id, typ);
+      this.entityEvent(cls, id, 'addstate', String(typ));
+      return true;
+    },
+    free: (cls, id, typ) => {
+      const removed = this.states.free(cls, id, typ);
+      for (const s of removed) this.entityEvent(cls, id, 'freestate', String(s.typ));
+      return removed.length;
+    },
+  };
   readonly vars = new VarStore();
   readonly states = new StateStore();
   readonly timers = new TimerStore();

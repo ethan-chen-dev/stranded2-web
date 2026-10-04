@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { Weapons, HAND_COOLDOWN_MS } from './weapons';
 import { makeTestWorld, testDef, type TestWorld } from './test-world';
-import { CLS } from './entities';
+import { CLS, STORED_INSIDE } from './entities';
 
 let tw: TestWorld;
 let w: Weapons;
@@ -88,6 +88,22 @@ describe('Weapons', () => {
     expect(tw.registry.all(CLS.item, 7).length).toBe(1);
     expect(w.impact?.kill).toBe(true);
     expect(tw.sounds).toContain('treefall.wav');
+  });
+  it('drops fruit where it hangs and spills stored items when an object is destroyed', () => {
+    const palm = placeAhead(CLS.object, 1);
+    const fallen: THREE.Object3D[] = [];
+    w = new Weapons({ ...(w as unknown as { d: ConstructorParameters<typeof Weapons>[0] }).d, objectFall: m => { fallen.push(m); } });
+    const fruit = tw.registry.make(CLS.item, 15, 3, 35, 30, 1);
+    fruit.parentClass = CLS.object; fruit.parentId = palm.id; fruit.parentMode = 0;
+    const stored = tw.registry.make(CLS.item, 24, 0, 0, 0, 1);
+    stored.parentClass = CLS.object; stored.parentId = palm.id; stored.parentMode = STORED_INSIDE;
+    w.kill(palm);
+    expect([fruit.parentClass, fruit.y]).toEqual([0, 35]);
+    expect(stored.parentClass).toBe(0);
+    expect(stored.parentMode).not.toBe(STORED_INSIDE);
+    expect(Math.abs(stored.x - palm.x)).toBeLessThanOrEqual(5);
+    expect(tw.registry.get(CLS.item, stored.id)).toBeDefined();
+    expect(fallen.length).toBe(1);
   });
   it('drops finds into the inventory by weapon requirement and ratio', () => {
     placeAhead(CLS.object, 1);

@@ -104,11 +104,11 @@ export class Tools {
       const still = registry.get(CLS.item, item.id);
       if (still) world.sync(still);
       else world.remove(item);
-      this.d.message(`Collected ${name} (1)`, 1);
+      this.d.message(`Collected ${name} (1)`, 4);
       this.d.sound('collect.wav');
       return;
     }
-    this.d.message('No space left', 2);
+    this.d.message('No space left', 3);
     this.d.sound('fail.wav');
   }
 }

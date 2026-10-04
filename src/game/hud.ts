@@ -3,7 +3,8 @@ import type { SurvivalStats } from './stats';
 
 const BAR_KEYS = ['health', 'hunger', 'thirst', 'exhaustion'] as const;
 /** 原版 msg 字体色编号到颜色。 */
-const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
+/** 原版 bmpf 字体编号：0 普通、1 高亮、2 暗、3 坏消息、4 好消息、5 小字、6 手写（load_bmpf.bb）。 */
+const FONT_COLORS = ['#ffffff', '#ffee88', '#aaaaaa', '#ff8888', '#88ff88', '#ffffff', '#ffffff'];
 const MAX_MESSAGES = 6;
 
 const HINT_PLAY = 'Click to play. Esc menu, Tab inventory, B build, T diary, Y sleep, F5/F9 quick save and load';

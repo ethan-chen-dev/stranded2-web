@@ -51,6 +51,13 @@ export interface EntityDef {
   autofade: number;
   /** 物体放置方式（load_objects.bb 按 behaviour 设定）：1 不低于水面，2 按地面坡度倾斜。 */
   align: number;
+  /** 状态特效位置（state=）：固定偏移，或 'random' 取模型随机顶点；未写时单位用固定 (0,0,0)，物体与物品取随机顶点。 */
+  state?: [number, number, number] | 'random';
+  /** EntityBlend：1 正常、2 相乘、3 相加（物品定义的 blend=）。 */
+  blend: number;
+  /** 随风摆动：每 f 角度增量与横滚幅度（度）。 */
+  swayspeed: number;
+  swaypower: number;
   anims: Map<string, AnimRange>;
   script?: string;
   /** 物品重量；背包承重按 weight*count 计算。 */
@@ -93,6 +100,13 @@ export interface EntityDef {
   spawn: SpawnRule | null;
   finds: FindEntry[];
   loots: LootEntry[];
+}
+
+function parseStateSpec(v: string | undefined): [number, number, number] | 'random' | undefined {
+  if (v === undefined) return undefined;
+  if (v.trim().toLowerCase() === 'random') return 'random';
+  const [x, y, z] = v.split(',').map(n => blitzFloat(n.trim()));
+  return [x ?? 0, y ?? 0, z ?? 0];
 }
 
 const OBJECT_ALIGN: Record<string, number> = { aligntowater: 1, buildingsite_water: 1, waterpipe_empty: 2, waterpipe_full: 2 };
@@ -203,6 +217,10 @@ export function toEntityDef(e: InfEntry): EntityDef {
     fx: num('fx', 0),
     autofade: num('autofade', 0),
     align: OBJECT_ALIGN[first('behaviour') ?? ''] ?? 0,
+    state: parseStateSpec(first('state')),
+    blend: num('blend', 1),
+    swayspeed: num('swayspeed', 0),
+    swaypower: num('swaypower', 0),
     anims,
     script: e.script,
     weight: num('weight', 0),
@@ -251,6 +269,7 @@ export function buildDefTable(texts: string[], defaults: Partial<EntityDef> = {}
     for (const entry of parseInf(text)) {
       const def = toEntityDef(entry);
       if (defaults.mat && !def.mat) def.mat = defaults.mat;
+      if (defaults.autofade !== undefined && !entry.fields.has('autofade')) def.autofade = defaults.autofade;
       table.set(entry.id, def);
     }
   }

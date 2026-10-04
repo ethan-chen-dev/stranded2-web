@@ -33,7 +33,7 @@ export interface EntityRecord {
   /** 单位死亡后保留尸体，不再参与碰撞与拾取。 */
   dead?: boolean;
   /** 脚本改过的外观（model/scale/fx/color 指令），覆盖定义里的值。 */
-  look?: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] };
+  look?: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number]; blend?: number };
   /** 物体的天数计数（原版 daytimer）：为负表示还在生长，非负时用于按 spawn 周期生成物品。 */
   daytimer?: number;
   /** freeze 指令冻结：AI 与动画停住，玩家不响应输入；死亡时解除。 */

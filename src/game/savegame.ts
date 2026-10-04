@@ -52,6 +52,15 @@ export interface Snapshot {
   mapScript?: string;
   /** 刷新点距上次补充的天数。 */
   spawnDays?: [number, number][];
+  /** 天气、气候与每日雨雪概率；旧存档没有，读档时保留地图开局天气。 */
+  weather?: WeatherSnap;
+}
+
+export interface WeatherSnap {
+  current: number;
+  climate: number;
+  rain: number;
+  snow: number;
 }
 
 export interface SnapshotSource {
@@ -73,6 +82,7 @@ export interface SnapshotSource {
   /** 已在地图上显示的标记信息点；旧存档没有这项。 */
   indicators?: number[];
   spawnDays?: [number, number][];
+  weather?: WeatherSnap;
 }
 
 export interface RestoreTarget {
@@ -93,6 +103,7 @@ export interface RestoreTarget {
   setPaths(paths: { unitId: number; nodes: number[] }[]): void;
   setIndicators(ids: number[]): void;
   setSpawnDays(days: [number, number][]): void;
+  setWeather(w: WeatherSnap): void;
 }
 
 export function snapshot(s: SnapshotSource): Snapshot {
@@ -129,6 +140,7 @@ export function snapshot(s: SnapshotSource): Snapshot {
     indicators: s.indicators,
     scripts: s.engine.instanceScriptEntries(),
     spawnDays: s.spawnDays,
+    weather: s.weather,
     mapScript: s.engine.mapScriptText(),
   };
 }
@@ -183,6 +195,7 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
   t.setPaths(snap.paths ?? []);
   if (snap.indicators) t.setIndicators(snap.indicators);
   if (snap.spawnDays) t.setSpawnDays(snap.spawnDays);
+  if (snap.weather) t.setWeather(snap.weather);
   if (snap.scripts) t.engine.loadInstanceScripts(snap.scripts);
   if (snap.mapScript !== undefined) t.engine.setMapScript(snap.mapScript);
   t.clock.day = snap.clock.day;

@@ -75,6 +75,31 @@ describe('commands', () => {
     run(`clear; add "Hahaha"; msg_extend;`);
     expect(host.extended).toEqual(['Hahaha']);
   });
+  it('weather, climate and the daily ratios', () => {
+    run(`weather 1; $w=getweather(); weather "hail"; climate 3; rainratio 25; snowratio 5;`);
+    expect(g('w')).toBe('1');
+    expect(host.weatherLog).toEqual(['weather 1', 'weather hail', 'climate 3', 'rain 25', 'snow 5']);
+    expect(host.logs.some(l => l.includes("'hail' is no valid weather"))).toBe(true);
+  });
+  it('effect commands pass the original defaults', () => {
+    run(`flash 255,0,0; flash 1,2,3,0.2,0.5; thunder; blur 0.4; particle 1,2,3,20; particle 1,2,3,20,4,0.5; particlec 9,8,7; corona 10,20; corona 10,20,30,1,2,3,2,self; vomit self;`, { cls: CLASS.unit, id: 5, event: 'use', info: '' });
+    expect(host.effects).toEqual([
+      'flash 255,0,0,0.05,1.1', 'flash 1,2,3,0.2,0.5', 'thunder', 'blur 0.4',
+      'particle 1,2,3,20,1,1', 'particle 1,2,3,20,4,0.5', 'particlec 9,8,7',
+      'corona 10,20,20,-,1,0', 'corona 10,20,30,1/2/3,2,5', 'vomit 5',
+    ]);
+  });
+  it('msgwin and inputwin', () => {
+    host.inputAnswer = 'Ana';
+    run(`msgwin "GAME OVER!",3; $n=inputwin("Your name:",4);`);
+    expect(host.msgwins).toEqual(['GAME OVER!|3', 'input Your name:|4']);
+    expect(g('n')).toBe('Ana');
+  });
+  it('blend sets the blend mode on the current or given entity', () => {
+    host.add(CLASS.object, 4, 1);
+    run(`blend 3,"object",1;`);
+    expect(host.looks.get('1:1')).toEqual({ blend: 3 });
+  });
   it('freeze, playerspotted and autosave', () => {
     host.add(CLASS.unit, 2, 30);
     run(`freeze 30; $a=freeze(30,2); freeze 30,0; $b=freeze(30,2); freeze 0,1; $c=freeze(1,2);`);

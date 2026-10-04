@@ -45,6 +45,8 @@ export class Player {
   fallStart = -1;
   swimming = false;
   movedThisFrame = false;
+  /** 本帧站在地面上（原版 gt-phy_fall<20，脚步声只在着地时播放）。 */
+  onGround = false;
   jumpedThisFrame = false;
 
   constructor(pos: THREE.Vector3, yaw: number, pitch: number) {
@@ -57,13 +59,20 @@ export class Player {
     return this.position.y > PLAYER.seaSwimY;
   }
 
+  /** 鼠标灵敏度倍数（选项菜单）。 */
+  lookScale = 1;
+  /** 眩晕状态下左右反转（set_xinvert）。 */
+  invertX = false;
+
   update(dtMs: number, nowMs: number, input: PlayerInput, ground: Ground, collider: ObjectCollider | null): void {
     const dt = dtMs / 1000;
     this.movedThisFrame = false;
     this.jumpedThisFrame = false;
+    this.onGround = false;
 
-    this.yaw -= input.lookDx * PLAYER.lookSensitivity;
-    this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch - input.lookDy * PLAYER.lookSensitivity));
+    const look = PLAYER.lookSensitivity * this.lookScale;
+    this.yaw -= input.lookDx * look * (this.invertX ? -1 : 1);
+    this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch - input.lookDy * look));
 
     const fb = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
     const lr = (input.right ? 1 : 0) - (input.left ? 1 : 0);
@@ -112,6 +121,7 @@ export class Player {
         if (this.position.y <= groundY) {
           this.position.y = groundY;
           this.fallStart = nowMs;
+          this.onGround = true;
           if (input.jump) {
             this.jumpUntil = nowMs + PLAYER.jumpTimeMs;
             this.jumpedThisFrame = true;

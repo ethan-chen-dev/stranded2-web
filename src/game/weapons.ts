@@ -3,6 +3,7 @@
  * 规则来自原版 game_weapons.bb、game_functions.bb、handle_objects.bb、handle_units.bb。
  */
 import * as THREE from 'three';
+import { P, type ParticleHandle } from '../render/particles';
 import type { EntityRegistry, EntityRecord } from './entities';
 import { CLS, STORED_INSIDE } from './entities';
 import type { ScriptEngine } from '../script/engine';
@@ -20,6 +21,7 @@ export const STATE_INVULNERABILITY = 17;
 /** 各材质的命中音效数量（sfx/mat_<材质><n>.wav），与原版 material_fx 一致。 */
 const MATERIAL_SOUNDS: Record<string, number> = { flesh: 5, wood: 2, stone: 1, leaf: 4, metal: 1, dust: 1, fruit: 2, glass: 2 };
 
+const STATE_FIRE = 4;
 export const MELEE_BEHAVIOURS = new Set(['blade', 'fastblade', 'slowblade', 'hammer', 'spade', 'net', 'fishingrod', 'torch']);
 /** 需要弹药并发射投射物的武器。 */
 export const RANGED_BEHAVIOURS = new Set(['bow', 'slingshot', 'launcher', 'catapult']);
@@ -45,6 +47,14 @@ export interface AttackDeps {
   onUnitDied?(rec: EntityRecord): void;
   /** 单位被玩家打中且未死亡时的回调，用于 AI 受击反应。 */
   onUnitHurt?(rec: EntityRecord): void;
+  /** material_fx：受击处按材质生成粒子并播放音效（Blitz 坐标）；未接入时只播放材质音效。 */
+  materialFx?(x: number, y: number, z: number, mat: string): void;
+  /** 生成粒子（Blitz 坐标）；未接入时没有挥砍弧光、命中闪光、枪口烟与水花。 */
+  particle?(x: number, y: number, z: number, typ: number, size?: number, a?: number): ParticleHandle | null;
+  /** 特效档位 set_effects。 */
+  effects?(): number;
+  /** 被摧毁物体的模型倾倒下沉（Cp_fall），播完后移除。 */
+  objectFall?(model: THREE.Object3D): void;
 }
 
 export interface StrikeTarget {
@@ -137,7 +147,7 @@ export class Weapons {
     if (THROW_BEHAVIOURS.has(beh)) return this.throwItem(now, item!, def!);
     if (!this.reportedUnsupported.has(beh)) {
       this.reportedUnsupported.add(beh);
-      this.d.message(`Weapon type ${beh} is not implemented yet`, 2);
+      this.d.message(`Weapon type ${beh} is not implemented yet`, 3);
     }
     return 'unsupported';
   }
@@ -151,8 +161,11 @@ export class Weapons {
     this.d.sound(beh === 'fastblade' ? 'swing_fast.wav' : 'swing_slow.wav');
 
     const hit = this.pick(range);
+    this.d.particle?.(this.d.random(-1, 2), 0, 0, P.attack, 12, 0.5);
     if (!hit) return 'miss';
-    this.strike({ cls: hit.cls, id: hit.id, x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground }, damage, this.weaponTyp, this.weaponTyp);
+    const at = { x: hit.point.x, y: hit.point.y, z: -hit.point.z };
+    this.strike({ cls: hit.cls, id: hit.id, ...at, ground: hit.ground }, damage, this.weaponTyp, this.weaponTyp);
+    if (!hit.ground) this.d.particle?.(at.x, at.y, at.z, P.impact, 4 + Math.random() * 8, 0.4 + Math.random() * 0.2)?.order(-1);
     return 'hit';
   }
 
@@ -164,7 +177,7 @@ export class Weapons {
   private shoot(now: number, item: EntityRecord, def: EntityDef, hitscan: boolean): AttackResult {
     const ammo = this.ammoFor(def.id);
     if (!ammo || !ammo.def) {
-      this.d.message('No ammunition', 2);
+      this.d.message('No ammunition', 3);
       this.d.sound('fail.wav');
       this.d.engine.entityEvent(CLS.item, item.id, 'noammo');
       return 'blocked';
@@ -176,15 +189,47 @@ export class Weapons {
     const ammoTyp = ammo.typ;
     const damage = def.damage * ammoDef.damage;
     this.d.registry.consume(ammo.id, 1);
-    this.d.sound(hitscan ? 'shot.wav' : 'bow.wav');
+    this.d.sound(hitscan ? 'shot.wav' : def.behaviour === 'launcher' ? 'launch.wav' : 'bow.wav');
+    if (def.behaviour === 'launcher' && (this.d.effects?.() ?? 1) > 0) {
+      const eye = this.d.eye();
+      const r = (a: number, b: number) => a + Math.random() * (b - a);
+      for (let i = 0; i < 5; i++) this.d.particle?.(eye.x + r(-3, 3), eye.y + r(-3, 3), -eye.z + r(-3, 3), P.smoke, r(5, 7), r(0.4, 0.7));
+    }
     if (hitscan) {
       const hit = this.pick(def.speed);
+      this.gunFx(hit ? { x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground } : null, def.speed);
       if (!hit) return 'miss';
       this.strike({ cls: hit.cls, id: hit.id, x: hit.point.x, y: hit.point.y, z: -hit.point.z, ground: hit.ground }, damage, def.id, ammoTyp);
       return 'hit';
     }
     this.launcher!.fire({ typ: ammoTyp, weaponTyp: def.id, ammoTyp, spawner: this.d.playerId, ...this.muzzle(), speed: def.speed, drag: def.drag + ammoDef.drag, damage });
     return 'fired';
+  }
+
+  /**
+   * 枪的特效（game_weapons.bb）：枪口烟；弹道穿过水面处的涟漪、水花与水下气泡；打在地面冒烟。弹道线不画。
+   */
+  private gunFx(hit: { x: number; y: number; z: number; ground: boolean } | null, range: number): void {
+    const p = this.d.particle;
+    if (!p) return;
+    const eye = this.d.eye();
+    const from = { x: eye.x, y: eye.y, z: -eye.z };
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    if ((this.d.effects?.() ?? 1) > 0) for (let i = 0; i < 5; i++) p(from.x + r(-3, 3), from.y + r(-3, 3), from.z + r(-3, 3), P.smoke, r(5, 7), r(0.15, 0.4));
+    const dir = this.d.dir();
+    const to = hit ?? { x: from.x + dir.x * range, y: from.y + dir.y * range, z: from.z - dir.z * range };
+    if ((from.y < 0) !== (to.y < 0)) {
+      const t = from.y / (from.y - to.y);
+      const wx = from.x + (to.x - from.x) * t;
+      const wz = from.z + (to.z - from.z) * t;
+      p(wx, 1, wz, P.rwave, r(5, 10), r(0.9, 1.5));
+      if (from.y >= 0) p(wx, 1, wz, P.splash, r(15, 20), 1);
+    }
+    if (to.y < 0) for (let s = 0; s <= 1; s += 0.1) {
+      const y = from.y + (to.y - from.y) * s;
+      if (y < 0 && this.d.random(1, 2) === 1) p(from.x + (to.x - from.x) * s, y, from.z + (to.z - from.z) * s, P.bubbles, r(1, 3), r(0.3, 0.5));
+    }
+    if (hit?.ground) p(hit.x, hit.y, hit.z, P.smoke, r(5, 10), r(0.3, 1.5));
   }
 
   private throwItem(now: number, item: EntityRecord, def: EntityDef): AttackResult {
@@ -212,17 +257,15 @@ export class Weapons {
    * 对背包里的武器与弹药触发 impact 事件（不在背包时以类型脚本执行），命中物体时按 find 掉落。
    * 返回 impact 脚本是否 skipevent。
    */
-  strike(hit: StrikeTarget, damage: number, weaponTyp: number, ammoTyp: number): boolean {
+  strike(hit: StrikeTarget, damage: number, weaponTyp: number, ammoTyp: number, wet = false): boolean {
     const typs = weaponTyp === ammoTyp || ammoTyp === 0 ? [weaponTyp] : [weaponTyp, ammoTyp];
     if (!hit.ground) {
       for (const typ of typs) {
         const state = this.d.registry.defFor(CLS.item, typ)?.weaponstate;
         if (!state) continue;
         const st = this.d.engine.stateType(state);
-        if (st > 0 && !this.d.engine.states.has(hit.cls, hit.id, st)) {
-          this.d.engine.states.add(hit.cls, hit.id, st);
-          this.d.engine.entityEvent(hit.cls, hit.id, 'addstate', String(st));
-        }
+        // state_depleted：穿过水的投射物带不上火
+        if (st > 0 && !(wet && st === STATE_FIRE)) this.d.engine.stateRules.set(hit.cls, hit.id, st);
       }
     }
     this.impact = { cls: hit.ground ? 0 : hit.cls, id: hit.ground ? 0 : hit.id, kill: false, x: hit.x, y: hit.y, z: hit.z, ground: hit.ground, damage, weapon: weaponTyp };
@@ -230,7 +273,7 @@ export class Weapons {
     const target = hit.ground ? undefined : this.d.registry.get(hit.cls, hit.id);
     if (!hit.ground) {
       this.lastKill = false;
-      damaged = this.damage(hit.cls, hit.id, damage, 'player');
+      damaged = this.damage(hit.cls, hit.id, damage, 'player', { x: hit.x, y: hit.y, z: hit.z });
       this.impact.kill = this.lastKill;
     }
     let skip = false;
@@ -330,7 +373,7 @@ export class Weapons {
   }
 
   /** 触发 hit、扣生命、必要时击杀；返回是否命中了实体。 */
-  damage(cls: number, id: number, amount: number, causer: 'player' | 'other'): boolean {
+  damage(cls: number, id: number, amount: number, causer: 'player' | 'other', at?: { x: number; y: number; z: number }): boolean {
     if (cls === CLS.unit && id === this.d.playerId) {
       this.d.stats.health = Math.max(0, this.d.stats.health - amount);
       return true;
@@ -339,7 +382,12 @@ export class Weapons {
     if (!rec) return false;
     if (causer === 'player') this.d.engine.entityEvent(cls, id, 'hit');
     if (!this.d.engine.states.has(cls, id, STATE_INVULNERABILITY)) rec.health -= amount;
-    this.materialSound(rec.def?.mat ?? '');
+    if (this.d.materialFx) {
+      const p = at ?? { x: rec.x, y: rec.y + (cls === CLS.unit ? rec.def?.eyes ?? 0 : 0), z: rec.z };
+      this.d.materialFx(p.x, p.y, p.z, rec.def?.mat ?? '');
+    } else {
+      this.materialSound(rec.def?.mat ?? '');
+    }
     if (rec.health <= 0) {
       rec.health = 0;
       this.kill(rec);
@@ -356,24 +404,40 @@ export class Weapons {
     this.d.sound(`mat_${mat.trim().toLowerCase()}${this.d.random(1, n)}.wav`);
   }
 
+  /**
+   * drop_childs(...,1)：挂在外面的子物品留在原处自由下落；收在里面的散落到物体包围盒内
+   * （x 在 ±半宽、高度在 0..半宽、z 在 -半深..0，后者沿用原版笔误 sz#）。
+   */
+  private dropChildren(rec: EntityRecord): void {
+    const box = rec.object ? new THREE.Box3().setFromObject(rec.object) : null;
+    const size = box && !box.isEmpty() ? box.getSize(new THREE.Vector3()) : new THREE.Vector3();
+    const xs = size.x / 2;
+    const zs = size.z / 2;
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    for (const item of [...this.d.registry.all(CLS.item)]) {
+      if (item.parentClass !== CLS.object || item.parentId !== rec.id) continue;
+      if (item.parentMode === STORED_INSIDE) {
+        item.x = rec.x + r(-xs, xs);
+        item.y = rec.y + r(0, xs);
+        item.z = rec.z + r(-zs, 0);
+        item.parentMode = 0;
+      }
+      item.parentClass = 0;
+      item.parentId = 0;
+      this.d.world.sync(item);
+    }
+  }
+
   kill(rec: EntityRecord): void {
     this.lastKill = true;
     switch (rec.cls) {
       case CLS.object: {
         this.d.engine.runNow(CLS.object, rec.id, 'kill');
         if (rec.def?.behaviour === 'tree') this.d.sound('treefall.wav');
-        for (const item of this.d.registry.all(CLS.item)) {
-          if (item.parentClass === CLS.object && item.parentId === rec.id && item.parentMode !== STORED_INSIDE) {
-            item.parentClass = 0;
-            item.parentId = 0;
-            item.x = rec.x;
-            item.z = rec.z;
-            item.y = this.d.terrainY(rec.x, -rec.z);
-            this.d.world.sync(item);
-          }
-        }
-        this.d.engine.states.free(CLS.object, rec.id);
+        this.dropChildren(rec);
+        const model = this.d.world.takeModel(rec);
         this.d.world.remove(rec);
+        if (model) this.d.objectFall?.(model);
         break;
       }
       case CLS.unit: {
@@ -433,13 +497,13 @@ export class Weapons {
     const stored = this.d.registry.store(item.id, CLS.unit, this.d.playerId);
     const name = this.d.registry.defFor(CLS.item, typ)?.name ?? `#${typ}`;
     if (stored > 0) {
-      this.d.message(`Collected ${name} (${stored})`, 1);
+      this.d.message(`Collected ${name} (${stored})`, 4);
       this.d.sound('collect.wav');
       const left = this.d.registry.get(CLS.item, item.id);
       if (left && left.parentMode !== STORED_INSIDE) this.d.registry.remove(CLS.item, item.id);
     } else {
       this.d.registry.remove(CLS.item, item.id);
-      this.d.message('No space left', 2);
+      this.d.message('No space left', 3);
       this.d.sound('fail.wav');
     }
   }

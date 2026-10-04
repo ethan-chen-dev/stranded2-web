@@ -44,6 +44,13 @@ export class FakeHost implements ScriptHost {
   uiTexts = new Map<number, string>();
   menu = 0;
   msgbox(title: string, text: string): void { this.boxes.push({ title, text }); this.menu = 21; }
+  msgwins: string[] = [];
+  water: string[] = [];
+  waterTexture(path: string): void { this.water.push(`texture ${path}`); }
+  waterAlpha(alpha: number): void { this.water.push(`alpha ${alpha}`); }
+  inputAnswer = '';
+  msgwin(text: string, color: number): void { this.msgwins.push(`${text}|${color}`); }
+  inputwin(text: string, color: number): string { this.msgwins.push(`input ${text}|${color}`); return this.inputAnswer; }
   dialogue(page: string, source: string, section?: string): boolean { this.dialogues.push({ page, source, section }); this.menu = 26; return true; }
   looks = new Map<string, object>();
   setLook(cls: number, id: number, look: object): boolean { if (!this.entity(cls, id)) return false; this.looks.set(`${cls}:${id}`, { ...this.looks.get(`${cls}:${id}`), ...look }); return true; }
@@ -68,6 +75,20 @@ export class FakeHost implements ScriptHost {
   autosaves = 0;
   playerSpotted(): boolean { return this.spotted; }
   autosave(): void { this.autosaves++; }
+  currentWeather = 0;
+  weatherLog: string[] = [];
+  weather(): number { return this.currentWeather; }
+  setWeather(value: string): boolean { this.weatherLog.push(`weather ${value}`); if (!/^[0-3]$/.test(value)) return false; this.currentWeather = Number(value); return true; }
+  setClimate(value: string): boolean { this.weatherLog.push(`climate ${value}`); return /^[0-5]$/.test(value); }
+  setWeatherRatio(kind: 'rain' | 'snow', percent: number): void { this.weatherLog.push(`${kind} ${percent}`); }
+  effects: string[] = [];
+  flash(r: number, g: number, b: number, speed: number, alpha: number): void { this.effects.push(`flash ${r},${g},${b},${speed},${alpha}`); }
+  thunder(): void { this.effects.push('thunder'); }
+  blur(amount: number): void { this.effects.push(`blur ${amount}`); }
+  particle(x: number, y: number, z: number, typ: number, size: number, alpha: number): void { this.effects.push(`particle ${x},${y},${z},${typ},${size},${alpha}`); }
+  particleColor(r: number, g: number, b: number): void { this.effects.push(`particlec ${r},${g},${b}`); }
+  corona(x: number, z: number, size: number, color: [number, number, number] | null, speed: number, unitId: number): void { this.effects.push(`corona ${x},${z},${size},${color?.join('/') ?? '-'},${speed},${unitId}`); }
+  vomit(unitId: number): void { this.effects.push(`vomit ${unitId}`); }
   timers = new Map<number, number>();
   spawnTimer(id: number, value?: number): number { if (!this.entity(1, id)) return 0; if (value !== undefined) this.timers.set(id, value); return this.timers.get(id) ?? 0; }
   frozen = new Set<number>();

@@ -34,7 +34,8 @@ export interface CrackLock {
   success(): void;
 }
 
-const FONT_COLORS = ['#ffffff', '#88ff88', '#ff8888', '#ffee88', '#aaaaaa', '#88ff88', '#ff8888'];
+/** 原版 bmpf 字体编号：0 普通、1 高亮、2 暗、3 坏消息、4 好消息、5 小字、6 手写（load_bmpf.bb）。 */
+const FONT_COLORS = ['#ffffff', '#ffee88', '#aaaaaa', '#ff8888', '#88ff88', '#ffffff', '#ffffff'];
 
 export interface DiaryEntry {
   title: string;
@@ -113,7 +114,14 @@ export class Panels {
 
   msgbox(title: string, text: string, onClose?: () => void): void {
     this.show(MENU_MSGBOX, title, text, false);
+    this.titleEl.style.color = '';
     this.buttonsEl.replaceChildren(this.button('OK', () => { this.close(); onClose?.(); }));
+  }
+
+  /** msgwin（gui_msg）：一行按字体颜色显示的消息与 OK 按钮。 */
+  msgwin(text: string, color: number, onClose?: () => void): void {
+    this.msgbox(text, '', onClose);
+    this.titleEl.style.color = FONT_COLORS[color] ?? '';
   }
 
   dialogue(pages: Map<string, DialoguePage>, page: string): boolean {

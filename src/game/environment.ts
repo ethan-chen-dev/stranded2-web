@@ -2,11 +2,17 @@
 import * as THREE from 'three';
 import { lightColor, ambientColor, fogColor, FOG_NEAR, FOG_FAR, type RGB } from './lightcycle';
 
+const UNDERWATER_FOG_FAR = 500;
+
 export class Environment {
   private readonly skyMaterials: THREE.MeshBasicMaterial[] = [];
   private readonly fog: THREE.Fog;
   /** skycolor 指令的覆盖色；mix 为 0 时直接替换，否则按 mix% 保留昼夜颜色（e_environment.bb）。 */
   override: { color: RGB; mix: number } | null = null;
+  /** 镜头在水下：雾距离 1..500，雾色为光色减去水色（e_environment.bb）。 */
+  underwater = false;
+  /** 水色 env_wcol，watertexture 换贴图时取贴图左上角像素的反色。 */
+  waterColor: RGB = [220, 110, 90];
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -40,6 +46,16 @@ export class Environment {
     this.ambient.color.setRGB(a[0] / 255, a[1] / 255, a[2] / 255, THREE.SRGBColorSpace);
     const luminance = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
     this.sun.intensity = 1.6 * luminance;
+    if (this.underwater) {
+      const w = this.waterColor;
+      this.fog.near = 1;
+      this.fog.far = UNDERWATER_FOG_FAR;
+      this.fog.color.setRGB(Math.max(0, c[0] - w[0]) / 255, Math.max(0, c[1] - w[1]) / 255, Math.max(0, c[2] - w[2]) / 255, THREE.SRGBColorSpace);
+      this.scene.fog = this.fog;
+      return;
+    }
+    this.fog.near = FOG_NEAR;
+    this.fog.far = FOG_FAR;
     if (this.mapFog[3] > 0 || this.forceFog) {
       const f = fogColor(c, [this.mapFog[0], this.mapFog[1], this.mapFog[2]]);
       this.fog.color.setRGB(f[0] / 255, f[1] / 255, f[2] / 255, THREE.SRGBColorSpace);

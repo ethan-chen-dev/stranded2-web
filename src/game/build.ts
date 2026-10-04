@@ -21,6 +21,10 @@ export interface BuildDeps {
   terrainY(x: number, z: number): number;
   message(text: string, font?: number): void;
   sound(file: string): void;
+  /** 工地放下后（game_build.bb 冒烟）。 */
+  onPlaced?(site: EntityRecord): void;
+  /** 建成后（冒烟、物体先进入幽灵状态）。 */
+  onFinished?(rec: EntityRecord): void;
 }
 
 export type HammerResult = 'added' | 'finished' | 'missing' | 'none';
@@ -60,7 +64,7 @@ export class Build {
     if (this.d.engine.runGlobalNow('build_start')) return null;
     const fail = this.checkSpace(b, x, z);
     if (fail) {
-      this.d.message(fail, 2);
+      this.d.message(fail, 3);
       this.d.sound('fail.wav');
       return null;
     }
@@ -71,6 +75,7 @@ export class Build {
     this.d.world.sync(site);
     this.d.engine.states.add(CLS.object, site.id, STATE_BUILDPLACE).value = String(b.id);
     this.lastSite = site.id;
+    this.d.onPlaced?.(site);
     return site;
   }
 
@@ -115,7 +120,7 @@ export class Build {
           stored.parentMode = STORED_INSIDE;
         }
         const name = this.d.registry.defFor(CLS.item, req.typ)?.name ?? `#${req.typ}`;
-        this.d.message(`Added ${name} (${have + 1}/${req.count})`, 1);
+        this.d.message(`Added ${name} (${have + 1}/${req.count})`, 4);
         this.d.sound('build.wav');
         return 'added';
       }
@@ -124,7 +129,7 @@ export class Build {
       this.finish(site, b);
       return 'finished';
     }
-    this.d.message('Missing materials', 2);
+    this.d.message('Missing materials', 3);
     this.d.sound('fail.wav');
     return 'missing';
   }
@@ -139,8 +144,9 @@ export class Build {
     if (!rec) return null;
     rec.yaw = yaw;
     this.d.world.sync(rec);
-    this.d.message('Construction finished', 1);
+    this.d.message('Construction finished', 4);
     this.d.sound('build_finish.wav');
+    this.d.onFinished?.(rec);
     if (b.script) this.d.engine.runText(b.script, { cls, id: rec.id, event: 'build', info: '(buildings.inf-script)' }, `building ${b.id}`);
     this.d.engine.runNow(cls, rec.id, 'build_finish');
     this.d.engine.update(0);

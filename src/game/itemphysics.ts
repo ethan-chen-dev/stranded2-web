@@ -1,7 +1,7 @@
 /**
- * 地上物品的下落与漂浮，依据 cull.bb 的物品部分。只模拟没有父实体、离镜头不超过 autofade+300 的物品；
+ * 地上物品的下落与漂浮，依据 cull.bb 的物品部分。只模拟没有父实体、离镜头不超过 autofade×viewfac+300 的物品；
  * 挂在物体外面的子物品（树上的果子）保持原位。下落速度在 3 秒内加速到 g×f×1.5；
- * 落到地面停在地面上方 1，落到碰撞物体上就停在物体表面。木头和叶子材质会浮，在水里停在 y=-1。
+ * 落到地面停在地面上方 1，落到碰撞物体上就停在物体表面。木头和叶子材质会浮，在水里停在 y=-1 并轻轻摇晃。
  * 我们新建的物品放在地面上，所以会浮的物品从深水底部上浮时不受落地判定影响。
  * 停下的不浮物品暂停模拟，直到有物体被移除（item_phyreset），以免树倒后果子悬空。
  */
@@ -20,6 +20,8 @@ export interface ItemPhysicsDeps {
   /** 从 (x, top, z) 竖直向下到 bottom 之间第一个碰撞物体表面的高度，没有则为 null。 */
   floorBelow(x: number, top: number, bottom: number, z: number): number | null;
   sync(rec: EntityRecord): void;
+  /** 视距系数 set_viewfac，模拟范围为 autofade×viewFac+300。 */
+  viewFac?: number;
 }
 
 interface FallState {
@@ -29,6 +31,8 @@ interface FallState {
 
 export class ItemPhysics {
   private readonly state = new Map<EntityRecord, FallState>();
+  /** 水面摇晃的相位（input.bb 的 in_wa，每 f 加 3 度）。 */
+  private wave = 0;
 
   constructor(private readonly d: ItemPhysicsDeps) {}
 
@@ -39,6 +43,7 @@ export class ItemPhysics {
 
   update(dtMs: number, nowMs: number, camera: { x: number; y: number; z: number }): void {
     const f = dtMs / 20;
+    this.wave = (this.wave + 3 * f) % 360;
     for (const rec of this.d.registry.all(CLS.item)) {
       if (rec.parentClass !== 0) {
         this.state.delete(rec);
@@ -49,7 +54,7 @@ export class ItemPhysics {
         st = { since: nowMs, paused: false };
         this.state.set(rec, st);
       }
-      const range = (rec.def?.autofade ?? 0) + FADE_MARGIN;
+      const range = (rec.def?.autofade ?? 0) * (this.d.viewFac ?? 1) + FADE_MARGIN;
       if (Math.hypot(rec.x - camera.x, rec.y - camera.y, rec.z - camera.z) > range) {
         st.since = nowMs;
         continue;
@@ -73,6 +78,12 @@ export class ItemPhysics {
         rec.y = FLOAT_Y;
         st.since = nowMs;
       }
+    } else {
+      // 浮在水面：俯仰与横滚各按 sin/cos(in_wa + id×20) 摇 1 度
+      const a = (this.wave + rec.id * 20) * Math.PI / 180;
+      rec.pitch = Math.sin(a);
+      rec.roll = Math.cos(a);
+      this.d.sync(rec);
     }
     const ground = this.d.terrainY(rec.x, rec.z);
     if (rec.y < ground + 3 && !(rising && ground + 3 < FLOAT_Y)) {

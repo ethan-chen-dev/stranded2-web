@@ -114,7 +114,7 @@ export interface ScriptHost {
   setPosition(cls: number, id: number, x: number, y: number, z: number): void;
   setRotation(cls: number, id: number, pitch: number, yaw: number, roll: number): void;
   /** model/scale/fx/color 指令：改实体外观，未给的项保持不变。 */
-  setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number] }): boolean;
+  setLook(cls: number, id: number, look: { model?: string; scale?: [number, number, number]; fx?: number; color?: [number, number, number]; blend?: number }): boolean;
   freezeUnit(id: number, on: boolean): void;
   /** spawntimer：读取或设置物体天数计数（设置后按生长进度刷新外观）；物体不存在返回 0。 */
   spawnTimer(id: number, value?: number): number;
@@ -138,6 +138,24 @@ export interface ScriptHost {
   skyColor(o: { color: [number, number, number]; mix: number } | null): void;
   /** 在当前脚本执行完后存到自动存档。 */
   autosave(): void;
+  /** 当前天气：0 晴、1 雨、2 雪、3 雷暴。 */
+  weather(): number;
+  /** weather / climate 命令，参数为编号或名字；无效返回 false。 */
+  setWeather(value: string): boolean;
+  setClimate(value: string): boolean;
+  /** rainratio / snowratio：每天下雨或下雪的百分比。 */
+  setWeatherRatio(kind: 'rain' | 'snow', percent: number): void;
+  /** flash：全屏闪色，speed 为每帧淡出量，alpha 为初始不透明度。 */
+  flash(r: number, g: number, b: number, speed: number, alpha: number): void;
+  thunder(): void;
+  /** blur：脚本动态模糊 0..0.97。 */
+  blur(amount: number): void;
+  /** particle：生成一个 typ 类粒子；particlec 改它的颜色。 */
+  particle(x: number, y: number, z: number, typ: number, size: number, alpha: number): void;
+  particleColor(r: number, g: number, b: number): void;
+  /** corona：在地面 (x, z) 附近生成一团光点，可跟随单位。 */
+  corona(x: number, z: number, size: number, color: [number, number, number] | null, speed: number, unitId: number): void;
+  vomit(unitId: number): void;
   unitFrozen(id: number): boolean;
   /** 返回变化后的生命；kill 为真时降到 0 触发死亡。 */
   changeHealth(cls: number, id: number, delta: number, kill: boolean): number;
@@ -165,6 +183,13 @@ export interface ScriptHost {
   /** 日记条目，按写入顺序。 */
   diary: DiaryEntry[];
   msgbox(title: string, text: string): void;
+  /** watertexture：换水面贴图，并按贴图左上角像素重算水下雾色；wateralpha：水面不透明度。 */
+  waterTexture(path: string): void;
+  waterAlpha(alpha: number): void;
+  /** msgwin：模态消息窗；窗口打开期间 quit 与换图推迟到关闭后。 */
+  msgwin(text: string, color: number): void;
+  /** inputwin：模态输入框，返回输入的文字，取消时返回空串。 */
+  inputwin(text: string, color: number): string;
   /** 打开对话文件的指定页；找不到返回 false。 */
   dialogue(page: string, source: string, section?: string): boolean;
   /** 追加到当前消息框或对话的正文。 */

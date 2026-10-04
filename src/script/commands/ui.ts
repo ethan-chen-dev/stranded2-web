@@ -59,7 +59,25 @@ export function registerUi(r: CommandRegistry): void {
   });
   r.register('builtat', (ctx, args) => str(ctx.host.builtAt(int(args[0] ?? '0'))));
   r.register('lastbuildingsite', ctx => str(ctx.host.lastBuildingSite()));
-  r.register(['corona', 'flash', 'blur', 'particle', 'particlec', 'thunder'], () => { /* 视觉效果不做 */ });
+  /** 画面特效命令，参数与缺省值依据 parser_commands.bb。 */
+  r.register('flash', (ctx, args) => {
+    ctx.host.flash(int(args[0] ?? '255'), int(args[1] ?? '255'), int(args[2] ?? '255'),
+      args[3] === undefined ? 0.05 : num(args[3]), args[4] === undefined ? 1.1 : num(args[4]));
+  });
+  r.register('thunder', ctx => { ctx.host.thunder(); });
+  r.register('blur', (ctx, args) => { ctx.host.blur(num(args[0] ?? '0')); });
+  r.register('particle', (ctx, args) => {
+    if (args.length < 4) return;
+    ctx.host.particle(num(args[0]), num(args[1]), num(args[2]), int(args[3]),
+      args[4] === undefined ? 1 : num(args[4]), args[5] === undefined ? 1 : num(args[5]));
+  });
+  r.register('particlec', (ctx, args) => { ctx.host.particleColor(int(args[0] ?? '0'), int(args[1] ?? '0'), int(args[2] ?? '0')); });
+  r.register('corona', (ctx, args) => {
+    const color: [number, number, number] | null = args.length >= 6 ? [int(args[3]), int(args[4]), int(args[5])] : null;
+    const unit = args[7] === undefined ? 0 : args[7] === 'self' ? ctx.env.id : int(args[7]);
+    ctx.host.corona(num(args[0] ?? '0'), num(args[1] ?? '0'), args[2] === undefined ? 20 : num(args[2]), color,
+      args[6] === undefined ? 1 : num(args[6]), unit);
+  });
   /** explosion x,y,z[,range[,damage[,style]]]：范围内的物体、单位与未收纳物品受伤害（game_functions.bb game_explosion）。 */
   r.register(['explosion', 'explode'], (ctx, args) => {
     ctx.host.explosion(num(args[0] ?? '0'), num(args[1] ?? '0'), num(args[2] ?? '0'),
@@ -156,7 +174,17 @@ export function registerUi(r: CommandRegistry): void {
     ctx.host.exchange(cls, id, allowStore, args.slice(next + 1).map(a => int(a)).filter(t => t > 0));
   });
   r.register('inview', (ctx, args) => { const { cls, id } = classId(ctx, args, 0); return bool(ctx.host.inView(cls, id)); });
-  r.register('getweather', () => '0');
+  r.register('getweather', ctx => String(ctx.host.weather()));
+  r.register('weather', (ctx, args) => {
+    const v = String(args[0] ?? '');
+    if (!ctx.host.setWeather(v)) ctx.host.log('warn', `'${v}' is no valid weather`);
+  });
+  r.register('climate', (ctx, args) => {
+    const v = String(args[0] ?? '');
+    if (!ctx.host.setClimate(v)) ctx.host.log('warn', `'${v}' is no valid climate`);
+  });
+  r.register('rainratio', (ctx, args) => { ctx.host.setWeatherRatio('rain', num(args[0] ?? '0')); });
+  r.register('snowratio', (ctx, args) => { ctx.host.setWeatherRatio('snow', num(args[0] ?? '0')); });
   /** 外观指令的实体参数在前面的值之后：省略时为当前实体。 */
   const look = (ctx: CommandContext, args: Value[], at: number, value: Parameters<CommandContext['host']['setLook']>[2], name: string) => {
     const { cls, id } = classId(ctx, args, at);
@@ -175,7 +203,14 @@ export function registerUi(r: CommandRegistry): void {
     if (int(args[0] ?? '0') !== 1) { ctx.host.skyColor(null); return; }
     ctx.host.skyColor({ color: [int(args[1] ?? '0'), int(args[2] ?? '0'), int(args[3] ?? '0')], mix: int(args[4] ?? '0') });
   });
-  r.register(['blend', 'vomit', 'hidden', 'wateralpha', 'watertexture'], () => { /* 视觉效果不做 */ });
+  r.register('msgwin', (ctx, args) => { ctx.host.msgwin(args[0] ?? '', int(args[1] ?? '0')); });
+  r.register('inputwin', (ctx, args) => ctx.host.inputwin(args[0] ?? '', int(args[1] ?? '0')));
+  r.register('vomit', (ctx, args) => { ctx.host.vomit(args[0] === 'self' || args[0] === undefined ? ctx.env.id : int(args[0])); });
+  r.register('watertexture', (ctx, args) => { ctx.host.waterTexture(args[0] ?? ''); });
+  r.register('wateralpha', (ctx, args) => { ctx.host.waterAlpha(num(args[0] ?? '1')); });
+  /** blend mode[,class,id]：1 正常、2 相乘、3 相加。 */
+  r.register('blend', (ctx, args) => { look(ctx, args, 1, { blend: int(args[0] ?? '1') }, 'blend'); });
+  r.register('hidden', () => { /* 视觉效果不做 */ });
   r.register('map', ctx => { ctx.host.openMap(); });
   for (const [name, on] of [['showindicator', true], ['hideindicator', false]] as const) {
     r.register(name, (ctx, args) => {

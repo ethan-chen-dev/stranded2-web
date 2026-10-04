@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { Weapons } from './weapons';
-import { Projectiles, TIMEOUT_MS } from './projectiles';
+import { Projectiles, TIMEOUT_MS, projectileTail } from './projectiles';
 import { makeTestWorld, testDef, type TestWorld } from './test-world';
 import { CLS, STORED_INSIDE, type EntityRecord } from './entities';
 
@@ -168,5 +168,44 @@ describe('Projectiles', () => {
     expect(bag(57)).toBe(2);
     expect(raptor.health).toBe(92);
     expect(pr.list).toHaveLength(0);
+  });
+});
+
+describe('projectile tails and impacts', () => {
+  it('picks the tail from weapon state, ammo state and behaviour like pro_add', () => {
+    expect(projectileTail('', null, 'ammo:50', false).tail).toBe('none');
+    expect(projectileTail('fire', null, '', false).tail).toBe('fire');
+    expect(projectileTail('fire', null, '', true).tail).toBe('smoke');
+    expect(projectileTail('', 'intoxication', '', false).tail).toBe('poison');
+    expect(projectileTail('', '', 'rocket ammo:81', false).tail).toBe('fire');
+    const s = projectileTail('', '', 'asmoke:128,64,0,1 ammo:51', false);
+    expect([s.tail, s.color, s.additive]).toEqual(['asmoke', [128, 64, 0], true]);
+    expect(projectileTail('', '', 'asupersparkle:1,2,3', false).set[0]).toBe(3);
+    expect(projectileTail('', '', 'aresfade', false).set).toEqual([0.15, 0.2]);
+  });
+  it('rockets explode where they land and do no direct damage', () => {
+    setup();
+    const booms: number[][] = [];
+    tw.registry.defs.items.set(81, testDef({ id: 81, name: 'Rocket', behaviour: 'rocket ammo:80', damage: 5, weight: 1 }));
+    pr = new Projectiles({
+      registry: tw.registry, world: tw.world, engine: tw.engine, weapons: w, playerId: 1,
+      terrainY: () => ground, now: () => now,
+      explosion: (x, y, z, range, damage, style) => { booms.push([range, damage, style]); },
+    });
+    pr.fire({ typ: 81, weaponTyp: 81, ammoTyp: 81, spawner: 1, x: 0, y: 5, z: 0, pitch: 89, yaw: 0, speed: 10, drag: 0, damage: 40 });
+    for (let i = 0; i < 5; i++) { now += 50; pr.update(50); }
+    expect(booms).toEqual([[100, 40, 1]]);
+  });
+  it('a fire arrow that went through water no longer sets things on fire', () => {
+    setup();
+    tw.registry.defs.items.set(60, testDef({ id: 60, name: 'Fire Arrow', behaviour: 'ammo:50', weaponstate: 'fire', drag: 0, damage: 1, weight: 5 }));
+    const raptor = tw.registry.make(CLS.unit, 2, 0, -40, 50, 1);
+    raptor.health = 100;
+    const shot = pr.fire({ typ: 60, weaponTyp: 50, ammoTyp: 60, spawner: 1, x: 0, y: 10, z: 0, pitch: 45, yaw: 0, speed: 10, drag: 0, damage: 1 });
+    ground = -100;
+    for (let i = 0; i < 20 && pr.list.length; i++) { now += 50; pr.update(50); }
+    expect(shot.wet).toBe(true);
+    expect(raptor.health).toBeLessThan(100);
+    expect(tw.engine.states.has(CLS.unit, raptor.id, 4)).toBe(false);
   });
 });

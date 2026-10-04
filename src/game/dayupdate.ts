@@ -1,7 +1,7 @@
 /**
  * 逐日更新，依据 game_changeday.bb 的 game_cd、handle_objects.bb 的 grow_object 与 handle_infos.bb 的
  * info_spawncontrol：每过一天触发 changeday 脚本事件，物体生长或按 spawn 生成物品、按 healthchange 增减生命，
- * 单位增减生命或清理尸体，地上物品增减生命（腐烂），刷新点补足单位、物体或物品。天气没有实现。
+ * 单位增减生命或清理尸体，地上物品增减生命（腐烂），换天气，刷新点补足单位、物体或物品。
  */
 import { CLS, STORED_INSIDE, type EntityRecord, type EntityRegistry } from './entities';
 import type { ScriptEngine } from '../script/engine';
@@ -25,6 +25,10 @@ export interface DayDeps {
   killObject(rec: EntityRecord): void;
   /** 单位生命归零时的死亡流程（kill_unit）：死亡状态、on:kill、掉落与死亡动画。 */
   killUnit(rec: EntityRecord): void;
+  /** 天气分支，在物品之后、刷新点之前。 */
+  changeWeather?(): void;
+  /** 刷新点生成的实体在视野内 3000 以内时冒生成光点。 */
+  spawnFx?(rec: EntityRecord): void;
 }
 
 interface SpawnControl {
@@ -86,6 +90,7 @@ export class DayUpdate {
     for (const o of [...registry.all(CLS.object)]) this.object(o);
     for (const u of [...registry.all(CLS.unit)]) this.unit(u);
     for (const it of [...registry.all(CLS.item)]) this.item(it);
+    this.d.changeWeather?.();
     for (const c of this.controls) this.spawnControl(c);
   }
 
@@ -179,6 +184,7 @@ export class DayUpdate {
       rec.yaw = this.d.random(0, 359);
       this.d.world.sync(rec);
       this.d.engine.entityEvent(cls, rec.id, 'spawn');
+      this.d.spawnFx?.(rec);
     }
   }
 }

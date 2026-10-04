@@ -5,7 +5,7 @@ import { parseInf } from '../formats/inf';
 import { parseCombinations, assignGroups, type Combination } from '../formats/combinations';
 import { parseBuildings, type Building } from '../formats/buildings';
 import { objectHeight, type Defs, type World } from '../render/world';
-import { worldHeight, SEA_LEVEL } from '../render/terrain';
+import { worldHeight, SEA_LEVEL, CELL } from '../render/terrain';
 import type { Resources } from '../assets/resources';
 import type { Log } from '../viewer/log';
 import { GameClock } from './clock';
@@ -34,6 +34,16 @@ import { renderTerrainMap, buildMapView } from './map-ui';
 import { expandText } from './textvars';
 import { DayUpdate, applyGrowth } from './dayupdate';
 import { ItemPhysics } from './itemphysics';
+import { materialFx, type MaterialFxDeps } from './materialfx';
+import { Weather } from './weather';
+import { StateEffects, ST } from './stateeffects';
+import { Particles, P, type ParticleHandle } from '../render/particles';
+import { Grass } from '../render/grass';
+import { ShoreWaves, buildWavePoints } from './shorewaves';
+import { ObjectBehaviour } from './objectbehaviour';
+import { LightPool } from '../render/lightpool';
+import { buildWeatherBox } from '../render/sky';
+import type { Sea } from '../render/sea';
 import { UnitPaths } from './unitpath';
 import { Triggers } from './triggers';
 import { ExchangeUi } from './exchange-ui';
@@ -58,6 +68,7 @@ export interface SessionOptions {
   res: Resources;
   log: Log;
   sky: THREE.Object3D;
+  sea?: Sea;
   ambient: THREE.AmbientLight;
   sun: THREE.DirectionalLight;
   listFiles(dir: string): Promise<string[]>;
@@ -71,6 +82,7 @@ const PLAYER_ID = 1;
 const PLAYER_TYP = 1;
 const SPAWN_INFO_TYP = 1;
 const TEXT_CONTAINER_INFO_TYP = 37;
+const FISHING_INFO_TYP = 43;
 const PLACE_DISTANCE = 60;
 /** 按 E 对物体或单位触发 use 事件的距离。 */
 const USE_ENTITY_RANGE = 60;
@@ -96,6 +108,15 @@ interface GameSettings {
   diveTime: number;
   /** 憋不住后每秒扣的生命（game.inf dive_damage）。 */
   diveDamage: number;
+  rainRatio: number;
+  snowRatio: number;
+  fireRange: number;
+  fireLightSize: number;
+  fireLightBrightness: number;
+  /** 岸边浪花的生成间隔毫秒。 */
+  waveRate: number;
+  /** 浪点背后至少要有这么远的水面（小水洼没有浪）。 */
+  minWaveSpace: number;
 }
 
 function readGameSettings(gameInf: string): GameSettings {
@@ -106,6 +127,9 @@ function readGameSettings(gameInf: string): GameSettings {
   return {
     digTime: num('dig_time', 2500), fishTime: num('fish_time', 2500),
     diveTime: num('dive_time', 8000), diveDamage: num('dive_damage', 1),
+    rainRatio: num('rainratio', 10), snowRatio: num('snowratio', 30),
+    fireRange: num('firerange', 50), fireLightSize: num('firelightsize', 60), fireLightBrightness: num('firelightbrightness', 160),
+    waveRate: num('waverate', 2000), minWaveSpace: num('minwavespace', 300),
   };
 }
 
@@ -134,6 +158,36 @@ export class GameSession {
   readonly unitPaths: UnitPaths;
   readonly dayUpdate: DayUpdate;
   readonly itemPhysics: ItemPhysics;
+  readonly particles: Particles;
+  readonly weather: Weather;
+  readonly stateEffects: StateEffects;
+  private readonly lights = new LightPool();
+  private readonly weatherBox = buildWeatherBox();
+  /** 原版自带 settings.cfg 的取值：视距档 2（系数 1.5）、特效档 2、草地档 1、开血腥、开随风摆动、动态模糊开 0.12。 */
+  readonly prefs = { viewFac: 1.5, effects: 2, grass: 1, gore: true, windsway: true, motionBlur: true, motionBlurAlpha: 0.12 };
+  readonly grass: Grass;
+  readonly shoreWaves: ShoreWaves;
+  readonly objectBehaviour: ObjectBehaviour;
+  /** 水下逐帧效果按原版 50 帧/秒的步长累计。 */
+  private diveFxAcc = 0;
+  /** blur 命令设置的模糊，0..0.97。 */
+  private scriptBlur = 0;
+  /** 状态（眩晕、醉酒、狂暴）要求的模糊。 */
+  private stateBlur = 0;
+  /** particlec 作用的最近一个粒子。 */
+  private lastParticle: ParticleHandle | null = null;
+  /** msgwin 打开期间推迟的 quit 与换图（原版 gui_msg 会阻塞脚本直到关闭）。 */
+  private modalQueue: (() => void)[] | null = null;
+  private get fxDeps(): MaterialFxDeps {
+    return {
+      particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
+      sound: f => this.sounds.play(f),
+      random: (a, b) => this.host.random(a, b),
+      rnd: (a, b) => a + Math.random() * (b - a),
+      effects: () => this.prefs.effects,
+      gore: () => this.prefs.gore,
+    };
+  }
   readonly triggers: Triggers;
   readonly exchangeUi: ExchangeUi;
   /** 本地图由 loadmap 带数据载入。 */
@@ -157,6 +211,10 @@ export class GameSession {
   private diving = false;
   private airSince = 0;
   private lastDrown = 0;
+  /** 上次移动音效（脚步、涉水、划水）的游戏时间，g_player_mst。 */
+  private lastStep = 0;
+  private waveAcc = 0;
+  private infoAcc = 0;
   private readonly ground: { heightAt(x: number, z: number): number };
   private gameMs = 0;
   private process: ProcessState | null = null;
@@ -190,6 +248,7 @@ export class GameSession {
   constructor(private readonly o: SessionOptions, cycle: RGB[], gameInf: string, statesInf: string, files: Map<string, string>, combinations: Combination[], buildings: Building[]) {
     this.combinations = combinations;
     this.buildings = buildings;
+    this.settings = readGameSettings(gameInf);
     const h = o.map.header;
     this.clock = new GameClock(h.day, h.hour, h.minute, h.freezeTime);
     this.env = new Environment(o.scene, o.sky, o.ambient, o.sun, h.fog, cycle);
@@ -249,10 +308,34 @@ export class GameSession {
       terrainY: (x, zThree) => this.ground.heightAt(x, zThree), message, sound,
       onUnitDied: rec => this.unitDied(rec),
       onUnitHurt: rec => this.ai.onHurt(rec),
+      materialFx: (x, y, z, mat) => materialFx(this.fxDeps, x, y, z, mat),
+      particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
+      effects: () => this.prefs.effects,
+      objectFall: model => { this.particles.animate(model, { typ: P.fall }, () => { model.removeFromParent(); }); },
     });
     this.projectiles = new Projectiles({
       registry, world: o.world, engine: this.engine, weapons: this.weapons, playerId: PLAYER_ID,
       terrainY, now: () => this.gameMs, model: typ => o.world.spawnModel(CLS.item, typ),
+      particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
+      ghost: (obj, kind) => {
+        const copy = obj.clone(true);
+        o.world.group.add(copy);
+        const done = () => { copy.removeFromParent(); };
+        if ('fade' in kind) {
+          this.particles.animate(copy, { typ: P.fadeout, alpha: kind.fade.alpha, speed: kind.fade.speed }, done);
+          tintCopy(copy, [255, 255, 255], true);
+        } else {
+          const r = kind.resfade;
+          this.particles.animate(copy, { typ: P.resfade, speed: r.speed, grow: r.grow, alpha: r.alpha, scale: r.scale }, done);
+          tintCopy(copy, r.color, r.additive);
+        }
+      },
+      materialFx: (x, y, z, mat) => materialFx(this.fxDeps, x, y, z, mat),
+      sound,
+      explosion: (x, y, z, range, damage, style) => this.host.explosion(x, y, z, range, damage, style),
+      stateImpact: (typ, x, y, z) => this.stateEffects.impact(typ, x, y, z),
+      effects: () => this.prefs.effects,
+      random: (a, b) => this.host.random(a, b),
     });
     this.weapons.launcher = this.projectiles;
     this.ai = new AiSystem({
@@ -266,7 +349,9 @@ export class GameSession {
       controlled: rec => this.unitPaths.controlled(rec.id),
     });
     o.world.onAttach = rec => {
-      if (rec.cls === CLS.object && rec.object && rec !== this.placing?.preview) this.collider.add(rec.object, rec.def?.col ?? 1);
+      if (rec.cls === CLS.object && rec.object && rec !== this.placing?.preview && !this.engine.states.has(CLS.object, rec.id, ST.ghost)) {
+        this.collider.add(rec.object, rec.def?.col ?? 1);
+      }
     };
     o.world.onDetach = rec => {
       if (rec.object) this.collider.remove(rec.object);
@@ -275,7 +360,7 @@ export class GameSession {
     o.world.onRemove = rec => {
       if (this.restoring) return;
       this.engine.removeInstanceScript(rec.cls, rec.id);
-      this.engine.states.free(rec.cls, rec.id);
+      this.stateEffects.freeAll(rec.cls, rec.id);
       this.engine.timers.free(rec.cls, rec.id);
       if (rec.cls === CLS.unit) this.unitPaths.free(rec.id);
       // free_childs：里面收着的和挂在外面的子物品都随父实体删除
@@ -286,11 +371,106 @@ export class GameSession {
       random: (a, b) => this.host.random(a, b),
       killObject: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
       killUnit: rec => this.weapons.kill(rec),
+      changeWeather: () => this.weather.changeDay(),
+      spawnFx: rec => {
+        const e = this.player.eye();
+        const y = rec.y - (rec.cls === CLS.unit ? rec.def?.colyr ?? 0 : 0);
+        if (Math.hypot(rec.x - e.x, y - e.y, rec.z + e.z) >= 3000) return;
+        const r = (a: number, b: number) => a + Math.random() * (b - a);
+        for (let i = 0; i < 5 + this.prefs.effects * 10; i++) this.particles.add(rec.x + r(-20, 20), y + r(-5, 5), rec.z + r(-20, 20), P.spawn, r(3, 6), r(0.5, 2));
+      },
     }, o.map.infos);
     for (const rec of registry.all(CLS.object)) if ((rec.daytimer ?? 0) < 0) applyGrowth(rec, o.world);
     this.itemPhysics = new ItemPhysics({
       registry, terrainY, sync: rec => o.world.sync(rec),
       floorBelow: (x, top, bottom, z) => this.collider.floorBelow(x, top, bottom, -z),
+      viewFac: this.prefs.viewFac,
+    });
+    this.particles = new Particles({
+      scene: o.scene, camera: o.camera, textures: url => o.res.texture(url), terrainY, diving: () => this.diving,
+      sequenceMs: () => null,
+    });
+    void this.particles.load();
+    const frustum = new THREE.Frustum();
+    const viewProj = new THREE.Matrix4();
+    const probe = new THREE.Vector3();
+    this.shoreWaves = new ShoreWaves(buildWavePoints(o.map.terrainSize, CELL, terrainY, this.settings.minWaveSpace), this.settings.waveRate, {
+      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      inView: (x, y, z) => {
+        viewProj.multiplyMatrices(o.camera.projectionMatrix, o.camera.matrixWorldInverse);
+        frustum.setFromProjectionMatrix(viewProj);
+        return frustum.containsPoint(probe.set(x, y, -z));
+      },
+      spawn: (p, size) => { this.particles.add(p.x, 0, p.z, P.wave, size, p.dir); },
+      sound: (f, v) => this.sounds.play(f, v),
+      random: (a, b) => this.host.random(a, b),
+      effects: () => this.prefs.effects,
+    });
+    const sphere = new THREE.Sphere();
+    this.objectBehaviour = new ObjectBehaviour({
+      registry,
+      visible: rec => {
+        if (!rec.object) return false;
+        const e = this.player.eye();
+        const range = (rec.def?.autofade ?? 500) * this.prefs.viewFac + 300;
+        if (Math.hypot(rec.x - e.x, rec.y - e.y, rec.z + e.z) > range) return false;
+        viewProj.multiplyMatrices(o.camera.projectionMatrix, o.camera.matrixWorldInverse);
+        frustum.setFromProjectionMatrix(viewProj);
+        return frustum.intersectsSphere(sphere.set(probe.set(rec.x, rec.y, -rec.z), 60));
+      },
+      player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z }),
+      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
+      loop: (key, f) => this.sounds.loop(key, f),
+      kill: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
+      trigger: rec => { this.engine.entityEvent(CLS.object, rec.id, 'trigger'); },
+      windsway: () => this.prefs.windsway,
+    });
+    this.grass = new Grass(o.map, this.prefs.grass);
+    o.scene.add(this.grass.group);
+    void this.grass.load(o.res);
+    o.scene.add(this.lights.group);
+    o.scene.add(this.weatherBox);
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const savedWeather = o.map.extensions.find(x => x.key === 'env_cweather');
+    this.weather = new Weather({
+      random: (a, b) => this.host.random(a, b), rnd,
+      clearFire: () => this.stateEffects.clearFire(),
+      sound: f => this.sounds.play(f),
+      loop: f => this.sounds.loop('weather', f),
+      flash: (size, a) => { this.particles.add(0, 0, 0, P.flash, size, a)?.color(255, 255, 255).additive(); },
+      precipitation: (kind, dx, dz, size) => {
+        const e = this.player.eye();
+        this.particles.add(e.x + dx, 0, -e.z + dz, kind === 'rain' ? P.rain : P.snow, size);
+      },
+      diving: () => this.diving,
+    }, h.climate, { rain: this.settings.rainRatio, snow: this.settings.snowRatio }, savedWeather ? Number(savedWeather.value) : undefined);
+    this.stateEffects = new StateEffects({
+      engine: this.engine, playerId: PLAYER_ID,
+      get: (cls, id) => registry.get(cls, id),
+      material: (cls, id) => (registry.get(cls, id)?.def?.mat ?? '').trim().toLowerCase(),
+      position: (cls, id) => this.statePosition(cls, id),
+      staticPosition: (cls, id) => this.stateOffset(cls, id) !== null,
+      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
+      sound: f => this.sounds.play(f),
+      loop: (key, f) => this.sounds.loop(key, f),
+      damage: (cls, id, amount) => {
+        if (cls === CLS.unit && id === PLAYER_ID) { this.playerHurt(amount); return this.stats.dead; }
+        this.weapons.damage(cls, id, amount, 'other');
+        const rec = registry.get(cls, id);
+        return cls === CLS.unit && id === PLAYER_ID ? this.stats.dead : !rec || !!rec.dead;
+      },
+      heal: (cls, id, amount) => this.heal(cls, id, amount),
+      createLight: () => this.lights.create(),
+      blocksFire: () => this.weather.blocksFire,
+      objectsNear: (x, z, range) => registry.all(CLS.object).filter(o => Math.hypot(o.x - x, o.z - z) <= range),
+      fireRange: this.settings.fireRange, fireLightSize: this.settings.fireLightSize, fireLightBrightness: this.settings.fireLightBrightness,
+      playerBlur: (amount, invert) => { this.stateBlur = amount; this.player.invertX = invert; },
+      restoreCollision: id => { const rec = registry.get(CLS.object, id); if (rec?.object) this.collider.add(rec.object, rec.def?.col ?? 1); },
+      restoring: () => this.restoring,
+      viewFac: this.prefs.viewFac,
+      random: (a, b) => this.host.random(a, b), rnd,
     });
     this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
     this.triggers = new Triggers({
@@ -406,8 +586,57 @@ export class GameSession {
         }
       }
       if (damage > 0 && hit(this.playerRec)) this.playerHurt(damage);
-      if (style === 1) this.sounds.play(EXPLODE_SOUNDS[this.host.random(0, 3)]);
-      else if (style === 3) this.sounds.play('pang.wav');
+      const size = range / 10;
+      if (style === 1) {
+        this.sounds.play(EXPLODE_SOUNDS[this.host.random(0, 3)]);
+        this.particles.explosion(x, y, z, size);
+      } else if (style === 3) {
+        const r = (a: number, b: number) => a + Math.random() * (b - a);
+        for (let i = 0; i < 10; i++) {
+          if (this.host.random(1, 3) === 1) {
+            const smoke = this.particles.add(x + r(-size * 3, size * 3), y + r(0, size * 3), z + r(-size * 3, size * 3), P.smoke, r(10, 30), r(0.9, 1.5));
+            if (smoke) { smoke.color(256, this.host.random(128, 256), this.host.random(32, 128)); smoke.a = smoke.fadein; smoke.fadein = 0; smoke.alpha(smoke.a); }
+          }
+          this.particles.add(x + r(-size * 3, size * 3), y + r(0, size * 3), z + r(-size * 3, size * 3), P.spark, this.host.random(2, 3), 3)
+            ?.color(128, this.host.random(64, 128), this.host.random(0, 64)).blend(1);
+          this.particles.add(x + r(-size * 3, size * 3), y + r(-size * 3, size * 3), z + r(-size * 3, size * 3), P.firespark, this.host.random(1, 2), 1)
+            ?.color(128, this.host.random(64, 128), this.host.random(0, 64)).blend(1);
+        }
+        this.sounds.play('pang.wav');
+      }
+    };
+    this.host.weather = () => this.weather.current;
+    this.host.setWeather = v => this.weather.setWeather(v);
+    this.host.setClimate = v => this.weather.setClimate(v);
+    this.host.setWeatherRatio = (kind, n) => { if (kind === 'rain') this.weather.rainRatio = n; else this.weather.snowRatio = n; };
+    this.host.flash = (r, g, b, speed, alpha) => { this.particles.add(0, 0, 0, P.flash, speed, alpha)?.color(r, g, b); };
+    this.host.thunder = () => {
+      this.sounds.play(`thunder${this.host.random(1, 3)}.wav`);
+      this.particles.add(0, 0, 0, P.flash, 0.1 + Math.random() * 0.2, Math.random())?.color(255, 255, 255).additive();
+    };
+    this.host.blur = v => { this.scriptBlur = Math.max(0, Math.min(0.97, v)); };
+    this.host.particle = (x, y, z, typ, size, alpha) => { this.lastParticle = this.particles.add(x, y, z, typ, size, alpha); };
+    this.host.particleColor = (r, g, b) => { this.lastParticle?.color(r, g, b); };
+    this.host.corona = (x, z, size, color, speed, unitId) => {
+      const y = terrainY(x, z);
+      const r = (a: number, b: number) => a + Math.random() * (b - a);
+      const follow = unitId > 0 ? () => { const u = registry.get(CLS.unit, unitId); return u ? { x: u.x, y: u.y, z: u.z } : null; } : null;
+      for (let i = 0; i < 10 + this.prefs.effects * 10; i++) {
+        const h = this.particles.add(x + r(-size, size), y + r(-5, 5), z + r(-size, size), P.spawn, r(3, 6), r(0.5, 2));
+        if (!h) continue;
+        if (color) h.color(...color);
+        h.speed(speed);
+        if (follow) h.follow(follow);
+      }
+    };
+    this.host.vomit = unitId => {
+      const u = registry.get(CLS.unit, unitId);
+      if (!u) return;
+      const r = (a: number, b: number) => a + Math.random() * (b - a);
+      for (let i = 0; i < 15; i++) {
+        const red = r(50, 150);
+        this.particles.add(u.x + r(-5, 5), u.y + r(-5, 5) + (u.def?.eyes ?? 0), u.z + r(-5, 5), P.subsplatter, r(4, 5), r(0.9, 3))?.frame(2).color(red, red + r(0, 55), 0);
+      }
     };
     this.host.aiCenter = unitId => { const rec = registry.get(CLS.unit, unitId); if (rec) this.ai.center(rec); };
     this.host.lastEater = () => this.ai.lastEater;
@@ -476,12 +705,47 @@ export class GameSession {
     this.host.uiImage = (id, path, x, y) => this.panels.uiImage(id, path, x, y);
     this.host.menuId = () => (this.sequence.active ? 100 : this.panels.menuId());
     this.host.closeMenu = () => { this.panels.close(); this.syncLock(); };
+    this.host.waterTexture = path => {
+      void o.res.texture('/' + path.replace(/\\/g, '/').replace(/^\/+/, '')).then(tex => {
+        if (!tex) { o.log.warn(`watertexture: unable to load '${path}'`); return; }
+        o.sea?.setTexture(tex.clone());
+        const img = tex.image as CanvasImageSource & { width: number; height: number } | undefined;
+        if (!img || typeof document === 'undefined') return;
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        const g = c.getContext('2d');
+        if (!g) return;
+        g.drawImage(img, 0, 0, 1, 1, 0, 0, 1, 1);
+        const [r, gr, b] = g.getImageData(0, 0, 1, 1).data;
+        this.env.waterColor = [255 - r, 255 - gr, 255 - b];
+        if (this.env.underwater) this.env.apply(this.clock.hour, this.clock.minute);
+      });
+    };
+    this.host.waterAlpha = a => { o.sea?.setAlpha(a); };
+    this.host.msgwin = (text, color) => {
+      this.modalQueue ??= [];
+      this.panels.msgwin(text, color, () => {
+        const queued = this.modalQueue ?? [];
+        this.modalQueue = null;
+        this.syncLock();
+        for (const run of queued) run();
+      });
+      this.syncLock();
+    };
+    this.host.inputwin = text => {
+      this.input.release();
+      return (typeof window !== 'undefined' ? window.prompt(text) : null) ?? '';
+    };
     this.host.loadMap = (path, flags) => {
+      if (this.modalQueue) { this.modalQueue.push(() => this.host.loadMap(path, flags)); return; }
       stashTakeover(collectTakeover({ registry, playerId: PLAYER_ID, weaponTyp: this.weapons.weaponTyp, engine: this.engine, diary: this.host.diary, locks: this.host.locks, skills: this.host.skills }, flags));
       location.assign(playUrl(path.replace(/\\/g, '/')));
     };
     this.host.loadMapTakeover = () => this.tookOver;
-    this.host.quit = () => location.assign(MENU_URL);
+    this.host.quit = () => {
+      if (this.modalQueue) { this.modalQueue.push(() => this.host.quit()); return; }
+      location.assign(MENU_URL);
+    };
     this.host.credits = () => {
       void o.res.text('/sys/credits.inf').catch(() => '').then(text => {
         this.panels.msgbox('Credits', text, () => location.assign(MENU_URL));
@@ -492,11 +756,26 @@ export class GameSession {
     this.host.playerWeapon = () => this.weapons.weaponTyp;
     this.host.setPlayerWeapon = typ => { const ok = this.weapons.takeInHand(typ); this.refreshWeaponHud(); return ok; };
     this.combine = new Combine({ registry, engine: this.engine, world: o.world, locks: this.host.locks, playerId: PLAYER_ID, combinations, message, sound });
-    this.build = new Build({ registry, engine: this.engine, world: o.world, locks: this.host.locks, playerId: PLAYER_ID, buildings, terrainY, message, sound });
+    const buildSmoke = (x: number, z: number, n: number) => {
+      const y = terrainY(x, z);
+      const r = (a: number, b: number) => a + Math.random() * (b - a);
+      for (let i = 0; i < n; i++) this.particles.add(x + r(-10, 10), y + this.host.random(2, 5), z + r(-10, 10), P.smoke, r(5, 10), r(0.3, 1.5));
+    };
+    this.build = new Build({
+      registry, engine: this.engine, world: o.world, locks: this.host.locks, playerId: PLAYER_ID, buildings, terrainY, message, sound,
+      onPlaced: site => buildSmoke(site.x, site.z, 10),
+      onFinished: rec => {
+        buildSmoke(rec.x, rec.z, 15);
+        // 原版建成的物体先关闭碰撞并加幽灵状态，玩家走开 75 以上才恢复，避免卡在建筑里
+        if (rec.cls === CLS.object && (rec.def?.col ?? 1) > 0) {
+          this.engine.stateRules.set(CLS.object, rec.id, ST.ghost);
+          if (rec.object) this.collider.remove(rec.object);
+        }
+      },
+    });
     this.host.builtAt = id => this.build.builtAt(id);
     this.host.lastBuildingSite = () => this.build.lastSite;
-    const settings = readGameSettings(gameInf);
-    this.settings = settings;
+    const settings = this.settings;
     this.tools = new Tools({
       registry, world: o.world, engine: this.engine, playerId: PLAYER_ID, infoRadius: id => this.host.infoRadius(id), terrainY,
       random: (a, b) => this.host.random(a, b), message, sound, digTimeMs: settings.digTime, fishTimeMs: settings.fishTime,
@@ -544,8 +823,16 @@ export class GameSession {
         setPaths: paths => { for (const p of paths) this.unitPaths.set(p.unitId, p.nodes); },
         setIndicators: ids => { this.host.indicators.clear(); for (const id of ids) this.host.indicators.add(id); },
         setSpawnDays: days => this.dayUpdate.restoreSpawnDays(days),
+        setWeather: w => {
+          this.weather.climate = w.climate;
+          this.weather.rainRatio = w.rain;
+          this.weather.snowRatio = w.snow;
+          this.weather.current = w.current;
+          this.weather.grey = w.current ? 0.75 : 0;
+        },
       }, o.restore);
       this.restoring = false;
+      this.stateEffects.restoreLights();
       this.env.apply(this.clock.hour, this.clock.minute);
       this.player.applyTo(o.camera);
       o.log.info(`loaded save from ${o.restore.savedAt}, ${o.restore.entities.length} entities`);
@@ -676,8 +963,10 @@ export class GameSession {
         this.player.update(dtMs, now, { forward: false, backward: false, left: false, right: false, jump: false, lookDx: 0, lookDy: 0 }, this.ground, this.collider);
       }
       const damage = this.stats.update(dtMs, this.player.movedThisFrame, this.player.swimming);
-      if (damage > 0) this.hud.message(`Starving and thirsty, you lose ${damage} health`, 2);
-      this.updateAir();
+      if (damage > 0) this.hud.message(`Starving and thirsty, you lose ${damage} health`, 3);
+      this.updateAir(dtMs);
+      this.updateMoveFx(dtMs);
+      this.updateFishingAreas(dtMs);
       if (this.stats.dead) {
         this.hud.showDead();
         input.release();
@@ -714,6 +1003,17 @@ export class GameSession {
     this.unitPaths.update(dtMs);
     this.ai.update(dtMs, this.gameMs);
     this.itemPhysics.update(dtMs, this.gameMs, { x: p.x, y: p.y, z: -p.z });
+    this.stateEffects.update(dtMs, this.gameMs);
+    this.weather.update(dtMs, false);
+    this.particles.update(dtMs);
+    this.grass.update(this.o.camera, dtMs);
+    this.shoreWaves.update(dtMs);
+    this.objectBehaviour.update(dtMs, this.gameMs);
+    const eye = this.player.eye();
+    this.lights.update({ x: eye.x, y: eye.y, z: -eye.z });
+    this.weatherBox.position.copy(eye);
+    (this.weatherBox.material as THREE.MeshBasicMaterial).opacity = this.weather.grey;
+    this.weatherBox.visible = this.weather.grey > 0;
     this.projectiles.update(dtMs);
     this.triggers.update(dtMs);
 
@@ -744,7 +1044,7 @@ export class GameSession {
     this.hud.showHint(!input.locked && !this.overlayOpen() && !this.stats.dead && !this.sequence.active, input.lockRefused);
     if (this.pendingAutosave) {
       this.pendingAutosave = false;
-      if (!saveGame(AUTOSAVE, this.snapshot())) this.hud.message('Saving failed', 2);
+      if (!saveGame(AUTOSAVE, this.snapshot())) this.hud.message('Saving failed', 3);
     }
     input.endFrame();
   }
@@ -829,7 +1129,7 @@ export class GameSession {
     const { building, preview } = this.placing;
     const t = this.placeTarget();
     if (this.placementBlocked(t.x, t.z, this.player.yaw / DEG)) {
-      this.hud.message('There is not enough space here', 2);
+      this.hud.message('There is not enough space here', 3);
       this.sounds.play('fail.wav');
       return;
     }
@@ -837,7 +1137,7 @@ export class GameSession {
     this.placing = null;
     this.hud.setMode(null);
     const site = this.build.place(building, t.x, t.z, this.player.yaw / DEG);
-    if (site) this.hud.message(`Building site for ${building.name} placed. Hold a hammer and right click it to add materials.`, 1);
+    if (site) this.hud.message(`Building site for ${building.name} placed. Hold a hammer and right click it to add materials.`, 4);
     this.engine.update(0);
   }
 
@@ -868,7 +1168,7 @@ export class GameSession {
     switch (this.weapons.behaviour()) {
       case 'hammer': {
         const r = this.build.hammer(this.playerRec.x, this.playerRec.z);
-        if (r === 'none') this.hud.message('No building site nearby', 2);
+        if (r === 'none') this.hud.message('No building site nearby', 3);
         break;
       }
       case 'spade': this.startTool('dig'); break;
@@ -950,14 +1250,14 @@ export class GameSession {
     const name = rec.def?.name ?? `#${rec.typ}`;
     const stored = registry.store(rec.id, CLS.unit, PLAYER_ID);
     if (stored <= 0) {
-      this.hud.message('No space left', 2);
+      this.hud.message('No space left', 3);
       this.sounds.play('fail.wav');
       return;
     }
     const still = registry.get(CLS.item, rec.id);
     if (still) this.o.world.sync(still);
     else this.o.world.remove(rec);
-    this.hud.message(`Picked up ${name} x ${stored}`, 1);
+    this.hud.message(`Picked up ${name} x ${stored}`, 4);
     this.sounds.play('collect.wav');
     this.focused = null;
     this.hud.setFocus(null);
@@ -984,7 +1284,15 @@ export class GameSession {
     if (event === 'use' && !r.skipevent) {
       const beh = rec.def?.behaviour ?? '';
       if (beh === 'map') this.openMap();
-      else if (beh === 'watch') this.hud.message(`${this.clock.hour}:${String(this.clock.minute).padStart(2, '0')} o'clock`, 0);
+      else if (beh === 'watch') {
+        if (this.clock.hour === 13 && this.clock.minute === 37) {
+          this.hud.message("13:37 o'clock - Y4y! t3h 3l!te!", 0);
+          this.engine.globalEventNow('leet');
+          this.particles.add(0, 0, 0, P.flash, 0.06, 0.75)?.color(0, 255, 0);
+        } else {
+          this.hud.message(`${this.clock.hour}:${String(this.clock.minute).padStart(2, '0')} o'clock`, 0);
+        }
+      }
     }
     if (!this.weapons.weaponItem()) {
       this.weapons.unequip();
@@ -1006,8 +1314,9 @@ export class GameSession {
   private playerHurt(amount: number, by?: EntityRecord): void {
     if (this.stats.dead) return;
     this.stats.health = Math.max(0, this.stats.health - amount);
-    if (by) this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 2);
+    if (by) this.hud.message(`${by.def?.name ?? 'Something'} hits you for ${amount} health`, 3);
     this.sounds.play(`human_hit${this.host.random(1, 5)}.wav`);
+    this.particles.add(0, 0, 0, P.flash, 0.06, 0.75)?.color(255, 0, 0);
     if (this.stats.dead) {
       this.hud.showDead();
       this.input.release();
@@ -1042,7 +1351,7 @@ export class GameSession {
         const moved = registry.store(loose.id, toCls, toId);
         if (moved < count) {
           if (registry.get(CLS.item, loose.id)?.parentMode !== STORED_INSIDE) registry.store(loose.id, fromCls, fromId);
-          this.hud.message('No space left', 2);
+          this.hud.message('No space left', 3);
         }
         return moved > 0;
       },
@@ -1068,6 +1377,7 @@ export class GameSession {
       skills: this.host.skills.entries(), triggers: this.triggers.states(), paths: this.unitPaths.entries(),
       indicators: [...this.host.indicators],
       spawnDays: this.dayUpdate.spawnDays(),
+      weather: { current: this.weather.current, climate: this.weather.climate, rain: this.weather.rainRatio, snow: this.weather.snowRatio },
     });
   }
 
@@ -1095,12 +1405,84 @@ export class GameSession {
 
   /**
    * 憋气（game_input.bb 与 e_environment.bb）：眼睛低于水面开始潜水，超过 dive_time 后每秒扣 dive_damage；
-   * 回到水面恢复，潜水超过 1.5 秒浮出时喘气。
+   * 回到水面恢复，潜水超过 1.5 秒浮出时喘气。水下时地图环境音换成循环的 dive.wav（sfx.bb）。
    */
-  private updateAir(): void {
+  /**
+   * 移动音效与水面效果（game_input.bb）：着地行走每 500 毫秒一声脚步，脚在水面以下时为涉水声加涟漪与水花；
+   * 游泳时镜头在水面以上每 100 毫秒在身边生成涟漪，移动时每秒一声划水。
+   */
+  private updateMoveFx(dtMs: number): void {
+    const pl = this.player;
+    const p = pl.position;
+    const bx = p.x, bz = -p.z;
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    if (pl.swimming) {
+      this.waveAcc += dtMs;
+      if (this.waveAcc >= 100) {
+        this.waveAcc %= 100;
+        if (pl.eye().y > 0) this.particles.add(bx + r(-3, 3), 1, bz + r(-3, 3), P.rwave, r(3, 6), r(0.3, 0.7));
+      }
+      if (pl.movedThisFrame && this.gameMs - this.lastStep > 1000) {
+        this.lastStep = this.gameMs;
+        this.sounds.play('swim.wav');
+      }
+      return;
+    }
+    if (!pl.movedThisFrame || !pl.onGround || this.gameMs - this.lastStep <= 500) return;
+    this.lastStep = this.gameMs;
+    if (p.y - PLAYER.halfHeight > 0) {
+      this.sounds.play(`step${this.host.random(1, 4)}.wav`);
+    } else {
+      this.sounds.play('waterstep.wav');
+      this.particles.add(bx, 1, bz, P.rwave, r(5, 10), r(0.9, 1.5));
+      this.particles.add(bx, 1, bz, P.splash, r(15, 20), 1);
+    }
+  }
+
+  /** 每秒一次（cull.bb 的 in_t1000go）：镜头附近的钓鱼区（信息点 43）水面冒涟漪、水下冒泡。 */
+  private updateFishingAreas(dtMs: number): void {
+    this.infoAcc += dtMs;
+    if (this.infoAcc < 1000) return;
+    this.infoAcc %= 1000;
+    const e = this.player.eye();
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    for (const info of this.o.world.registry.all(CLS.info, FISHING_INFO_TYP)) {
+      const radius = this.o.map.infos.find(i => i.id === info.id)?.floats[0] ?? 0;
+      if (Math.hypot(info.x - e.x, info.z + e.z) - radius >= 500) continue;
+      const spot = () => { const a = r(0, Math.PI * 2), d = r(0, radius); return { x: info.x + Math.sin(a) * d, z: info.z - Math.cos(a) * d }; };
+      const s = spot();
+      this.particles.add(s.x, 1, s.z, P.rwave, r(5, 10), r(0.9, 1.5));
+      for (let i = 0, n = this.host.random(5, 10); i <= n; i++) {
+        const b = spot();
+        this.particles.add(b.x, -r(5, 50), b.z, P.bubbles, r(1, 3));
+      }
+    }
+  }
+
+  /** 水下（e_environment.bb）：每帧 1/10 机会在眼前冒泡，按特效档位在镜头周围生成悬浮物；原版每帧一次，按 20 毫秒折算。 */
+  private diveFx(dtMs: number): void {
+    this.diveFxAcc += dtMs;
+    const e = this.player.eye();
+    const r = (a: number, b: number) => a + Math.random() * (b - a);
+    for (; this.diveFxAcc >= 20; this.diveFxAcc -= 20) {
+      if (this.host.random(1, 10) === 1) this.particles.add(e.x + r(-5, 5), e.y - 10, -e.z + r(-5, 5), P.bubbles, r(1, 3));
+      const fx = this.prefs.effects;
+      if (fx > 0 && this.host.random(1, fx === 1 ? 4 : 2) === 1) {
+        let y = e.y + this.host.random(-100, 100);
+        if (y > -20) y = -this.host.random(20, 70);
+        this.particles.add(e.x + this.host.random(-200, 200), y, -e.z + r(-200, 200), P.hover, r(0.3, 5));
+      }
+    }
+  }
+
+  private updateAir(dtMs: number): void {
     const under = this.player.eye().y < 0;
     if (!under) {
       if (this.diving) {
+        this.env.underwater = false;
+        this.env.apply(this.clock.hour, this.clock.minute);
+        this.sounds.loop('ambient', null);
+        this.sounds.pauseMusic(false);
         this.sounds.play('splash2.wav');
         if (this.gameMs - this.airSince > 1500) this.sounds.play('gasp.wav');
         this.diving = false;
@@ -1111,8 +1493,13 @@ export class GameSession {
     }
     if (!this.diving) {
       this.diving = true;
+      this.env.underwater = true;
+      this.env.apply(this.clock.hour, this.clock.minute);
+      this.sounds.pauseMusic(true);
+      this.sounds.loop('ambient', 'dive.wav');
       this.sounds.play('startdive.wav');
     }
+    this.diveFx(dtMs);
     const { diveTime, diveDamage } = this.settings;
     if (diveTime < 0) return;
     const used = this.gameMs - this.airSince;
@@ -1120,6 +1507,8 @@ export class GameSession {
     if (used >= diveTime && this.gameMs - this.lastDrown >= 1000) {
       this.lastDrown = this.gameMs;
       this.sounds.play('drown.wav');
+      const e = this.player.eye();
+      for (let i = 0; i < 5; i++) this.particles.add(e.x + (Math.random() * 10 - 5), e.y - 10, -e.z + (Math.random() * 10 - 5), P.bubbles, 1 + Math.random() * 2);
       this.playerHurt(diveDamage);
     }
   }
@@ -1157,11 +1546,78 @@ export class GameSession {
     this.env.apply(hour, minute);
   }
 
+  /** 本帧的动态模糊（motionblur.bb mb_update）：设置关掉时没有模糊，否则取设置值与脚本、状态覆盖中较大者，上限 0.97。 */
+  blurAlpha(): number {
+    if (!this.prefs.motionBlur) return 0;
+    return Math.min(0.97, Math.max(this.prefs.motionBlurAlpha, this.scriptBlur, this.stateBlur));
+  }
+
+  /** 状态特效的固定偏移（state=）：单位与信息点缺省为 (0,0,0)，物体与物品缺省取模型随机顶点（返回 null）。 */
+  private stateOffset(cls: number, id: number): [number, number, number] | null {
+    if (cls === CLS.info) return [0, 0, 0];
+    const s = this.o.world.registry.get(cls, id)?.def?.state;
+    if (s === 'random') return null;
+    if (s) return s;
+    return cls === CLS.unit ? [0, 0, 0] : null;
+  }
+
+  /** parent_statepos：Blitz 坐标；baseY 为实体高度加偏移 y，低于 0 时燃烧熄灭。 */
+  private statePosition(cls: number, id: number): { x: number; y: number; z: number; baseY: number } | null {
+    const rec = this.o.world.registry.get(cls, id);
+    if (!rec) return null;
+    const off = this.stateOffset(cls, id);
+    const baseY = rec.y + (off?.[1] ?? 0);
+    if (off) return { x: rec.x + off[0], y: rec.y + off[1], z: rec.z + off[2], baseY };
+    const v = randomVertex(rec.object);
+    return v ? { x: v.x, y: v.y, z: -v.z, baseY } : { x: rec.x, y: rec.y, z: rec.z, baseY };
+  }
+
+  /** ha_heal：生命加回，不超过上限。 */
+  private heal(cls: number, id: number, amount: number): void {
+    const add = Math.abs(amount);
+    if (cls === CLS.unit && id === PLAYER_ID) {
+      this.stats.health = Math.min(this.stats.healthMax, this.stats.health + add);
+      return;
+    }
+    const rec = this.o.world.registry.get(cls, id);
+    if (!rec || rec.dead) return;
+    const max = cls === CLS.unit ? rec.healthMax : rec.def?.health ?? rec.healthMax;
+    rec.health = Math.min(max, rec.health + add);
+  }
+
   dispose(): void {
     this.input.release();
     this.seqUi.dispose();
     this.panels.dispose();
     this.exchangeUi.dispose();
     this.hud.dispose();
+    this.sounds.stopMusic();
+    this.sounds.stopLoops();
   }
+}
+
+/** 模型上随机一个顶点的世界坐标（Three 坐标），用于没有固定偏移的状态特效。 */
+function randomVertex(object: THREE.Object3D | undefined): THREE.Vector3 | null {
+  if (!object) return null;
+  const meshes: THREE.Mesh[] = [];
+  object.traverse(o => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+  const mesh = meshes[Math.floor(Math.random() * meshes.length)];
+  const pos = mesh?.geometry.getAttribute('position');
+  if (!mesh || !pos || pos.count === 0) return null;
+  mesh.updateWorldMatrix(true, false);
+  return new THREE.Vector3().fromBufferAttribute(pos, Math.floor(Math.random() * pos.count)).applyMatrix4(mesh.matrixWorld);
+}
+
+/** 残影复制体：animate 已给它换上自己的材质，这里设颜色与混合方式（EntityColor / EntityBlend）。 */
+function tintCopy(object: THREE.Object3D, color: [number, number, number], additive: boolean): void {
+  object.traverse(o => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      const mat = m as THREE.MeshBasicMaterial;
+      mat.color?.setRGB(color[0] / 255, color[1] / 255, color[2] / 255);
+      mat.blending = additive ? THREE.AdditiveBlending : THREE.NormalBlending;
+      mat.depthWrite = false;
+    }
+  });
 }

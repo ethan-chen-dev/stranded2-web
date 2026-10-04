@@ -33,6 +33,8 @@ export interface World {
   /** 让场景对象与记录一致：存放中的物品移出场景，其余按需创建并更新位姿。 */
   sync(rec: EntityRecord): void;
   remove(rec: EntityRecord): void;
+  /** 把实体的模型从实体上摘下并留在场景里（死亡动画用），返回该模型；调用方负责之后移除。 */
+  takeModel(rec: EntityRecord): THREE.Object3D | undefined;
   /** 实体被移除前调用（原版 free_childs 清理子物品、状态、脚本、计时器），由游戏会话设置。 */
   onRemove?: (rec: EntityRecord) => void;
   /** 场景对象挂上或摘下时调用，供碰撞器同步。 */
@@ -138,7 +140,7 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
     }
     const model = rec.look?.model ?? rec.def.model;
     if (!model) return null;
-    return res.model(model, { fx: rec.look?.fx ?? rec.def.fx, color: rec.look?.color ?? rec.def.color, alpha: rec.def.alpha });
+    return res.model(model, { fx: rec.look?.fx ?? rec.def.fx, color: rec.look?.color ?? rec.def.color, alpha: rec.def.alpha, blend: rec.look?.blend ?? rec.def.blend });
   };
 
   /**
@@ -296,6 +298,13 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       if (!rec.object) { if (!loading.has(rec)) void spawn(rec); }
       else applyTransform(rec);
     },
+    takeModel(rec) {
+      const obj = rec.object;
+      if (!obj) return undefined;
+      detach(rec);
+      group.add(obj);
+      return obj;
+    },
     restyle(rec) {
       detach(rec);
       void spawn(rec);
@@ -311,7 +320,6 @@ export async function buildWorld(map: MapData, defs: Defs, res: Resources, log: 
       const def = registry.defFor(cls, typ);
       const y = cls === CLS.unit ? worldHeight(map, x, z) + (def?.colyr ?? 0) : cls === CLS.object ? objectHeight(map, def, x, z) : worldHeight(map, x, z);
       const rec = registry.make(cls, typ, x, y, z, count);
-      if (cls === CLS.object || cls === CLS.item) rec.yaw = Math.random() * 360;
       void spawn(rec);
       if (cls === CLS.item) stats.items++;
       if (cls === CLS.object) stats.objects++;
