@@ -203,6 +203,12 @@ export function registerUi(r: CommandRegistry): void {
     if (int(args[0] ?? '0') !== 1) { ctx.host.skyColor(null); return; }
     ctx.host.skyColor({ color: [int(args[1] ?? '0'), int(args[2] ?? '0'), int(args[3] ?? '0')], mix: int(args[4] ?? '0') });
   });
+  r.register(['ride', 'drive'], (ctx, args) => {
+    const id = args[0] === undefined || args[0] === '' ? ctx.env.id : int(args[0]);
+    if (!ctx.host.ride(id)) ctx.host.log('warn', `ride: unit ${id} not found`);
+  });
+  r.register('getoff', ctx => { ctx.host.getOff(); });
+  r.register('riding', ctx => str(ctx.host.riding()));
   r.register('msgwin', (ctx, args) => { ctx.host.msgwin(args[0] ?? '', int(args[1] ?? '0')); });
   r.register('inputwin', (ctx, args) => ctx.host.inputwin(args[0] ?? '', int(args[1] ?? '0')));
   r.register('vomit', (ctx, args) => { ctx.host.vomit(args[0] === 'self' || args[0] === undefined ? ctx.env.id : int(args[0])); });

@@ -5,7 +5,7 @@ import type { EntityDef } from '../formats/inf';
 function def(over: Partial<EntityDef>): EntityDef {
   return {
     id: 0, name: '', model: '', icon: '', scale: [1, 1, 1], color: [255, 255, 255], alpha: 1, fx: 0, autofade: 0,
-    align: 0, blend: 1, swayspeed: 0, swaypower: 0, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
+    align: 0, blend: 1, swayspeed: 0, swaypower: 0, sfx: '', rideoffset: 0, vehicle: { acceleration: 0.03, friction: 0.04, steering: 2, maxdepth: 3, flyspeed: 3 }, anims: new Map(), weight: 0, col: 1, eyes: 0, colxr: 1, colyr: 1, speed: 0, store: 100,
     maxweight: 0, group: '', behaviour: '', mat: '', health: 100, vars: [],
     damage: 0, rate: 500, attackrange: 45, turnspeed: 2, range: 300, loopmoveani: 0, drag: 0, weaponstate: '', findratio: 30, growtime: 0, healthchange: 0, spawn: null, finds: [], loots: [], ...over,
   };

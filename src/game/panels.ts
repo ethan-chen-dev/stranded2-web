@@ -3,6 +3,7 @@
  * 界面编号沿用原版：3 日记、21 消息框、24 地图、25 撬锁、26 对话、0 无。
  */
 import { buttonAction, MAX_BUTTONS, type DialoguePage } from '../formats/dialogue';
+import { FONT_COLORS } from './fonts';
 import { splitColoredLines } from './textbuffer';
 import { IMAGE_PREFIX } from './textvars';
 import { assetUrl } from '../assets/paths';
@@ -34,8 +35,6 @@ export interface CrackLock {
   success(): void;
 }
 
-/** 原版 bmpf 字体编号：0 普通、1 高亮、2 暗、3 坏消息、4 好消息、5 小字、6 手写（load_bmpf.bb）。 */
-const FONT_COLORS = ['#ffffff', '#ffee88', '#aaaaaa', '#ff8888', '#88ff88', '#ffffff', '#ffffff'];
 
 export interface DiaryEntry {
   title: string;

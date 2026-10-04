@@ -61,12 +61,14 @@ export function modeByName(name: string): number {
   return MODE_NAMES[name.trim().toLowerCase()] ?? 0;
 }
 
-/** 0 不做物理，1 陆地，2 水中，3 空中，6 陆地鸟（逃跑时飞起）。 */
-export type PhysicsMode = 0 | 1 | 2 | 3 | 6;
+/** 0 不做物理，1 陆地，2 水中，3 空中，4 水面（船），5 飞机，6 陆地鸟（逃跑时飞起）。 */
+export type PhysicsMode = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export function physicsMode(code: number): PhysicsMode {
-  if (code <= 0 || code > 500) return 0;
+  if (code <= 0 || code > 502) return 0;
   if (code === 500) return 1;
+  if (code === 501) return 4;
+  if (code === 502) return 5;
   if (code === 10) return 6;
   if (code < 300) return 1;
   if (code < 400) return 2;
@@ -75,6 +77,8 @@ export function physicsMode(code: number): PhysicsMode {
 
 export interface UnitAiState {
   mode: number;
+  /** 上次播放发现音（spot）的游戏时间，5 秒内不重复。 */
+  lastSpot?: number;
   /** 模式开始的游戏时间。 */
   timer: number;
   duration: number;
@@ -112,7 +116,19 @@ export interface AiDeps {
   random(min: number, max: number): number;
   /** 单位正被脚本路径控制时 AI 不接管。 */
   controlled?(rec: EntityRecord): boolean;
+  /** 玩家正骑乘的单位：不跑行为，只受物理。 */
+  driven?(rec: EntityRecord): boolean;
+  /** 单位音效组的事件音（play_soundset）。 */
+  unitSound?(rec: EntityRecord, event: 'spot' | 'attack' | 'idle1' | 'idle2' | 'idle3' | 'flee'): void;
+  /** 移动类模式里保持播放移动声（ai_movesound），moving 为 false 时停止。 */
+  moveSound?(rec: EntityRecord, moving: boolean): void;
+  /** 3D 音效（sfx_emit）。 */
+  soundAt?(file: string, rec: EntityRecord): void;
 }
+
+/** 001_normal_animal.bb 等行为里调用 ai_movesound 的模式。 */
+const MOVING_MODES: ReadonlySet<number> = new Set([AI.move, AI.movel, AI.mover, AI.movetarget, AI.ret, AI.sret, AI.hunt, AI.getfood, AI.flee]);
+const SPOT_INTERVAL_MS = 5000;
 
 function wrapDeg(d: number): number {
   return ((d + 180) % 360 + 360) % 360 - 180;
@@ -174,6 +190,7 @@ export class AiSystem {
       const name = names[this.d.random(0, names.length - 1)];
       rec.playAnim?.(name, false);
       st.animUntil = now + animMs(def, name);
+      this.d.unitSound?.(rec, name as 'idle1' | 'idle2' | 'idle3');
       this.d.engine.entityEvent(CLS.unit, rec.id, `ai_${name}`);
     } else if (mode === AI.attack) {
       const ok = rec.playAnim?.('attack', false) ?? false;
@@ -190,13 +207,16 @@ export class AiSystem {
     for (const rec of this.d.registry.all(CLS.unit)) {
       if (rec.id === this.d.playerId) continue;
       const code = this.code(rec);
-      if (code === 0 || code > 500) continue;
-      if (rec.dead) { this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
+      if (code === 0 || code > 502) continue;
+      if (rec.dead) { this.d.moveSound?.(rec, false); this.deadPhysics(rec, code, f); this.d.world.sync(rec); continue; }
       if (rec.frozen) continue;
       const st = rec.ai ?? this.init(rec);
+      // 载具与正被骑乘的单位没有行为，只有物理（game.bb 骑乘时每帧把 AI 复位为 idle）。
+      if (code >= 500 || this.d.driven?.(rec)) { this.d.moveSound?.(rec, false); this.physics(rec, st, code, f); this.d.world.sync(rec); continue; }
       // 沿 unitpath 移动的单位不跑行为，但和原版一样仍受重力并贴合地形。
       if (this.d.controlled?.(rec)) { this.physics(rec, st, code, f); this.d.world.sync(rec); continue; }
       this.runMode(rec, st, code, f, now);
+      this.d.moveSound?.(rec, MOVING_MODES.has(st.mode));
       if (!st.freeze && st.mode !== AI.attack && now - st.timer > st.duration) this.next(rec, st, code, now);
       if (now - st.lastCheck >= CHECK_INTERVAL_MS) { st.lastCheck = now; this.check(rec, now); }
       this.physics(rec, st, code, f);
@@ -388,6 +408,8 @@ export class AiSystem {
     if (r.skipevent) { this.expire(st); return; }
     const ok = rec.playAnim?.('attack', false) ?? false;
     st.animUntil = now + (ok ? animMs(def, 'attack') || ATTACK_FALLBACK_MS : ATTACK_FALLBACK_MS);
+    this.d.unitSound?.(rec, 'attack');
+    this.d.soundAt?.('eat.wav', rec);
     if (t.cls === CLS.info) this.d.registry.remove(t.cls, t.id);
     else if (t.cls === CLS.unit) this.d.damageEntity(t.cls, t.id, t.health);
     else this.d.damageEntity(t.cls, t.id, Math.max(def.damage, 1));
@@ -450,12 +472,17 @@ export class AiSystem {
     const wantsUnderwater = pm === 2;
     if (this.dist3(rec, p) <= def.attackrange && (code !== 302 || p.underwater) && (code !== 408 || (st.mode !== AI.rise && st.mode !== AI.ret && st.mode !== AI.sret))) {
       this.d.damagePlayer(def.damage, rec);
+      this.d.unitSound?.(rec, 'attack');
       this.setMode(rec, AI.attack, undefined, 0, 0, now);
       this.d.engine.entityEvent(CLS.unit, rec.id, 'ai_attack');
       return;
     }
     if (st.mode !== AI.hunt && code !== 3 && code !== 6 && this.dist3(rec, p) <= def.range && p.underwater === wantsUnderwater) {
       this.setMode(rec, AI.hunt, 10000, 0, 0, now);
+      if (now - (st.lastSpot ?? -Infinity) > SPOT_INTERVAL_MS) {
+        st.lastSpot = now;
+        this.d.unitSound?.(rec, 'spot');
+      }
     }
   }
 
@@ -474,6 +501,15 @@ export class AiSystem {
       rec.y = Math.max(rec.y - GRAVITY_PER_F * f, ground + def.colyr);
     } else if (pm === 2) {
       rec.y = Math.min(Math.max(rec.y, ground + def.colyr), WATER_TOP);
+    } else if (pm === 4) {
+      // 船浮在水面并按 in_wa 轻轻摇晃（ai_units.bb 501 与物理模式 4）
+      rec.y = 1 + def.colyr;
+      const a = ((this.now / 20) * 3 + rec.id * 20) * DEG;
+      rec.pitch = Math.sin(a);
+      rec.roll = Math.cos(a);
+    } else if (pm === 5) {
+      if (!this.d.driven?.(rec)) rec.y -= 9.81 * f * 2;
+      rec.y = Math.max(rec.y, ground + def.colyr);
     } else if (pm === 3) {
       const base = Math.max(ground, 1) + (AIR_OFFSET[code] ?? 350);
       if (FREE_HEIGHT.has(code)) {

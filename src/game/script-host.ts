@@ -54,6 +54,9 @@ export class GameScriptHost implements ScriptHost {
   msgbox: (title: string, text: string) => void = () => undefined;
   msgwin: (text: string, color: number) => void = () => undefined;
   waterTexture: (path: string) => void = () => undefined;
+  ride: (unitId: number) => boolean = () => false;
+  getOff: () => void = () => undefined;
+  riding: () => number = () => 0;
   waterAlpha: (alpha: number) => void = () => undefined;
   inputwin: (text: string, color: number) => string = () => '';
   dialogue: (page: string, source: string, section?: string) => boolean = () => false;

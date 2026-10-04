@@ -100,6 +100,11 @@ describe('commands', () => {
     run(`blend 3,"object",1;`);
     expect(host.looks.get('1:1')).toEqual({ blend: 3 });
   });
+  it('ride, riding and getoff', () => {
+    host.add(CLASS.unit, 30, 40);
+    run(`ride 40; $r=riding(); getoff; $s=riding();`);
+    expect([g('r'), g('s')]).toEqual(['40', '0']);
+  });
   it('freeze, playerspotted and autosave', () => {
     host.add(CLASS.unit, 2, 30);
     run(`freeze 30; $a=freeze(30,2); freeze 30,0; $b=freeze(30,2); freeze 0,1; $c=freeze(1,2);`);

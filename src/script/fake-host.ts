@@ -46,6 +46,10 @@ export class FakeHost implements ScriptHost {
   msgbox(title: string, text: string): void { this.boxes.push({ title, text }); this.menu = 21; }
   msgwins: string[] = [];
   water: string[] = [];
+  ridingId = 0;
+  ride(unitId: number): boolean { if (!this.entity(2, unitId)) return false; this.ridingId = unitId; return true; }
+  getOff(): void { this.ridingId = 0; }
+  riding(): number { return this.ridingId; }
   waterTexture(path: string): void { this.water.push(`texture ${path}`); }
   waterAlpha(alpha: number): void { this.water.push(`alpha ${alpha}`); }
   inputAnswer = '';

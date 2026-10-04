@@ -183,6 +183,10 @@ export interface ScriptHost {
   /** 日记条目，按写入顺序。 */
   diary: DiaryEntry[];
   msgbox(title: string, text: string): void;
+  /** ride / drive：开始骑乘单位，镜头转向单位朝向；getoff 下来；riding 返回正骑乘的单位 id（0 为没有）。 */
+  ride(unitId: number): boolean;
+  getOff(): void;
+  riding(): number;
   /** watertexture：换水面贴图，并按贴图左上角像素重算水下雾色；wateralpha：水面不透明度。 */
   waterTexture(path: string): void;
   waterAlpha(alpha: number): void;

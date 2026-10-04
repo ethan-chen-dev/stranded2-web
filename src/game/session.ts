@@ -41,6 +41,9 @@ import { Particles, P, type ParticleHandle } from '../render/particles';
 import { Grass } from '../render/grass';
 import { ShoreWaves, buildWavePoints } from './shorewaves';
 import { ObjectBehaviour } from './objectbehaviour';
+import { SoundSets, type SoundEvent } from './soundsets';
+import { Vehicles } from './vehicles';
+import { loadSettings, viewFactor, type Action, type Settings } from './settings';
 import { LightPool } from '../render/lightpool';
 import { buildWeatherBox } from '../render/sky';
 import type { Sea } from '../render/sea';
@@ -83,6 +86,9 @@ const PLAYER_TYP = 1;
 const SPAWN_INFO_TYP = 1;
 const TEXT_CONTAINER_INFO_TYP = 37;
 const FISHING_INFO_TYP = 43;
+const ARROWS: Partial<Record<Action, string>> = { forward: 'ArrowUp', backward: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+/** 只给这个距离内的单位播移动声（原版全部播放，按 0.02 衰减此处音量约 0.11）。 */
+const MOVE_SOUND_RANGE = 400;
 const PLACE_DISTANCE = 60;
 /** 按 E 对物体或单位触发 use 事件的距离。 */
 const USE_ENTITY_RANGE = 60;
@@ -163,11 +169,18 @@ export class GameSession {
   readonly stateEffects: StateEffects;
   private readonly lights = new LightPool();
   private readonly weatherBox = buildWeatherBox();
-  /** 原版自带 settings.cfg 的取值：视距档 2（系数 1.5）、特效档 2、草地档 1、开血腥、开随风摆动、动态模糊开 0.12。 */
-  readonly prefs = { viewFac: 1.5, effects: 2, grass: 1, gore: true, windsway: true, motionBlur: true, motionBlurAlpha: 0.12 };
+  /** 玩家设置（视距、特效、草地、血腥、随风摆动、动态模糊、音量、灵敏度、按键），见 settings.ts。 */
+  private options: Settings = loadSettings();
+  get prefs() {
+    const o = this.options;
+    return { viewFac: viewFactor(o), effects: o.effects, grass: o.grass, gore: o.gore, windsway: o.windsway && o.effects > 0, motionBlur: o.motionBlur, motionBlurAlpha: o.motionBlurAlpha };
+  }
   readonly grass: Grass;
   readonly shoreWaves: ShoreWaves;
   readonly objectBehaviour: ObjectBehaviour;
+  readonly vehicles: Vehicles;
+  /** 单位音效组；sfx 目录列表与 .inf 重定向读完前为 null。 */
+  private soundSets: SoundSets | null = null;
   /** 水下逐帧效果按原版 50 帧/秒的步长累计。 */
   private diveFxAcc = 0;
   /** blur 命令设置的模糊，0..0.97。 */
@@ -347,6 +360,15 @@ export class GameSession {
       damageEntity: (cls, id, amount) => { this.weapons.damage(cls, id, amount, 'other'); },
       random: (a, b) => this.host.random(a, b),
       controlled: rec => this.unitPaths.controlled(rec.id),
+      driven: rec => this.vehicles.driving === rec.id,
+      unitSound: (rec, event) => this.unitSound(rec, event),
+      moveSound: (rec, moving) => {
+        const key = `unit:${rec.id}`;
+        const file = moving ? this.soundSets?.file(rec.def?.sfx ?? '', 'move') ?? null : null;
+        const e = this.camThree();
+        this.sounds.channel(key, file && Math.hypot(rec.x - e.x, rec.y - e.y, rec.z + e.z) < MOVE_SOUND_RANGE ? file : null, rec);
+      },
+      soundAt: (file, rec) => this.sounds.playAt(file, rec),
     });
     o.world.onAttach = rec => {
       if (rec.cls === CLS.object && rec.object && rec !== this.placing?.preview && !this.engine.states.has(CLS.object, rec.id, ST.ghost)) {
@@ -373,7 +395,7 @@ export class GameSession {
       killUnit: rec => this.weapons.kill(rec),
       changeWeather: () => this.weather.changeDay(),
       spawnFx: rec => {
-        const e = this.player.eye();
+        const e = this.camThree();
         const y = rec.y - (rec.cls === CLS.unit ? rec.def?.colyr ?? 0 : 0);
         if (Math.hypot(rec.x - e.x, y - e.y, rec.z + e.z) >= 3000) return;
         const r = (a: number, b: number) => a + Math.random() * (b - a);
@@ -384,7 +406,7 @@ export class GameSession {
     this.itemPhysics = new ItemPhysics({
       registry, terrainY, sync: rec => o.world.sync(rec),
       floorBelow: (x, top, bottom, z) => this.collider.floorBelow(x, top, bottom, -z),
-      viewFac: this.prefs.viewFac,
+      viewFac: () => this.prefs.viewFac,
     });
     this.particles = new Particles({
       scene: o.scene, camera: o.camera, textures: url => o.res.texture(url), terrainY, diving: () => this.diving,
@@ -395,7 +417,7 @@ export class GameSession {
     const viewProj = new THREE.Matrix4();
     const probe = new THREE.Vector3();
     this.shoreWaves = new ShoreWaves(buildWavePoints(o.map.terrainSize, CELL, terrainY, this.settings.minWaveSpace), this.settings.waveRate, {
-      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      camera: () => this.cam(),
       inView: (x, y, z) => {
         viewProj.multiplyMatrices(o.camera.projectionMatrix, o.camera.matrixWorldInverse);
         frustum.setFromProjectionMatrix(viewProj);
@@ -406,12 +428,18 @@ export class GameSession {
       random: (a, b) => this.host.random(a, b),
       effects: () => this.prefs.effects,
     });
+    this.vehicles = new Vehicles({
+      registry, terrainY, code: rec => this.ai.code(rec), sync: rec => o.world.sync(rec),
+      wave: (x, z) => { this.particles.add(x, 1, z, P.rwave, 10 + Math.random() * 10, 0.6 + Math.random() * 0.3); },
+      moveSound: (rec, volume) => this.sounds.channel('drive', volume === null ? null : this.soundSets?.file(rec.def?.sfx ?? '', 'move') ?? null, undefined, volume ?? 0),
+      kill: rec => this.weapons.kill(rec),
+    });
     const sphere = new THREE.Sphere();
     this.objectBehaviour = new ObjectBehaviour({
       registry,
       visible: rec => {
         if (!rec.object) return false;
-        const e = this.player.eye();
+        const e = this.camThree();
         const range = (rec.def?.autofade ?? 500) * this.prefs.viewFac + 300;
         if (Math.hypot(rec.x - e.x, rec.y - e.y, rec.z + e.z) > range) return false;
         viewProj.multiplyMatrices(o.camera.projectionMatrix, o.camera.matrixWorldInverse);
@@ -419,13 +447,14 @@ export class GameSession {
         return frustum.intersectsSphere(sphere.set(probe.set(rec.x, rec.y, -rec.z), 60));
       },
       player: () => ({ x: this.playerRec.x, y: this.playerRec.y, z: this.playerRec.z }),
-      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      camera: () => this.cam(),
       particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
       loop: (key, f) => this.sounds.loop(key, f),
       kill: rec => { this.weapons.damage(CLS.object, rec.id, rec.health + 1, 'other'); },
       trigger: rec => { this.engine.entityEvent(CLS.object, rec.id, 'trigger'); },
       windsway: () => this.prefs.windsway,
     });
+    void o.listFiles('sfx').then(files => SoundSets.load(files, name => o.res.text('/sfx/' + name))).then(s => { this.soundSets = s; }).catch(() => undefined);
     this.grass = new Grass(o.map, this.prefs.grass);
     o.scene.add(this.grass.group);
     void this.grass.load(o.res);
@@ -440,7 +469,7 @@ export class GameSession {
       loop: f => this.sounds.loop('weather', f),
       flash: (size, a) => { this.particles.add(0, 0, 0, P.flash, size, a)?.color(255, 255, 255).additive(); },
       precipitation: (kind, dx, dz, size) => {
-        const e = this.player.eye();
+        const e = this.camThree();
         this.particles.add(e.x + dx, 0, -e.z + dz, kind === 'rain' ? P.rain : P.snow, size);
       },
       diving: () => this.diving,
@@ -451,7 +480,7 @@ export class GameSession {
       material: (cls, id) => (registry.get(cls, id)?.def?.mat ?? '').trim().toLowerCase(),
       position: (cls, id) => this.statePosition(cls, id),
       staticPosition: (cls, id) => this.stateOffset(cls, id) !== null,
-      camera: () => { const e = this.player.eye(); return { x: e.x, y: e.y, z: -e.z }; },
+      camera: () => this.cam(),
       particle: (x, y, z, typ, size, a) => this.particles.add(x, y, z, typ, size, a),
       sound: f => this.sounds.play(f),
       loop: (key, f) => this.sounds.loop(key, f),
@@ -469,7 +498,7 @@ export class GameSession {
       playerBlur: (amount, invert) => { this.stateBlur = amount; this.player.invertX = invert; },
       restoreCollision: id => { const rec = registry.get(CLS.object, id); if (rec?.object) this.collider.add(rec.object, rec.def?.col ?? 1); },
       restoring: () => this.restoring,
-      viewFac: this.prefs.viewFac,
+      viewFac: () => this.prefs.viewFac,
       random: (a, b) => this.host.random(a, b), rnd,
     });
     this.unitPaths = new UnitPaths({ registry, engine: this.engine, terrainY, sync: rec => o.world.sync(rec) });
@@ -679,6 +708,7 @@ export class GameSession {
       quickSaveName: QUICKSAVE,
       exportSave: name => { downloadSave(name); },
       importSave: () => pickAndImportSave(),
+      optionsChanged: s => this.applyOptions(s),
     });
     this.host.msgbox = (title, text) => { this.panels.msgbox(title, text); this.syncLock(); };
     this.host.dialogue = (page, source, section) => {
@@ -722,6 +752,14 @@ export class GameSession {
       });
     };
     this.host.waterAlpha = a => { o.sea?.setAlpha(a); };
+    this.host.ride = id => {
+      if (!this.vehicles.ride(id)) return false;
+      const rec = registry.get(CLS.unit, id);
+      if (rec) this.player.yaw = rec.yaw * DEG;
+      return true;
+    };
+    this.host.getOff = () => this.vehicles.stop();
+    this.host.riding = () => this.vehicles.driving;
     this.host.msgwin = (text, color) => {
       this.modalQueue ??= [];
       this.panels.msgwin(text, color, () => {
@@ -801,6 +839,7 @@ export class GameSession {
       choose: b => this.startPlacing(b),
     });
     o.canvas.addEventListener('click', () => { if (!this.overlayOpen() && !this.stats.dead) this.input.requestLock(true); });
+    this.applyOptions(this.options);
     this.player.applyTo(o.camera);
     this.hud.setStats(this.stats);
     this.hud.setClock(this.clock.day, this.clock.hour, this.clock.minute);
@@ -830,6 +869,7 @@ export class GameSession {
           this.weather.current = w.current;
           this.weather.grey = w.current ? 0.75 : 0;
         },
+        setDrive: id => { this.vehicles.ride(id); },
       }, o.restore);
       this.restoring = false;
       this.stateEffects.restoreLights();
@@ -923,40 +963,57 @@ export class GameSession {
     const inSeq = this.sequence.active;
     if (!this.stats.dead) {
       if (inSeq && input.hit('Escape')) this.sequence.skip();
-      if (input.hit('KeyT') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary, this.host.skills.entries()); this.syncLock(); }
-      if (input.hit('Tab') && !inSeq) {
+      if (this.hitKey('diary') && !inSeq && !this.overlayOpen()) { this.panels.openDiary(this.host.diary, this.host.skills.entries()); this.syncLock(); }
+      if (this.hitKey('inventory') && !inSeq) {
         if (this.buildUi.open) this.buildUi.close();
         this.invUi.toggle();
         this.syncLock();
       }
-      if (input.hit('KeyB') && !inSeq) this.toggleBuildMenu();
-      if (input.hit('KeyY') && !inSeq && !this.overlayOpen() && !this.stats.dead) this.sleep();
+      if (this.hitKey('build') && !inSeq) this.toggleBuildMenu();
+      if (this.hitKey('sleep') && !inSeq && !this.overlayOpen() && !this.stats.dead) this.sleep();
       if (input.hit('Escape')) {
         if (this.placing) this.stopPlacing();
         else if (!inSeq && !this.overlayOpen()) { this.pauseMenu.show(); this.syncLock(); }
       }
-      if (input.hit('F5') && !inSeq) this.save(QUICKSAVE);
-      if (input.hit('F9') && !inSeq && loadGame(QUICKSAVE)) location.assign(loadSaveUrl(QUICKSAVE));
+      if (this.hitKey('quicksave') && !inSeq) this.save(QUICKSAVE);
+      if (this.hitKey('quickload') && !inSeq && loadGame(QUICKSAVE)) location.assign(loadSaveUrl(QUICKSAVE));
       const canAct = !this.overlayOpen() && input.locked && !frozen && !inSeq && !this.playerRec.frozen;
-      if (canAct) {
+      const ride = this.stats.dead ? (this.vehicles.stop(), undefined) : this.vehicles.current();
+      if (ride) {
+        // 骑乘（game_functions.bb game_setcam）：玩家固定在单位上方 rideoffset 处，不受自身物理与碰撞
+        const look = canAct ? input.consumeLook() : (input.consumeLook(), { dx: 0, dy: 0 });
+        this.player.look(look.dx, look.dy);
+        this.vehicles.update(dtMs, {
+          forward: canAct && this.downKey('forward'),
+          backward: canAct && this.downKey('backward'),
+          left: canAct && this.downKey('left'),
+          right: canAct && this.downKey('right'),
+        }, this.unitPaths.controlled(ride.id));
+        this.player.position.set(ride.x, ride.y + (ride.def?.rideoffset ?? 0), -ride.z);
+        if (canAct) {
+          if (this.hitKey('attack1')) this.attack1();
+          if (this.hitKey('attack2')) this.attack2();
+          if (this.hitKey('use')) this.use();
+        }
+      } else if (canAct) {
         const look = input.consumeLook();
         this.player.update(dtMs, now, {
-          forward: input.pressed('KeyW') || input.pressed('ArrowUp'),
-          backward: input.pressed('KeyS') || input.pressed('ArrowDown'),
-          left: input.pressed('KeyA') || input.pressed('ArrowLeft'),
-          right: input.pressed('KeyD') || input.pressed('ArrowRight'),
-          jump: input.pressed('Space'),
+          forward: this.downKey('forward'),
+          backward: this.downKey('backward'),
+          left: this.downKey('left'),
+          right: this.downKey('right'),
+          jump: this.downKey('jump'),
           lookDx: look.dx,
           lookDy: look.dy,
         }, this.ground, this.collider);
         if (this.player.jumpedThisFrame) this.stats.jump(now);
         if (this.placing) {
           this.updatePlacing();
-          if (input.hit('Mouse0')) this.confirmPlacing();
+          if (this.hitKey('attack1')) this.confirmPlacing();
         } else {
-          if (input.hit('Mouse0')) this.attack1();
-          if (input.hit('Mouse2')) this.attack2();
-          if (input.hit('KeyE')) this.use();
+          if (this.hitKey('attack1')) this.attack1();
+          if (this.hitKey('attack2')) this.attack2();
+          if (this.hitKey('use')) this.use();
         }
       } else {
         input.consumeLook();
@@ -1002,16 +1059,17 @@ export class GameSession {
     this.engine.update(dtMs);
     this.unitPaths.update(dtMs);
     this.ai.update(dtMs, this.gameMs);
-    this.itemPhysics.update(dtMs, this.gameMs, { x: p.x, y: p.y, z: -p.z });
+    this.itemPhysics.update(dtMs, this.gameMs, this.cam());
     this.stateEffects.update(dtMs, this.gameMs);
     this.weather.update(dtMs, false);
     this.particles.update(dtMs);
     this.grass.update(this.o.camera, dtMs);
     this.shoreWaves.update(dtMs);
     this.objectBehaviour.update(dtMs, this.gameMs);
-    const eye = this.player.eye();
-    this.lights.update({ x: eye.x, y: eye.y, z: -eye.z });
-    this.weatherBox.position.copy(eye);
+    const cam = this.cam();
+    this.sounds.listener = cam;
+    this.lights.update(cam);
+    this.weatherBox.position.copy(this.o.camera.position);
     (this.weatherBox.material as THREE.MeshBasicMaterial).opacity = this.weather.grey;
     this.weatherBox.visible = this.weather.grey > 0;
     this.projectiles.update(dtMs);
@@ -1212,6 +1270,12 @@ export class GameSession {
   }
 
   private use(): void {
+    // game_use：骑乘时 E 键下来，载具的 getoff 脚本可用 skipevent 拒绝
+    if (this.vehicles.driving) {
+      const r = this.engine.runNow(CLS.unit, this.vehicles.driving, 'getoff');
+      if (!r.skipevent) this.vehicles.stop();
+      return;
+    }
     const target = this.pickup.focus();
     if (target) {
       this.collect(target);
@@ -1323,9 +1387,17 @@ export class GameSession {
     }
   }
 
+  /** play_soundset：单位定义 sfx= 音效组里该事件的声音，按距离衰减。 */
+  private unitSound(rec: EntityRecord, event: SoundEvent): void {
+    const file = this.soundSets?.file(rec.def?.sfx ?? '', event);
+    if (file) this.sounds.playAt(file, rec);
+  }
+
   private unitDied(rec: EntityRecord): void {
     this.host.freezeUnit(rec.id, false);
     rec.playAnim?.('die', false);
+    this.sounds.channel(`unit:${rec.id}`, null);
+    this.unitSound(rec, 'die');
     this.hud.message(`${rec.def?.name ?? 'The animal'} died`, 0);
   }
 
@@ -1378,6 +1450,7 @@ export class GameSession {
       indicators: [...this.host.indicators],
       spawnDays: this.dayUpdate.spawnDays(),
       weather: { current: this.weather.current, climate: this.weather.climate, rain: this.weather.rainRatio, snow: this.weather.snowRatio },
+      drive: this.vehicles.driving || undefined,
     });
   }
 
@@ -1444,7 +1517,7 @@ export class GameSession {
     this.infoAcc += dtMs;
     if (this.infoAcc < 1000) return;
     this.infoAcc %= 1000;
-    const e = this.player.eye();
+    const e = this.camThree();
     const r = (a: number, b: number) => a + Math.random() * (b - a);
     for (const info of this.o.world.registry.all(CLS.info, FISHING_INFO_TYP)) {
       const radius = this.o.map.infos.find(i => i.id === info.id)?.floats[0] ?? 0;
@@ -1544,6 +1617,38 @@ export class GameSession {
   setTime(hour: number, minute: number): void {
     this.clock.set(hour, minute);
     this.env.apply(hour, minute);
+  }
+
+  /** 动作按键：设置里绑定的键；方向另外接受方向键。 */
+  private downKey(a: Action): boolean {
+    return this.input.pressed(this.options.keys[a]) || (ARROWS[a] !== undefined && this.input.pressed(ARROWS[a]!));
+  }
+
+  private hitKey(a: Action): boolean {
+    return this.input.hit(this.options.keys[a]);
+  }
+
+  /** 设置改动即时生效：草地密度、雾与视距、音量、鼠标。 */
+  applyOptions(s: Settings): void {
+    this.options = s;
+    this.grass.setLevel(this.prefs.grass);
+    this.env.viewFac = this.prefs.viewFac;
+    this.env.fogEnabled = s.fog;
+    this.env.apply(this.clock.hour, this.clock.minute);
+    this.sounds.setMusicVolume(s.musicVolume);
+    this.sounds.sfxVolume = s.sfxVolume;
+    this.player.lookScale = s.mouseSensitivity;
+    this.player.invertY = s.invertMouse;
+  }
+
+  /** 渲染用的镜头位置（原版 cam）：过场时不在玩家身上。Three 坐标与 Blitz 坐标两种。 */
+  private camThree(): THREE.Vector3 {
+    return this.o.camera.position;
+  }
+
+  private cam(): { x: number; y: number; z: number } {
+    const p = this.o.camera.position;
+    return { x: p.x, y: p.y, z: -p.z };
   }
 
   /** 本帧的动态模糊（motionblur.bb mb_update）：设置关掉时没有模糊，否则取设置值与脚本、状态覆盖中较大者，上限 0.97。 */

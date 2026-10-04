@@ -1,4 +1,6 @@
-/** 主菜单（冒险、单个岛屿、读取存档、地图查看器）与游戏内暂停菜单。 */
+/** 主菜单（冒险、单个岛屿、读取存档、选项、地图查看器）与游戏内暂停菜单。 */
+import { OptionsPanel } from './options-ui';
+import { loadSettings, type Settings } from './settings';
 
 export interface SaveInfo {
   name: string;
@@ -103,6 +105,7 @@ export class MainMenu {
       button('Adventure', () => location.assign(playUrl(ADVENTURE_MAP))),
       button('Single island', () => { void this.mapList(); }),
       button('Load game', () => this.saveList()),
+      button('Options', () => { new OptionsPanel(this.body, loadSettings(), () => undefined, () => this.home()).show(); }),
       button('Map viewer', () => this.toViewer()),
     );
   }
@@ -146,6 +149,8 @@ export interface PauseMenuActions {
   quickSaveName: string;
   exportSave(name: string): void;
   importSave(): Promise<string | null>;
+  /** 选项改动后即时生效。 */
+  optionsChanged?(s: Settings): void;
 }
 
 export class PauseMenu {
@@ -186,6 +191,7 @@ export class PauseMenu {
       button('Resume', () => this.actions.resume()),
       button('Save', () => this.saveForm()),
       button('Load', () => this.loadList()),
+      button('Options', () => { new OptionsPanel(this.body, loadSettings(), s => this.actions.optionsChanged?.(s), () => this.home()).show(); }),
       button('Main menu', () => location.assign(MENU_URL)),
     );
   }

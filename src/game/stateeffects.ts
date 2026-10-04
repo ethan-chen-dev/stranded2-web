@@ -64,7 +64,7 @@ export interface StateDeps {
   /** 读档时状态按存档原样恢复，不受添加规则限制。 */
   restoring(): boolean;
   /** incam 与光源可见距离按视距系数 set_viewfac 放大。 */
-  viewFac: number;
+  viewFac(): number;
   /** 玩家的动态模糊覆盖值（mb_override），0 为不覆盖；dizzy 时左右反转。 */
   playerBlur(amount: number, invertX: boolean): void;
   /** 建成后的幽灵状态解除时恢复碰撞。 */
@@ -232,7 +232,7 @@ export class StateEffects {
     const t = (p: number) => this.tick(p, gameMs, dtMs);
     const go50 = t(50), go100 = t(100), go500 = t(500), go1000 = t(1000), go5000 = t(5000);
     const cam = d.camera();
-    const incam = (x: number, z: number) => Math.hypot(x - cam.x, z - cam.z) < INCAM_RANGE * d.viewFac;
+    const incam = (x: number, z: number) => Math.hypot(x - cam.x, z - cam.z) < INCAM_RANGE * d.viewFac();
     let blur = 0;
     let invert = false;
     for (const s of this.states.records.slice()) {
@@ -266,7 +266,7 @@ export class StateEffects {
             if (p) {
               light.set(p.x, p.y, p.z, [50, 50, d.random(150, 200)], d.rnd(50, 100));
               const dist = Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z);
-              light.visible(dist < 100 * d.viewFac + 300);
+              light.visible(dist < 100 * d.viewFac() + 300);
               if (dist < 500 && incam(p.x, p.z)) {
                 if (d.random(1, 2) === 1) d.particle(p.x, p.y, p.z, P.spark, d.random(1, 2), 1)?.color(255, 255, 150);
                 if (d.random(1, 4) === 1) d.sound(`spark${d.random(1, 4)}.wav`, p);
@@ -305,7 +305,7 @@ export class StateEffects {
           const p = pos();
           if (light && p) {
             light.set(p.x, p.y, p.z, s.color ?? [255, 255, 255], s.size ?? 10);
-            light.visible(Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 300 * d.viewFac + 300);
+            light.visible(Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 300 * d.viewFac() + 300);
           }
           break;
         }
@@ -349,7 +349,7 @@ export class StateEffects {
     if (go.go50 && light) {
       const b = d.fireLightBrightness;
       light.set(p.x, p.y, p.z, [b, d.rnd(b - 50, b), 0], Math.max(0, d.fireLightSize + d.rnd(-5, 5)));
-      light.visible(Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 300 * d.viewFac + 300);
+      light.visible(Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 300 * d.viewFac() + 300);
     }
     if (go.go5000 && power) {
       const killed = d.damage(s.cls, s.id, power);

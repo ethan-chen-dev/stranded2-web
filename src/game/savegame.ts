@@ -54,6 +54,8 @@ export interface Snapshot {
   spawnDays?: [number, number][];
   /** 天气、气候与每日雨雪概率；旧存档没有，读档时保留地图开局天气。 */
   weather?: WeatherSnap;
+  /** 正骑乘的单位 id（原版 g_drive）。 */
+  drive?: number;
 }
 
 export interface WeatherSnap {
@@ -83,6 +85,7 @@ export interface SnapshotSource {
   indicators?: number[];
   spawnDays?: [number, number][];
   weather?: WeatherSnap;
+  drive?: number;
 }
 
 export interface RestoreTarget {
@@ -104,6 +107,7 @@ export interface RestoreTarget {
   setIndicators(ids: number[]): void;
   setSpawnDays(days: [number, number][]): void;
   setWeather(w: WeatherSnap): void;
+  setDrive?(unitId: number): void;
 }
 
 export function snapshot(s: SnapshotSource): Snapshot {
@@ -141,6 +145,7 @@ export function snapshot(s: SnapshotSource): Snapshot {
     scripts: s.engine.instanceScriptEntries(),
     spawnDays: s.spawnDays,
     weather: s.weather,
+    drive: s.drive,
     mapScript: s.engine.mapScriptText(),
   };
 }
@@ -196,6 +201,7 @@ export function restore(t: RestoreTarget, snap: Snapshot): void {
   if (snap.indicators) t.setIndicators(snap.indicators);
   if (snap.spawnDays) t.setSpawnDays(snap.spawnDays);
   if (snap.weather) t.setWeather(snap.weather);
+  if (snap.drive) t.setDrive?.(snap.drive);
   if (snap.scripts) t.engine.loadInstanceScripts(snap.scripts);
   if (snap.mapScript !== undefined) t.engine.setMapScript(snap.mapScript);
   t.clock.day = snap.clock.day;

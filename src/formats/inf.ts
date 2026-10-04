@@ -53,6 +53,11 @@ export interface EntityDef {
   align: number;
   /** 状态特效位置（state=）：固定偏移，或 'random' 取模型随机顶点；未写时单位用固定 (0,0,0)，物体与物品取随机顶点。 */
   state?: [number, number, number] | 'random';
+  /** 单位音效组名（sfx=），见 SoundSets。 */
+  sfx: string;
+  /** 载具：骑乘时玩家高出单位的距离（rideoffset=）与操控参数（acceleration/friction/steering/maxdepth/flyspeed）。 */
+  rideoffset: number;
+  vehicle: { acceleration: number; friction: number; steering: number; maxdepth: number; flyspeed: number };
   /** EntityBlend：1 正常、2 相乘、3 相加（物品定义的 blend=）。 */
   blend: number;
   /** 随风摆动：每 f 角度增量与横滚幅度（度）。 */
@@ -219,6 +224,12 @@ export function toEntityDef(e: InfEntry): EntityDef {
     align: OBJECT_ALIGN[first('behaviour') ?? ''] ?? 0,
     state: parseStateSpec(first('state')),
     blend: num('blend', 1),
+    sfx: first('sfx') ?? '',
+    rideoffset: num('rideoffset', 0),
+    vehicle: {
+      acceleration: num('acceleration', 0.03), friction: num('friction', 0.04), steering: num('steering', 2),
+      maxdepth: num('maxdepth', 3), flyspeed: num('flyspeed', 3),
+    },
     swayspeed: num('swayspeed', 0),
     swaypower: num('swaypower', 0),
     anims,

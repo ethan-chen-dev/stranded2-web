@@ -125,3 +125,10 @@ body.debug .log { display: flex; }
 .loading-bar { margin-top: 8px; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
 .loading-bar i { display: block; height: 100%; background: #ffd766; transition: width .2s; }
 .menu-hint { font-size: 11px; opacity: .75; }
+
+.options-rows { display: flex; flex-direction: column; gap: 4px; max-height: 52vh; overflow: auto; }
+.options-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.options-label { flex: 1; }
+.options-row .menu-btn, .options-select, .options-range { width: 150px; }
+.options-select { font-size: 13px; }
+.menu-btn.selected { outline: 2px solid #f3e6c8; }

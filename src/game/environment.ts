@@ -1,6 +1,6 @@
 /** 把昼夜光照颜色应用到天空盒、环境光、方向光与雾。 */
 import * as THREE from 'three';
-import { lightColor, ambientColor, fogColor, FOG_NEAR, FOG_FAR, type RGB } from './lightcycle';
+import { lightColor, ambientColor, fogColor, FOG_NEAR, FOG_FAR, VIEW_FACTOR, type RGB } from './lightcycle';
 
 const UNDERWATER_FOG_FAR = 500;
 
@@ -13,6 +13,10 @@ export class Environment {
   underwater = false;
   /** 水色 env_wcol，watertexture 换贴图时取贴图左上角像素的反色。 */
   waterColor: RGB = [220, 110, 90];
+  /** 视距系数 set_viewfac：雾距离 500×系数-250 到 500×系数+350（e_environment.bb）。 */
+  viewFac = VIEW_FACTOR;
+  /** 设置里的雾开关（set_fog）；关掉时只有地图要求的雾和水下雾。 */
+  fogEnabled = true;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -54,9 +58,9 @@ export class Environment {
       this.scene.fog = this.fog;
       return;
     }
-    this.fog.near = FOG_NEAR;
-    this.fog.far = FOG_FAR;
-    if (this.mapFog[3] > 0 || this.forceFog) {
+    this.fog.near = 500 * this.viewFac - 250;
+    this.fog.far = 500 * this.viewFac + 350;
+    if (this.mapFog[3] > 0 || (this.forceFog && this.fogEnabled)) {
       const f = fogColor(c, [this.mapFog[0], this.mapFog[1], this.mapFog[2]]);
       this.fog.color.setRGB(f[0] / 255, f[1] / 255, f[2] / 255, THREE.SRGBColorSpace);
       this.scene.fog = this.fog;

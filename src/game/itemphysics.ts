@@ -21,7 +21,7 @@ export interface ItemPhysicsDeps {
   floorBelow(x: number, top: number, bottom: number, z: number): number | null;
   sync(rec: EntityRecord): void;
   /** 视距系数 set_viewfac，模拟范围为 autofade×viewFac+300。 */
-  viewFac?: number;
+  viewFac?(): number;
 }
 
 interface FallState {
@@ -54,7 +54,7 @@ export class ItemPhysics {
         st = { since: nowMs, paused: false };
         this.state.set(rec, st);
       }
-      const range = (rec.def?.autofade ?? 0) * (this.d.viewFac ?? 1) + FADE_MARGIN;
+      const range = (rec.def?.autofade ?? 0) * (this.d.viewFac?.() ?? 1) + FADE_MARGIN;
       if (Math.hypot(rec.x - camera.x, rec.y - camera.y, rec.z - camera.z) > range) {
         st.since = nowMs;
         continue;

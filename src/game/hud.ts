@@ -1,10 +1,9 @@
 /** 游戏 HUD：四条数值条、准星、焦点文字、消息栈、进度条、时钟、死亡提示。 */
 import type { SurvivalStats } from './stats';
+import { FONT_COLORS } from './fonts';
 
 const BAR_KEYS = ['health', 'hunger', 'thirst', 'exhaustion'] as const;
 /** 原版 msg 字体色编号到颜色。 */
-/** 原版 bmpf 字体编号：0 普通、1 高亮、2 暗、3 坏消息、4 好消息、5 小字、6 手写（load_bmpf.bb）。 */
-const FONT_COLORS = ['#ffffff', '#ffee88', '#aaaaaa', '#ff8888', '#88ff88', '#ffffff', '#ffffff'];
 const MAX_MESSAGES = 6;
 
 const HINT_PLAY = 'Click to play. Esc menu, Tab inventory, B build, T diary, Y sleep, F5/F9 quick save and load';

@@ -63,6 +63,8 @@ export class Player {
   lookScale = 1;
   /** 眩晕状态下左右反转（set_xinvert）。 */
   invertX = false;
+  /** 设置里的鼠标上下反转。 */
+  invertY = false;
 
   update(dtMs: number, nowMs: number, input: PlayerInput, ground: Ground, collider: ObjectCollider | null): void {
     const dt = dtMs / 1000;
@@ -70,9 +72,7 @@ export class Player {
     this.jumpedThisFrame = false;
     this.onGround = false;
 
-    const look = PLAYER.lookSensitivity * this.lookScale;
-    this.yaw -= input.lookDx * look * (this.invertX ? -1 : 1);
-    this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch - input.lookDy * look));
+    this.look(input.lookDx, input.lookDy);
 
     const fb = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
     const lr = (input.right ? 1 : 0) - (input.left ? 1 : 0);
@@ -139,6 +139,13 @@ export class Player {
       this.fallStart = nowMs;
       this.jumpUntil = -1;
     }
+  }
+
+  /** 鼠标转视角；骑乘时只调用这一步。 */
+  look(dx: number, dy: number): void {
+    const s = PLAYER.lookSensitivity * this.lookScale;
+    this.yaw -= dx * s * (this.invertX ? -1 : 1);
+    this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch - dy * s * (this.invertY ? -1 : 1)));
   }
 
   eye(): THREE.Vector3 {
